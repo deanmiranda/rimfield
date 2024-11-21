@@ -41,3 +41,9 @@ func _on_body_entered(body: Node) -> void:
 func _on_body_exited(body: Node) -> void:
 	if interactable == body:
 		interactable = null
+
+func _process(_delta):
+	if Input.is_action_just_pressed("ui_interact"):
+		if get_node_or_null("HouseInteractionZone"):
+			print("Interact key pressed in zone")
+			get_node("HouseInteractionZone").handle_interaction()

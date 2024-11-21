@@ -1,9 +1,9 @@
 [gd_scene load_steps=9 format=4 uid="uid://bpmgd25fbrwyw"]
 
-[ext_resource type="Texture2D" uid="uid://d13rv5iwbaix3" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_88dmo"]
+[ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_88dmo"]
 [ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="1_ox0pq"]
 [ext_resource type="Script" path="res://scripts/characters/player.gd" id="2_4xi6r"]
-[ext_resource type="Texture2D" uid="uid://c37am8vxbh85p" path="res://assets/sprites/heart.png" id="2_fl7ah"]
+[ext_resource type="Texture2D" uid="uid://bc44curybdckq" path="res://assets/sprites/heart.png" id="2_fl7ah"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_88dmo")
@@ -1714,9 +1714,19 @@ limit_smoothed = true
 position_smoothing_enabled = true
 
 [node name="HouseInteractionZone" type="Area2D" parent="."]
+position = Vector2(72, 56)
 script = ExtResource("1_ox0pq")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HouseInteractionZone"]
 shape = SubResource("RectangleShape2D_7nnll")
 
+[node name="Label" type="Label" parent="HouseInteractionZone/CollisionShape2D"]
+visible = false
+offset_right = 40.0
+offset_bottom = 23.0
+text = "Press E to Enter"
+uppercase = true
+
 [connection signal="body_entered" from="HouseInteractionZone" to="HouseInteractionZone" method="_on_body_entered"]
+[connection signal="body_exited" from="HouseInteractionZone" to="HouseInteractionZone" method="_on_body_exited"]
+[connection signal="input_event" from="HouseInteractionZone" to="HouseInteractionZone" method="_on_input_event"]
