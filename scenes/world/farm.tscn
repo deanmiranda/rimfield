@@ -1,9 +1,11 @@
-[gd_scene load_steps=9 format=4 uid="uid://bpmgd25fbrwyw"]
+[gd_scene load_steps=13 format=4 uid="uid://bpmgd25fbrwyw"]
 
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_88dmo"]
 [ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="1_ox0pq"]
 [ext_resource type="Script" path="res://scripts/characters/player.gd" id="2_4xi6r"]
 [ext_resource type="Texture2D" uid="uid://bc44curybdckq" path="res://assets/sprites/heart.png" id="2_fl7ah"]
+[ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="5_dh7qa"]
+[ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="6_g4eh2"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_88dmo")
@@ -1689,7 +1691,13 @@ texture = ExtResource("1_88dmo")
 physics_layer_0/collision_layer = 1
 sources/1 = SubResource("TileSetAtlasSource_cb07x")
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_fd0lm"]
+[sub_resource type="CircleShape2D" id="CircleShape2D_ap0uv"]
+radius = 3.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_hrsra"]
+radius = 18.0278
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4pxu5"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7nnll"]
 
@@ -1700,33 +1708,63 @@ tile_map_data = PackedByteArray("AAD/////AQABAA0AAAD//wAAAQABAA0AAAAAAP//AQABAA0
 tile_set = SubResource("TileSet_j4vm6")
 
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
+position = Vector2(81, -44)
 script = ExtResource("2_4xi6r")
+metadata/_edit_group_ = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerSpawn"]
-shape = SubResource("RectangleShape2D_fd0lm")
+shape = SubResource("CircleShape2D_ap0uv")
 
 [node name="Sprite2D" type="Sprite2D" parent="PlayerSpawn"]
 texture = ExtResource("2_fl7ah")
 
 [node name="PlayerCamera" type="Camera2D" parent="PlayerSpawn"]
-zoom = Vector2(4, 4)
+zoom = Vector2(5, 5)
 limit_smoothed = true
 position_smoothing_enabled = true
 
-[node name="HouseInteractionZone" type="Area2D" parent="."]
-position = Vector2(72, 56)
+[node name="House" type="StaticBody2D" parent="."]
+position = Vector2(80, -64)
+metadata/_edit_group_ = true
+
+[node name="Sprite2D" type="Sprite2D" parent="House"]
+position = Vector2(0, -16)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("5_dh7qa")
+region_enabled = true
+region_rect = Rect2(289.741, 452, 76.259, 78.1365)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="House"]
+position = Vector2(0, -15)
+shape = SubResource("CircleShape2D_hrsra")
+
+[node name="Door" type="Area2D" parent="House"]
+collision_layer = 0
 script = ExtResource("1_ox0pq")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseInteractionZone"]
-shape = SubResource("RectangleShape2D_7nnll")
-
-[node name="Label" type="Label" parent="HouseInteractionZone/CollisionShape2D"]
+[node name="Label" type="Label" parent="House/Door"]
 visible = false
-offset_right = 40.0
-offset_bottom = 23.0
+offset_left = -12.0
+offset_top = 4.0
+offset_right = 336.0
+offset_bottom = 43.0
+scale = Vector2(0.073497, 0.073497)
+theme_override_fonts/font = ExtResource("6_g4eh2")
+theme_override_font_sizes/font_size = 32
 text = "Press E to Enter"
 uppercase = true
 
-[connection signal="body_entered" from="HouseInteractionZone" to="HouseInteractionZone" method="_on_body_entered"]
-[connection signal="body_exited" from="HouseInteractionZone" to="HouseInteractionZone" method="_on_body_exited"]
-[connection signal="input_event" from="HouseInteractionZone" to="HouseInteractionZone" method="_on_input_event"]
+[node name="ColorRect" type="ColorRect" parent="House/Door/Label"]
+layout_mode = 0
+offset_left = -54.0
+offset_right = 381.0
+offset_bottom = 40.0
+color = Color(0.105882, 0.105882, 0.105882, 0.235294)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="House/Door"]
+material = SubResource("CanvasItemMaterial_4pxu5")
+shape = SubResource("RectangleShape2D_7nnll")
+
+[connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
+[connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
+[connection signal="input_event" from="House/Door" to="House/Door" method="_on_input_event"]
