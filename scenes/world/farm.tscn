@@ -1,10 +1,11 @@
-[gd_scene load_steps=12 format=4 uid="uid://bpmgd25fbrwyw"]
+[gd_scene load_steps=13 format=4 uid="uid://bpmgd25fbrwyw"]
 
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_88dmo"]
 [ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="1_ox0pq"]
 [ext_resource type="Script" path="res://scripts/characters/player.gd" id="2_4xi6r"]
 [ext_resource type="Texture2D" uid="uid://bc44curybdckq" path="res://assets/sprites/heart.png" id="2_fl7ah"]
 [ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="5_dh7qa"]
+[ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="6_g4eh2"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_88dmo")
@@ -1741,16 +1742,28 @@ shape = SubResource("CircleShape2D_hrsra")
 collision_layer = 0
 script = ExtResource("1_ox0pq")
 
+[node name="Label" type="Label" parent="House/Door"]
+visible = false
+offset_left = -12.0
+offset_top = 4.0
+offset_right = 336.0
+offset_bottom = 43.0
+scale = Vector2(0.073497, 0.073497)
+theme_override_fonts/font = ExtResource("6_g4eh2")
+theme_override_font_sizes/font_size = 32
+text = "Press E to Enter"
+uppercase = true
+
+[node name="ColorRect" type="ColorRect" parent="House/Door/Label"]
+layout_mode = 0
+offset_left = -54.0
+offset_right = 381.0
+offset_bottom = 40.0
+color = Color(0.105882, 0.105882, 0.105882, 0.235294)
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="House/Door"]
 material = SubResource("CanvasItemMaterial_4pxu5")
 shape = SubResource("RectangleShape2D_7nnll")
-
-[node name="Label" type="Label" parent="House/Door/CollisionShape2D"]
-visible = false
-offset_right = 40.0
-offset_bottom = 23.0
-text = "Press E to Enter"
-uppercase = true
 
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
