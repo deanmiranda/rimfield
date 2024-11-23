@@ -11,17 +11,14 @@ func _ready() -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D and body.name == "PlayerSpawn":  # Check type and name
-		print("Player entered interaction zone")
 		interaction_label.visible = true  # Show the Label when player enters
 		player_in_zone = true
 
 func _on_body_exited(body: Node2D) -> void:
 	if body is CharacterBody2D and body.name == "PlayerSpawn":  # Check type and name
-		print("Player exited interaction zone")
 		interaction_label.visible = false  # Hide the Label when player exits
 		player_in_zone = false
 
 func _process(_delta: float) -> void:
 	if player_in_zone and Input.is_action_just_pressed("ui_interact"):  # Pressing E in the zone
-		print("Interacting with house!")
 		SceneManager.change_scene(HOUSE_SCENE_PATH)  # Use SceneManager to change scene

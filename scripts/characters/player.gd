@@ -4,23 +4,18 @@ var speed: float = 200
 var direction: Vector2 = Vector2.ZERO  # Tracks input direction
 var interactable: Node = null          # Stores the interactable object the player is near
 
-# Called every physics frame
+@onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
 func _physics_process(_delta: float) -> void:
 	# Reset direction to zero
 	direction = Vector2.ZERO
 
 	# Handle input for movement
-	if Input.is_action_pressed("ui_right"):
-		direction.x += 1
-	if Input.is_action_pressed("ui_left"):
-		direction.x -= 1
-	if Input.is_action_pressed("ui_down"):
-		direction.y += 1
-	if Input.is_action_pressed("ui_up"):
-		direction.y -= 1
+	direction.x = int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
+	direction.y = int(Input.is_action_pressed("ui_down")) - int(Input.is_action_pressed("ui_up"))
 
 	# Normalize direction to prevent diagonal speed boost
-	direction = direction.normalized()
+	if direction.length() > 1:
+		direction = direction.normalized()
 
 	# Update velocity based on direction and speed
 	velocity = direction * speed
@@ -28,9 +23,25 @@ func _physics_process(_delta: float) -> void:
 	# Apply movement using built-in move_and_slide()
 	move_and_slide()
 
-	# Handle interaction
-	if Input.is_action_just_pressed("ui_interact") and interactable != null:
-		interactable.call("on_interact")  # Call the interactable's interaction method
+	# Update animation direction and state
+	_update_animation(direction)
+	
+func _update_animation(input_direction: Vector2) -> void:
+	var anim_sprite = $AnimatedSprite2D
+
+	if input_direction == Vector2.ZERO:
+		if anim_sprite.animation.begins_with("walk_"):
+			var idle_animation = "stand_" + anim_sprite.animation.substr(5)
+			anim_sprite.play(idle_animation)
+	else:
+		if input_direction.x > 0:
+			anim_sprite.play("walk_right")
+		elif input_direction.x < 0:
+			anim_sprite.play("walk_left")
+		elif input_direction.y > 0:
+			anim_sprite.play("walk_down")
+		elif input_direction.y < 0:
+			anim_sprite.play("walk_up")
 
 # Detect when the player enters an interaction zone
 func _on_body_entered(body: Node) -> void:
@@ -42,7 +53,7 @@ func _on_body_exited(body: Node) -> void:
 	if interactable == body:
 		interactable = null
 
-func _process(_delta):
+func _process(_delta: float) -> void:
 	if Input.is_action_just_pressed("ui_interact"):
 		if get_node_or_null("HouseInteractionZone"):
 			print("Interact key pressed in zone")

@@ -15,7 +15,6 @@ func _ready() -> void:
 		pause_menu = pause_menu_scene.instantiate()
 		get_tree().get_root().call_deferred("add_child", pause_menu)
 		pause_menu.visible = false
-		print("PauseMenu added to scene:", pause_menu)
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
 
@@ -41,4 +40,3 @@ func toggle_pause_menu():
 func handle_pause_request(paused_state: bool):
 	Engine.time_scale = 0 if paused_state else 1
 	paused = paused_state
-	print("Game paused:", paused)
