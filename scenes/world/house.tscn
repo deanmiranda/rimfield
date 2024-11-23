@@ -24879,8 +24879,9 @@ sources/0 = SubResource("TileSetAtlasSource_3s0x4")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yfpjs"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_hqav7"]
-radius = 3.0
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_owep3"]
+radius = 7.0
+height = 22.0
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_0qasn"]
 atlas = ExtResource("14_v4p58")
@@ -25030,7 +25031,7 @@ region = Rect2(192, 32, 32, 32)
 atlas = ExtResource("14_v4p58")
 region = Rect2(224, 32, 32, 32)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_6g7xo"]
+[sub_resource type="SpriteFrames" id="SpriteFrames_uwr1f"]
 animations = [{
 "frames": [{
 "duration": 1.0,
@@ -25217,23 +25218,26 @@ tile_set = SubResource("TileSet_fb5qw")
 [node name="ExitZone" type="Area2D" parent="."]
 collision_layer = 0
 script = ExtResource("14_kgrpi")
+metadata/_edit_lock_ = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ExitZone"]
 position = Vector2(-8, 86)
 shape = SubResource("RectangleShape2D_yfpjs")
 
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
-z_index = 1
-position = Vector2(-8, 55)
+position = Vector2(-8, 54)
 script = ExtResource("1_o346c")
 metadata/_edit_group_ = true
+metadata/_edit_lock_ = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerSpawn"]
-shape = SubResource("CircleShape2D_hqav7")
+position = Vector2(0, 6)
+shape = SubResource("CapsuleShape2D_owep3")
+debug_color = Color(0.907394, 0.199351, 0.568449, 0.42)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="PlayerSpawn"]
 texture_repeat = 1
-sprite_frames = SubResource("SpriteFrames_6g7xo")
+sprite_frames = SubResource("SpriteFrames_uwr1f")
 animation = &"stand_up"
 speed_scale = 2.0
 
