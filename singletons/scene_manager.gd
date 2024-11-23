@@ -1,22 +1,20 @@
 extends Node
 
 var current_scene: String = ""
-var player_spawn_position: Vector2 = Vector2.ZERO  # Tracks where the player spawns
-var pause_menu: Control  # Declare the PauseMenu variable
+var player_spawn_position: Vector2 = Vector2.ZERO
+var pause_menu: Control
 var paused = false
 
 func _ready() -> void:
-	# Load the PauseMenu scene
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
 	if not pause_menu_scene:
 		print("Error: Failed to load PauseMenu scene.")
 		return
 
-	# Ensure the loaded resource is a PackedScene
 	if pause_menu_scene is PackedScene:
-		pause_menu = pause_menu_scene.instantiate()  # Use 'instantiate()' in Godot 4
-		get_tree().get_root().call_deferred("add_child", pause_menu)  # Use deferred to avoid setup conflict
-		#pause_menu.visible = false  # Ensure it's hidden by default
+		pause_menu = pause_menu_scene.instantiate()
+		get_tree().get_root().call_deferred("add_child", pause_menu)
+		pause_menu.visible = false
 		print("PauseMenu added to scene:", pause_menu)
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
@@ -27,15 +25,20 @@ func change_scene(scene_path: String, spawn_position: Vector2 = Vector2.ZERO) ->
 	get_tree().change_scene_to_file(scene_path)
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):  # ESC key
-		pauseMenu()
-		
-func pauseMenu():
+	if event.is_action_pressed("ui_cancel"):
+		toggle_pause_menu()
+
+func toggle_pause_menu():
 	if pause_menu.visible:
 		pause_menu.hide()
 		Engine.time_scale = 1
-		paused = false  # Ensure paused is synced
+		paused = false
 	else:
 		pause_menu.show()
 		Engine.time_scale = 0
-		paused = true  # Ensure paused is synced
+		paused = true
+
+func handle_pause_request(paused_state: bool):
+	Engine.time_scale = 0 if paused_state else 1
+	paused = paused_state
+	print("Game paused:", paused)

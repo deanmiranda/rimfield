@@ -5,7 +5,6 @@
 
 [node name="PauseMenu" type="Control"]
 visible = false
-z_index = 100
 layout_mode = 3
 anchors_preset = 0
 tooltip_text = "This is a menu tooltip does it work its on the PauseMenu Root node."
@@ -23,13 +22,15 @@ layout_mode = 2
 
 [node name="ResumeButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
+tooltip_text = "Lets get back to derpin'"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Resume"
 
 [node name="ExitButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
+tooltip_text = "Stop derpin' :-/"
 theme_override_fonts/font = ExtResource("2_p544r")
-text = "Exit"
+text = "Quit"
 
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]
