@@ -26,21 +26,21 @@ func _physics_process(_delta: float) -> void:
 	# Update animation direction and state
 	_update_animation(direction)
 	
-func _update_animation(direction: Vector2) -> void:
+func _update_animation(input_direction: Vector2) -> void:
 	var anim_sprite = $AnimatedSprite2D
 
-	if direction == Vector2.ZERO:
+	if input_direction == Vector2.ZERO:
 		if anim_sprite.animation.begins_with("walk_"):
 			var idle_animation = "stand_" + anim_sprite.animation.substr(5)
 			anim_sprite.play(idle_animation)
 	else:
-		if direction.x > 0:
+		if input_direction.x > 0:
 			anim_sprite.play("walk_right")
-		elif direction.x < 0:
+		elif input_direction.x < 0:
 			anim_sprite.play("walk_left")
-		elif direction.y > 0:
+		elif input_direction.y > 0:
 			anim_sprite.play("walk_down")
-		elif direction.y < 0:
+		elif input_direction.y < 0:
 			anim_sprite.play("walk_up")
 
 # Detect when the player enters an interaction zone
