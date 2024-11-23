@@ -18,7 +18,7 @@ func _input(event: InputEvent) -> void:
 	#this makes esc toggle the pause menu
 	if event.is_action_pressed("ui_cancel"):
 		emit_signal("pause_request", !self.visible)
-		if self.visible:
+		if !self.visible:
 			_focus_on_resume()
 
 func _on_resume_button_pressed() -> void:
