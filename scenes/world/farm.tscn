@@ -1708,7 +1708,7 @@ tile_map_data = PackedByteArray("AAD/////AQABAA0AAAD//wAAAQABAA0AAAAAAP//AQABAA0
 tile_set = SubResource("TileSet_j4vm6")
 
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
-position = Vector2(81, -44)
+position = Vector2(0, -24)
 script = ExtResource("2_4xi6r")
 metadata/_edit_group_ = true
 
@@ -1724,7 +1724,7 @@ limit_smoothed = true
 position_smoothing_enabled = true
 
 [node name="House" type="StaticBody2D" parent="."]
-position = Vector2(80, -64)
+position = Vector2(-1, -44)
 metadata/_edit_group_ = true
 
 [node name="Sprite2D" type="Sprite2D" parent="House"]

@@ -11,29 +11,25 @@ anchors_preset = 0
 tooltip_text = "This is a menu tooltip does it work its on the PauseMenu Root node."
 script = ExtResource("1_qdxnx")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
 offset_left = -38.0
 offset_top = -30.0
-offset_right = 38.0
-offset_bottom = 30.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_right = 2.0
+offset_bottom = 10.0
 
-[node name="ResumeButton" type="Button" parent="VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="ResumeButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Resume"
 
-[node name="ExitButton" type="Button" parent="VBoxContainer"]
+[node name="ExitButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Exit"
 
-[connection signal="pressed" from="VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]

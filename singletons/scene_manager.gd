@@ -3,6 +3,7 @@ extends Node
 var current_scene: String = ""
 var player_spawn_position: Vector2 = Vector2.ZERO  # Tracks where the player spawns
 var pause_menu: Control  # Declare the PauseMenu variable
+var paused = false
 
 func _ready() -> void:
 	# Load the PauseMenu scene
@@ -27,6 +28,14 @@ func change_scene(scene_path: String, spawn_position: Vector2 = Vector2.ZERO) ->
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):  # ESC key
-		pause_menu.visible = !pause_menu.visible
-		print("PauseMenu visibility toggled:", pause_menu.visible)
-		get_tree().paused = pause_menu.visible  # Pause/unpause the game
+		pauseMenu()
+		
+func pauseMenu():
+	if pause_menu.visible:
+		pause_menu.hide()
+		Engine.time_scale = 1
+		paused = false  # Ensure paused is synced
+	else:
+		pause_menu.show()
+		Engine.time_scale = 0
+		paused = true  # Ensure paused is synced
