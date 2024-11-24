@@ -1,6 +1,6 @@
 extends Node
 
-var current_scene: String = "farm"
+var current_scene: String = "farm_scene"
 
 func change_scene(new_scene: String):
 	current_scene = new_scene
