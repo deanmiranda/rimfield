@@ -1,6 +1,6 @@
 extends Area2D
 
-const HOUSE_SCENE_PATH = "res://scenes/world/house.tscn"
+const HOUSE_SCENE_PATH = "res://scenes/world/house_scene.tscn"
 
 var interaction_label: Label  # Declare the variable
 var player_in_zone: bool = false  # Tracks if the player is in the zone

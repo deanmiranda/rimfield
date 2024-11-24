@@ -26,7 +26,7 @@ func _ready() -> void:
 	highlight_sprite.visible = false
 	highlight_sprite.z_index = 100
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if farmable_layers.is_empty():
 		print("Farmable layers are not assigned. Cannot highlight tiles.")
 		return
