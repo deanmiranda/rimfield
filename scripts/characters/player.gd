@@ -1,3 +1,6 @@
+# player.gd
+# Handles basic player movements.
+
 extends CharacterBody2D
 
 var speed: float = 200
@@ -14,14 +17,6 @@ func _ready() -> void:
 
 	if farm_scene and farm_scene.has_node("FarmingManager"):
 		farming_manager = farm_scene.get_node("FarmingManager")
-				
-		farming_manager.initialize_layers(
-			farm_scene.get_node_or_null("Grass"),
-			farm_scene.get_node_or_null("Dirt"),
-			farm_scene.get_node_or_null("Tilled"),
-			farm_scene.get_node_or_null("Planted")
-		)
-
 		print("FarmingManager found and connected:", farming_manager)
 	else:
 		farming_manager = null
@@ -72,18 +67,3 @@ func _process(_delta: float) -> void:
 			var mouse_pos = get_global_mouse_position()
 			print("Interact key pressed. Mouse position:", mouse_pos)
 			farming_manager.interact_with_tile(mouse_pos, global_position)
-		elif get_node_or_null("HouseInteractionZone"):
-			print("Interact key pressed in zone.")
-			get_node("HouseInteractionZone").handle_interaction()
-		else:
-			print("No valid interaction found.")
-
-# Detect when the player enters an interaction zone
-func _on_body_entered(body: Node) -> void:
-	if body.has_method("on_interact"):  # Check if the object can be interacted with
-		interactable = body
-
-# Detect when the player leaves an interaction zone
-func _on_body_exited(body: Node) -> void:
-	if interactable == body:
-		interactable = null
