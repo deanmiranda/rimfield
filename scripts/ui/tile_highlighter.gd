@@ -43,7 +43,7 @@ func _process(delta: float) -> void:
 	var tile_position = farmable_layer.local_to_map(local_mouse_position)
 	var tile_world_position = farmable_layer.map_to_local(tile_position)
 
-	print("Hovered Tile Cell:", tile_position, " | World Position:", tile_world_position)
+	#print("Hovered Tile Cell:", tile_position, " | World Position:", tile_world_position)
 
 	# Check if tile is within farmable layer bounds
 	if farmable_layer.get_used_rect().has_point(tile_position):
@@ -51,4 +51,3 @@ func _process(delta: float) -> void:
 		highlight_sprite.visible = true
 	else:
 		highlight_sprite.visible = false
-		print("Mouse outside of farmable layer bounds.")

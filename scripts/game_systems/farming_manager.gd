@@ -1,3 +1,6 @@
+# farming_manager.gd
+# Handles tile interactions for farming (grass, dirt, tilled states).
+
 extends Node
 
 @export var farmable_layer_path: NodePath
@@ -10,10 +13,10 @@ const TILE_ID_TILLED = 2
 func _ready() -> void:
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
-		if farmable_layer:
-			print("Farmable layer initialized:", farmable_layer.name)
+		if farmable_layer and farmable_layer.tile_set:
+			print("Farmable layer and tileset confirmed:", farmable_layer.name)
 		else:
-			print("Error: Farmable layer is not a valid TileMapLayer.")
+			print("Error: Farmable layer or tileset is not valid.")
 	else:
 		print("Farmable layer path is not assigned.")
 
@@ -22,41 +25,53 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		print("Farmable layer is not assigned.")
 		return
 
+	# Convert mouse position and player position to tile cells
 	var target_cell = farmable_layer.local_to_map(target_pos)
 	var player_cell = farmable_layer.local_to_map(player_pos)
 
 	print("Mouse clicked at cell:", target_cell, "| Player at cell:", player_cell)
 
-	# Check distance for neighboring tiles
+	# Check adjacency (ensure target cell is near the player)
 	var distance = target_cell.distance_to(player_cell)
-	print("Distance to player cell:", distance)
-
-	if distance > 1.5:  # Allow slight leeway for floating-point inaccuracies
+	if distance > 1.5:
 		print("Target cell is not within valid range of 8 neighbors.")
 		return
 
-	# Proceed with tile interaction
-	var current_tile_id = farmable_layer.get_cell_source_id(target_cell)
-	print("Current Tile ID at", target_cell, ":", current_tile_id)
+	# Retrieve tile data and custom properties
+	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
+	if tile_data:
+		var is_grass = tile_data.get_custom_data("grass") == true
+		var is_dirt = tile_data.get_custom_data("dirt") == true
+		var is_tilled = tile_data.get_custom_data("tilled") == true
 
-	match current_tile_id:
-		TILE_ID_GRASS:
-			print("Interacting with layer:", farmable_layer.name)
+		print("Tile state at", target_cell, ":", {
+			"grass": is_grass,
+			"dirt": is_dirt,
+			"tilled": is_tilled
+		})
 
-			print("Interacting with grass at:", target_cell)
-			farmable_layer.set_cell(target_cell, TILE_ID_DIRT)
-			print("Tile updated to dirt at:", target_cell)
-		TILE_ID_DIRT:
-			print("Interacting with dirt at:", target_cell)
-			farmable_layer.set_cell(target_cell, TILE_ID_TILLED)
-			print("Tile updated to tilled at:", target_cell)
-		TILE_ID_TILLED:
-			print("Interacting with tilled at:", target_cell)
-			# Placeholder for planting logic
-			print("Tile remains tilled at:", target_cell)
-		_:
-			print("No valid interaction found.")
+		# Handle tile interaction based on custom data
+		if is_grass:
+			print("Interacting with grass. Changing to 'dirt'.")
+			_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
+		elif is_dirt:
+			print("Interacting with dirt. Changing to 'tilled'.")
+			_set_tile_custom_state(target_cell, TILE_ID_TILLED, "tilled")
+		elif is_tilled:
+			print("Interacting with tilled tile. Placeholder for planting.")
+		else:
+			print("No valid interaction found for the tile.")
+	else:
+		print("No tile data found at", target_cell)
 
-	# Confirm update visually
-	var updated_tile_id = farmable_layer.get_cell_source_id(target_cell)
-	print("Updated Tile ID at", target_cell, ":", updated_tile_id)
+func _set_tile_custom_state(cell: Vector2i, tile_id: int, state: String) -> void:
+	# Update the tile's custom state dynamically
+	var tile_data = farmable_layer.get_cell_tile_data(cell)
+	if not tile_data:
+		print("No tile data found at", cell)
+		return
+
+	# Modify tile's state and update its appearance
+	tile_data.set_custom_data(state, true)
+	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))  # Assuming atlas coordinates are (0, 0)
+	print("Updated cell:", cell, "to tile_id:", tile_id, "with state:", state)
