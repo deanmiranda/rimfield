@@ -1,4 +1,4 @@
-[gd_scene load_steps=63 format=4 uid="uid://b4sckf0422b4q"]
+[gd_scene load_steps=64 format=4 uid="uid://b4sckf0422b4q"]
 
 [ext_resource type="Texture2D" uid="uid://dda3ipxsuomp8" path="res://assets/tilesets/full version/tiles/grass.png" id="1_e4p7b"]
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_we3j4"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
 [ext_resource type="Script" path="res://scripts/ui/tool_switcher.gd" id="14_jamvl"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="15_5xps8"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_we3j4")
@@ -2069,12 +2070,7 @@ highlight_texture = ExtResource("11_c33k8")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 0
-
-[node name="ToolLabel" type="Label" parent="HUD"]
-offset_right = 1.0
-offset_bottom = 23.0
-text = "Current tool: Hoe"
-autowrap_mode = 2
+script = ExtResource("15_5xps8")
 
 [node name="Energy" type="VBoxContainer" parent="HUD"]
 anchors_preset = 3
@@ -2105,36 +2101,6 @@ size_flags_horizontal = 3
 [node name="HBoxContainer" type="HBoxContainer" parent="HUD/MarginContainer"]
 layout_mode = 2
 
-[node name="Slot1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 2
-
-[node name="Button" type="Button" parent="HUD/MarginContainer/HBoxContainer/Slot1"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 0
-offset_right = 8.0
-offset_bottom = 8.0
-
-[node name="Slot2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 2
-
-[node name="Button" type="Button" parent="HUD/MarginContainer/HBoxContainer/Slot2"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 0
-offset_right = 8.0
-offset_bottom = 8.0
-
-[node name="Slot3" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 2
-
-[node name="Button" type="Button" parent="HUD/MarginContainer/HBoxContainer/Slot3"]
-custom_minimum_size = Vector2(40, 40)
-layout_mode = 0
-offset_right = 8.0
-offset_bottom = 8.0
-
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
 z_index = 1000
 position = Vector2(0, -24)
@@ -2164,7 +2130,6 @@ position_smoothing_enabled = true
 
 [node name="ToolSwitcher" type="Node" parent="."]
 script = ExtResource("14_jamvl")
-tool_label_path = NodePath("../HUD/ToolLabel")
 
 [node name="House" type="StaticBody2D" parent="."]
 position = Vector2(-1, -44)
@@ -2217,6 +2182,7 @@ uppercase = true
 material = SubResource("CanvasItemMaterial_4pxu5")
 shape = SubResource("RectangleShape2D_7nnll")
 
+[connection signal="tool_changed" from="HUD" to="FarmingManager" method="_on_tool_changed"]
 [connection signal="tool_changed" from="ToolSwitcher" to="FarmingManager" method="_on_tool_changed"]
 [connection signal="tool_changed" from="ToolSwitcher" to="ToolSwitcher" method="_on_tool_changed"]
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
