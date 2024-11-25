@@ -1,7 +1,9 @@
+### farming_manager.gd ###
 extends Node
 
 @export var farmable_layer_path: NodePath
 @export var tool_switcher_path: NodePath
+
 var farmable_layer: TileMapLayer
 var tool_switcher: Node
 
@@ -9,60 +11,31 @@ const TILE_ID_GRASS = 0
 const TILE_ID_DIRT = 1
 const TILE_ID_TILLED = 2
 
-var current_tool: String = "hoe"  # Default tool, synced with ToolSwitcher
+var current_tool: String = "hoe"
 
 func _ready() -> void:
-	print("Current FarmingManager Path:", get_path())
-	print("Looking for ToolSwitcher at:", tool_switcher_path)
-
-	# Load the farmable layer
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
-		if not farmable_layer or not farmable_layer.tile_set:
-			print("Error: Farmable layer or tileset is not valid.")
-	else:
-		print("Farmable layer path is not assigned.")
 
-	# Load the tool switcher
 	if tool_switcher_path:
 		tool_switcher = get_node_or_null(tool_switcher_path) as Node
-		if tool_switcher:
-			if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
-				tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-				print("ToolSwitcher signal connected.")
-			else:
-				print("ToolSwitcher signal already connected.")
-			current_tool = tool_switcher.get("current_tool")  # Fetch the current tool directly
-			print("ToolSwitcher connected. Current tool:", current_tool)
-		else:
-			print("Error: ToolSwitcher is not a valid node.")
-	else:
-		print("ToolSwitcher path is not assigned.")
+		if tool_switcher and not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
+			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
+			current_tool = tool_switcher.get("current_tool")
 
-	# Connect the HUD signal to this script
-	var hud = get_node("../HUD")  # Replace with your actual HUD path
+	var hud = get_node("../HUD")
 	if hud and not hud.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 		hud.connect("tool_changed", Callable(self, "_on_tool_changed"))
-		print("HUD signal 'tool_changed' connected to FarmingManager.")
-
 
 func _on_tool_changed(new_tool: String) -> void:
-	# Update the current tool when ToolSwitcher changes
 	current_tool = new_tool
-	print("FarmingManager: Tool changed to", current_tool)
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	if not farmable_layer:
-		print("Farmable layer is not assigned.")
 		return
 
 	var target_cell = farmable_layer.local_to_map(target_pos)
-	var player_cell = farmable_layer.local_to_map(player_pos)
-	print("Interacting with tile at:", target_cell, "with tool:", current_tool)
-	print("Mouse clicked at cell:", target_cell, "| Player at cell:", player_cell)
-
-	if target_cell.distance_to(player_cell) > 1.5:
-		print("Target cell is not within valid range of 8 neighbors.")
+	if target_cell.distance_to(farmable_layer.local_to_map(player_pos)) > 1.5:
 		return
 
 	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
@@ -71,51 +44,17 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		var is_dirt = tile_data.get_custom_data("dirt") == true
 		var is_tilled = tile_data.get_custom_data("tilled") == true
 
-		print("Tile state at", target_cell, ":", {
-			"grass": is_grass,
-			"dirt": is_dirt,
-			"tilled": is_tilled
-		})
-
 		match current_tool:
 			"hoe":
 				if is_grass:
-					print("Hoeing grass. Changing to dirt.")
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
-				else:
-					print("Hoe not applicable on this tile.")
 			"till":
 				if is_dirt:
-					print("Tilling dirt. Changing to tilled.")
 					_set_tile_custom_state(target_cell, TILE_ID_TILLED, "tilled")
-				else:
-					print("Tiller not applicable on this tile.")
 			"pickaxe":
 				if is_tilled:
-					print("Using pickaxe on tilled. Changing back to grass.")
 					_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
-				else:
-					print("Pickaxe action not valid for this tile.")
-	else:
-		print("No tile data found at", target_cell)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, state: String) -> void:
-	var tile_data = farmable_layer.get_cell_tile_data(cell)
-	if not tile_data:
-		print("No tile data found at", cell)
-		tile_data = TileData.new()
-
-	# Update the visual tile
+	var tile_data = farmable_layer.get_cell_tile_data(cell) or TileData.new()
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
-
-	print("Updated cell:", cell, "to tile_id:", tile_id, "with state:", state)
-	var new_tile_data = farmable_layer.get_cell_tile_data(cell)
-	print("New tile state at", cell, ":", {
-		"grass": new_tile_data.get_custom_data("grass"),
-		"dirt": new_tile_data.get_custom_data("dirt"),
-		"tilled": new_tile_data.get_custom_data("tilled"),
-	})
-
-
-func _on_hud_tool_changed(new_tool: String) -> void:
-	pass # Replace with function body.
