@@ -41,6 +41,7 @@ func _on_tool_changed(new_tool: String) -> void:
 	print("FarmingManager: Tool changed to", current_tool)
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
+	
 	if not farmable_layer:
 		print("Farmable layer is not assigned.")
 		return
@@ -89,25 +90,21 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	else:
 		print("No tile data found at", target_cell)
 
+
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, state: String) -> void:
 	var tile_data = farmable_layer.get_cell_tile_data(cell)
+	
 	if not tile_data:
 		print("No tile data found at", cell)
-		return
+		# Create a new TileData instance if none exists
+		tile_data = TileData.new()
 
-	# Reset all states to false
-	tile_data.set_custom_data("grass", false)
-	tile_data.set_custom_data("dirt", false)
-	tile_data.set_custom_data("tilled", false)
-	
-	# Set the specific state
-	tile_data.set_custom_data(state, true)
+	# Apply the modified TileData back to the cell
+	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))  # Update the visual tile
 
-	# Update the visual appearance
-	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))  # Adjust atlas coordinates if needed
 	print("Updated cell:", cell, "to tile_id:", tile_id, "with state:", state)
 
-	# Debug: Confirm state change
+	# Debug: Confirm updated state
 	var new_tile_data = farmable_layer.get_cell_tile_data(cell)
 	print("New tile state at", cell, ":", {
 		"grass": new_tile_data.get_custom_data("grass"),
