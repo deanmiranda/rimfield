@@ -72,10 +72,14 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 				if is_grass:
 					print("Hoeing grass. Changing to dirt.")
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
+				else:
+					print("Hoe not applicable on this tile.")
 			"till":
 				if is_dirt:
 					print("Tilling dirt. Changing to tilled.")
 					_set_tile_custom_state(target_cell, TILE_ID_TILLED, "tilled")
+				else:
+					print("Tiller not applicable on this tile.")
 			"pickaxe":
 				if is_tilled:
 					print("Using pickaxe on tilled. Changing back to grass.")
@@ -91,10 +95,22 @@ func _set_tile_custom_state(cell: Vector2i, tile_id: int, state: String) -> void
 		print("No tile data found at", cell)
 		return
 
+	# Reset all states to false
 	tile_data.set_custom_data("grass", false)
 	tile_data.set_custom_data("dirt", false)
 	tile_data.set_custom_data("tilled", false)
+	
+	# Set the specific state
 	tile_data.set_custom_data(state, true)
 
-	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
+	# Update the visual appearance
+	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))  # Adjust atlas coordinates if needed
 	print("Updated cell:", cell, "to tile_id:", tile_id, "with state:", state)
+
+	# Debug: Confirm state change
+	var new_tile_data = farmable_layer.get_cell_tile_data(cell)
+	print("New tile state at", cell, ":", {
+		"grass": new_tile_data.get_custom_data("grass"),
+		"dirt": new_tile_data.get_custom_data("dirt"),
+		"tilled": new_tile_data.get_custom_data("tilled"),
+	})

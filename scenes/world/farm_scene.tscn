@@ -2066,6 +2066,74 @@ script = ExtResource("10_w1f1x")
 farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")
 
+[node name="HUD" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="ToolLabel" type="Label" parent="HUD"]
+offset_right = 1.0
+offset_bottom = 23.0
+text = "Current tool: Hoe"
+autowrap_mode = 2
+
+[node name="Energy" type="VBoxContainer" parent="HUD"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="HUD"]
+custom_minimum_size = Vector2(150, 0)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -74.5
+offset_top = -63.0
+offset_right = 75.5
+offset_bottom = -23.0
+grow_horizontal = 2
+grow_vertical = 0
+size_flags_horizontal = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HUD/MarginContainer"]
+layout_mode = 2
+
+[node name="Slot1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+
+[node name="Button" type="Button" parent="HUD/MarginContainer/HBoxContainer/Slot1"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+
+[node name="Slot2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+
+[node name="Button" type="Button" parent="HUD/MarginContainer/HBoxContainer/Slot2"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+
+[node name="Slot3" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 2
+
+[node name="Button" type="Button" parent="HUD/MarginContainer/HBoxContainer/Slot3"]
+custom_minimum_size = Vector2(40, 40)
+layout_mode = 0
+offset_right = 8.0
+offset_bottom = 8.0
+
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
 z_index = 1000
 position = Vector2(0, -24)
@@ -2089,24 +2157,13 @@ visible = false
 texture = ExtResource("4_wq533")
 
 [node name="PlayerCamera" type="Camera2D" parent="PlayerSpawn"]
-zoom = Vector2(3, 3)
+zoom = Vector2(5, 5)
 limit_smoothed = true
 position_smoothing_enabled = true
 
-[node name="CanvasLayer" type="CanvasLayer" parent="PlayerSpawn/PlayerCamera"]
-follow_viewport_enabled = true
-
-[node name="ToolLabel" type="Label" parent="PlayerSpawn/PlayerCamera/CanvasLayer"]
-offset_left = -281.0
-offset_top = -179.0
-offset_right = -147.0
-offset_bottom = -156.0
-text = "Current tool: Hoe"
-autowrap_mode = 2
-
 [node name="ToolSwitcher" type="Node" parent="."]
 script = ExtResource("14_jamvl")
-tool_label_path = NodePath("../PlayerSpawn/PlayerCamera/CanvasLayer/ToolLabel")
+tool_label_path = NodePath("../HUD/ToolLabel")
 
 [node name="House" type="StaticBody2D" parent="."]
 position = Vector2(-1, -44)
