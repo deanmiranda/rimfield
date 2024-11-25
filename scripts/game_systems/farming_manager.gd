@@ -15,6 +15,9 @@ const TILE_ID_TILLED = 2
 var current_tool: String = "hoe"  # Default tool, synced with ToolSwitcher
 
 func _ready() -> void:
+	print("Current FarmingManager Path:", get_path())
+	print("Looking for ToolSwitcher at ../ToolSwitcher")
+
 	# Load the farmable layer
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
@@ -25,10 +28,10 @@ func _ready() -> void:
 
 	# Load the tool switcher
 	if tool_switcher_path:
-		tool_switcher = get_node_or_null(tool_switcher_path)
+		tool_switcher = get_node_or_null(tool_switcher_path) as Node  # Use the NodePath
 		if tool_switcher:
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-			current_tool = tool_switcher.get_current_tool()
+			current_tool = tool_switcher.get("current_tool")  # Fetch the current tool directly
 			print("ToolSwitcher connected. Current tool:", current_tool)
 		else:
 			print("Error: ToolSwitcher is not a valid node.")
@@ -41,7 +44,9 @@ func _on_tool_changed(new_tool: String) -> void:
 	print("FarmingManager: Tool changed to", current_tool)
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
-	
+	print("Current tool during interaction:", current_tool)
+	current_tool = tool_switcher.get_current_tool()
+	print("Synchronized tool for interaction:", current_tool)
 	if not farmable_layer:
 		print("Farmable layer is not assigned.")
 		return
@@ -49,7 +54,6 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	var target_cell = farmable_layer.local_to_map(target_pos)
 	var player_cell = farmable_layer.local_to_map(player_pos)
 	print("Interacting with tile at:", target_cell, "with tool:", current_tool)
-
 	print("Mouse clicked at cell:", target_cell, "| Player at cell:", player_cell)
 
 	if target_cell.distance_to(player_cell) > 1.5:

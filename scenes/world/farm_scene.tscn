@@ -2059,6 +2059,7 @@ tile_set = SubResource("TileSet_vhej2")
 [node name="FarmingManager" type="Node" parent="."]
 script = ExtResource("6_kjwtr")
 farmable_layer_path = NodePath("../Farmable")
+tool_switcher_path = NodePath("../ToolSwitcher")
 
 [node name="TileHighlighter" type="Sprite2D" parent="."]
 z_index = 100
@@ -2216,6 +2217,7 @@ uppercase = true
 material = SubResource("CanvasItemMaterial_4pxu5")
 shape = SubResource("RectangleShape2D_7nnll")
 
+[connection signal="tool_changed" from="ToolSwitcher" to="FarmingManager" method="_on_tool_changed"]
 [connection signal="tool_changed" from="ToolSwitcher" to="ToolSwitcher" method="_on_tool_changed"]
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
