@@ -2089,24 +2089,9 @@ visible = false
 texture = ExtResource("4_wq533")
 
 [node name="PlayerCamera" type="Camera2D" parent="PlayerSpawn"]
-zoom = Vector2(3, 3)
+zoom = Vector2(5, 5)
 limit_smoothed = true
 position_smoothing_enabled = true
-
-[node name="CanvasLayer" type="CanvasLayer" parent="PlayerSpawn/PlayerCamera"]
-follow_viewport_enabled = true
-
-[node name="ToolLabel" type="Label" parent="PlayerSpawn/PlayerCamera/CanvasLayer"]
-offset_left = -281.0
-offset_top = -179.0
-offset_right = -147.0
-offset_bottom = -156.0
-text = "Current tool: Hoe"
-autowrap_mode = 2
-
-[node name="ToolSwitcher" type="Node" parent="."]
-script = ExtResource("14_jamvl")
-tool_label_path = NodePath("../PlayerSpawn/PlayerCamera/CanvasLayer/ToolLabel")
 
 [node name="House" type="StaticBody2D" parent="."]
 position = Vector2(-1, -44)
@@ -2159,7 +2144,9 @@ uppercase = true
 material = SubResource("CanvasItemMaterial_4pxu5")
 shape = SubResource("RectangleShape2D_7nnll")
 
-[connection signal="tool_changed" from="ToolSwitcher" to="ToolSwitcher" method="_on_tool_changed"]
+[node name="ToolSwitcher" type="Node" parent="."]
+script = ExtResource("14_jamvl")
+
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
 [connection signal="input_event" from="House/Door" to="House/Door" method="_on_input_event"]
