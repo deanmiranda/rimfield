@@ -55,6 +55,19 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 				if is_tilled:
 					_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
 
-func _set_tile_custom_state(cell: Vector2i, tile_id: int, state: String) -> void:
-	var tile_data = farmable_layer.get_cell_tile_data(cell) or TileData.new()
+func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
+
+# --- NEXT STEPS ---
+# 1. Refactor interact_with_tile:
+#    - Move tile interaction logic into smaller, more reusable functions.
+#    - Create a system for queued actions to improve player efficiency (e.g., multi-tile farming).
+#
+# 2. Add hover/visual feedback:
+#    - Highlight tiles as the player moves near them or hovers the mouse for clearer interaction cues.
+#
+# 3. Expand tool functionality:
+#    - Support additional tools and tile types (e.g., watering can for watering crops).
+#
+# 4. Future-proof paths:
+#    - Use a configuration or singleton to centralize node paths, reducing dependency on hardcoded paths.

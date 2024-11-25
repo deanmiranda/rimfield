@@ -2069,7 +2069,6 @@ farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")
 
 [node name="HUD" type="CanvasLayer" parent="."]
-layer = 0
 script = ExtResource("15_5xps8")
 
 [node name="Energy" type="VBoxContainer" parent="HUD"]
