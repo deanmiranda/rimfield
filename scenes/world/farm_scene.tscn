@@ -1,4 +1,4 @@
-[gd_scene load_steps=64 format=4 uid="uid://b4sckf0422b4q"]
+[gd_scene load_steps=67 format=4 uid="uid://b4sckf0422b4q"]
 
 [ext_resource type="Texture2D" uid="uid://dda3ipxsuomp8" path="res://assets/tilesets/full version/tiles/grass.png" id="1_e4p7b"]
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_we3j4"]
@@ -11,8 +11,11 @@
 [ext_resource type="Script" path="res://scripts/game_systems/farming_manager.gd" id="6_kjwtr"]
 [ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="6_rig2i"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="7_lryf0"]
+[ext_resource type="Texture2D" uid="uid://b5vipdhn607jm" path="res://assets/tiles/tools/shovel.png" id="9_140q7"]
 [ext_resource type="Script" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
+[ext_resource type="Texture2D" uid="uid://cevvdhf2p5k2s" path="res://assets/tiles/tools/rototiller.png" id="10_xl838"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
+[ext_resource type="Texture2D" uid="uid://dxnfv5aw2wdsu" path="res://assets/tiles/tools/pick-axe.png" id="11_jloj8"]
 [ext_resource type="Script" path="res://scripts/ui/tool_switcher.gd" id="14_jamvl"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="15_5xps8"]
 
@@ -2099,6 +2102,48 @@ size_flags_horizontal = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="HUD/MarginContainer"]
 layout_mode = 2
+
+[node name="tool_slot_0" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
+layout_mode = 2
+texture = ExtResource("9_140q7")
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/tool_slot_0"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="tool_slot_1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
+layout_mode = 2
+texture = ExtResource("10_xl838")
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/tool_slot_1"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="tool_slot_2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer"]
+layout_mode = 2
+texture = ExtResource("11_jloj8")
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/tool_slot_2"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
 z_index = 1000
