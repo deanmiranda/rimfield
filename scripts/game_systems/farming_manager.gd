@@ -3,6 +3,7 @@ extends Node
 
 @export var farmable_layer_path: NodePath
 @export var tool_switcher_path: NodePath
+@export var farm_scene_path: NodePath  # Reference the farm scene
 
 var farmable_layer: TileMapLayer
 var tool_switcher: Node
@@ -44,30 +45,44 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		var is_dirt = tile_data.get_custom_data("dirt") == true
 		var is_tilled = tile_data.get_custom_data("tilled") == true
 
+		var emitter_scene  # Holds the particle emitter resource to use
 		match current_tool:
 			"hoe":
 				if is_grass:
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
+					emitter_scene = _get_emitter_scene("dirt")
 			"till":
 				if is_dirt:
 					_set_tile_custom_state(target_cell, TILE_ID_TILLED, "tilled")
+					emitter_scene = _get_emitter_scene("tilled")
 			"pickaxe":
 				if is_tilled:
 					_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
+					emitter_scene = _get_emitter_scene("grass")
+
+		# Trigger dust if an emitter_scene is assigned
+		if emitter_scene:
+			_trigger_dust_at_tile(target_cell, emitter_scene)
+
+func _get_emitter_scene(state: String) -> Resource:
+	# Fetch the correct emitter based on the state
+	var farm_scene = get_node_or_null(farm_scene_path)
+	if farm_scene:
+		match state:
+			"dirt":
+				return farm_scene.dirt_emitter_scene
+			"tilled":
+				return farm_scene.tilled_emitter_scene
+			"grass":
+				return farm_scene.grass_emitter_scene
+			# Uncomment this line to skip dust for testing
+			# "dust": return null
+	return null
+
+func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
+	var farm_scene = get_node_or_null(farm_scene_path)
+	if farm_scene and farm_scene.has_method("trigger_dust"):
+		farm_scene.trigger_dust(cell, emitter_scene)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
-
-# --- NEXT STEPS ---
-# 1. Refactor interact_with_tile:
-#    - Move tile interaction logic into smaller, more reusable functions.
-#    - Create a system for queued actions to improve player efficiency (e.g., multi-tile farming).
-#
-# 2. Add hover/visual feedback:
-#    - Highlight tiles as the player moves near them or hovers the mouse for clearer interaction cues.
-#
-# 3. Expand tool functionality:
-#    - Support additional tools and tile types (e.g., watering can for watering crops).
-#
-# 4. Future-proof paths:
-#    - Use a configuration or singleton to centralize node paths, reducing dependency on hardcoded paths.

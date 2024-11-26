@@ -66,4 +66,6 @@ func _process(_delta: float) -> void:
 		if farming_manager:
 			var mouse_pos = get_global_mouse_position()
 			print("Interact key pressed. Mouse position:", mouse_pos)
+
+			# Let farming_manager handle the interaction
 			farming_manager.interact_with_tile(mouse_pos, global_position)
