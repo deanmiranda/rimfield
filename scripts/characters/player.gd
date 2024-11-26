@@ -1,19 +1,38 @@
+# player.gd
+# Handles basic player movements.
+
 extends CharacterBody2D
 
 var speed: float = 200
 var direction: Vector2 = Vector2.ZERO  # Tracks input direction
 var interactable: Node = null          # Stores the interactable object the player is near
+var farming_manager: Node = null       # Reference to the farming system
 
 @onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
+
+func _ready() -> void:
+	# Locate farming system if in the farm scene
+	var farm_scene = get_tree().current_scene
+	print("Current scene:", farm_scene)
+
+	if farm_scene and farm_scene.has_node("FarmingManager"):
+		farming_manager = farm_scene.get_node("FarmingManager")
+		print("FarmingManager found and connected:", farming_manager)
+	else:
+		farming_manager = null
+		print("No FarmingManager found in this scene. Current children of the scene:")
+		for child in farm_scene.get_children():
+			print("- ", child.name)
+
 func _physics_process(_delta: float) -> void:
-	# Reset direction to zero
+	# Reset direction
 	direction = Vector2.ZERO
 
 	# Handle input for movement
 	direction.x = int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
 	direction.y = int(Input.is_action_pressed("ui_down")) - int(Input.is_action_pressed("ui_up"))
 
-	# Normalize direction to prevent diagonal speed boost
+	# Normalize direction for diagonal movement
 	if direction.length() > 1:
 		direction = direction.normalized()
 
@@ -25,36 +44,26 @@ func _physics_process(_delta: float) -> void:
 
 	# Update animation direction and state
 	_update_animation(direction)
-	
-func _update_animation(input_direction: Vector2) -> void:
-	var anim_sprite = $AnimatedSprite2D
 
+func _update_animation(input_direction: Vector2) -> void:
 	if input_direction == Vector2.ZERO:
-		if anim_sprite.animation.begins_with("walk_"):
-			var idle_animation = "stand_" + anim_sprite.animation.substr(5)
-			anim_sprite.play(idle_animation)
+		if sprite.animation.begins_with("walk_"):
+			var idle_animation = "stand_" + sprite.animation.substr(5)
+			sprite.play(idle_animation)
 	else:
 		if input_direction.x > 0:
-			anim_sprite.play("walk_right")
+			sprite.play("walk_right")
 		elif input_direction.x < 0:
-			anim_sprite.play("walk_left")
+			sprite.play("walk_left")
 		elif input_direction.y > 0:
-			anim_sprite.play("walk_down")
+			sprite.play("walk_down")
 		elif input_direction.y < 0:
-			anim_sprite.play("walk_up")
-
-# Detect when the player enters an interaction zone
-func _on_body_entered(body: Node) -> void:
-	if body.has_method("on_interact"):  # Check if the object can be interacted with
-		interactable = body
-
-# Detect when the player leaves an interaction zone
-func _on_body_exited(body: Node) -> void:
-	if interactable == body:
-		interactable = null
+			sprite.play("walk_up")
 
 func _process(_delta: float) -> void:
+	# Handle interaction input
 	if Input.is_action_just_pressed("ui_interact"):
-		if get_node_or_null("HouseInteractionZone"):
-			print("Interact key pressed in zone")
-			get_node("HouseInteractionZone").handle_interaction()
+		if farming_manager:
+			var mouse_pos = get_global_mouse_position()
+			print("Interact key pressed. Mouse position:", mouse_pos)
+			farming_manager.interact_with_tile(mouse_pos, global_position)

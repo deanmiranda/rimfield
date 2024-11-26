@@ -19,9 +19,15 @@ func _ready() -> void:
 		print("Error: Loaded resource is not a PackedScene.")
 
 func change_scene(scene_path: String, spawn_position: Vector2 = Vector2.ZERO) -> void:
+	print("Changing scene to:", scene_path)
+
 	current_scene = scene_path
 	player_spawn_position = spawn_position
+
 	get_tree().change_scene_to_file(scene_path)
+	print("Scene change initiated. Scene tree after change:")
+	for child in get_tree().root.get_children():
+		print("- ", child.name)
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

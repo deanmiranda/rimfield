@@ -1,6 +1,6 @@
 extends Area2D
 
-const FARM_SCENE_PATH = "res://scenes/world/farm.tscn"
+const FARM_SCENE_PATH = "res://scenes/world/farm_scene.tscn"
 
 var player_in_zone: bool = false  # Tracks if the player is in the zone
 
