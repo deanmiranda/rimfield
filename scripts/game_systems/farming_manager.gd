@@ -85,4 +85,11 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 		farm_scene.trigger_dust(cell, emitter_scene)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
+	# Update the visual state
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
+	
+	# Update the GameState for persistence
+	if GameState:
+		GameState.update_tile_state(cell, _state)
+	else:
+		print("Error: GameState is null!")
