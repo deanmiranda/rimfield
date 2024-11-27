@@ -10,17 +10,6 @@ const TOOL_PICKAXE = "pickaxe"
 
 var current_tool: String = TOOL_HOE
 
-func _ready() -> void:
-	# Validate and initialize tool label
-	if tool_label_path:
-		var label = get_node_or_null(tool_label_path) as Label
-		if label:
-			label.text = "Current Tool: %s" % current_tool.capitalize()
-	else:
-		print("Warning: Tool label path is missing.")
-
-	print("ToolSwitcher initialized with tool: %s" % current_tool)
-
 func _input(event: InputEvent) -> void:
 	# Handle tool switching via input
 	if event.is_action_pressed("ui_tool_hoe"):
@@ -34,7 +23,6 @@ func set_tool(tool: String) -> void:
 	if current_tool != tool:
 		current_tool = tool
 		emit_signal("tool_changed", current_tool)
-		print("Tool switched to: %s" % current_tool)
 
 # Decision for warning fix:
 # `tool_changed` is explicitly used in the signal connection with HUD/FarmingManager.

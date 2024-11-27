@@ -16,7 +16,6 @@ func _ready() -> void:
 		if tool_slot:
 			tool_slot.set_meta("tool_index", i)  # Store the tool index as metadata
 			tool_slot.connect("gui_input", Callable(self, "_on_tool_clicked").bind(tool_slot))
-			print("Connected signals for: %s" % tool_slot.name)
 
 	# NextTodo: Add future drag-and-drop functionality here.
 	#  - Allow users to drag tools from the HUD and swap positions.
@@ -28,7 +27,6 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 		if clicked_texture_rect and clicked_texture_rect.has_meta("tool_index"):
 			var index = clicked_texture_rect.get_meta("tool_index")
 			emit_signal("tool_changed", TOOL_NAMES[index])  # Emit tool_changed with tool name
-			print("Tool clicked: %s (index %d)" % [TOOL_NAMES[index], index])
 
 	# NextTodo: Add sound or animation when a tool is selected.
 	#  - Play a sound effect to confirm the tool switch.
