@@ -4,12 +4,11 @@ var current_scene: String = "farm_scene"
 var farm_state: Dictionary = {}  # Tracks tile states by position
 
 func update_tile_state(position: Vector2i, state: String):
-	# Save the tile state
 	farm_state[position] = state
 
 func get_tile_state(position: Vector2i) -> String:
-	# Return the state for the given position or "empty" by default
-	return farm_state.get(position, "empty")
+	return farm_state.get(position, "grass")  # Default to grass
+
 
 func change_scene(new_scene: String):
 	current_scene = new_scene

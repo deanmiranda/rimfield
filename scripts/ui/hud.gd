@@ -1,21 +1,27 @@
 extends CanvasLayer
 
+@export var tool_switcher_path: NodePath  # Existing tool switcher reference
 signal tool_changed(new_tool: String)  # Signal to notify tool changes
 
-const TOOL_NAMES = ["hoe", "till", "pickaxe"]
+const TOOL_NAMES = ["hoe", "till", "pickaxe", "seed"]  # Added "seed"
 
 func _ready() -> void:
 	# Connect the signal to highlight the active tool
 	# This is triggered whenever the active tool changes, either through HUD clicks or input actions.
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
 
-	# Connect signals for manual TextureRect nodes
+	# Dynamically connect signals for each TextureRect node
 	# Each TextureRect represents a tool slot in the HUD. Signals are connected dynamically based on setup.
-	for i in range(3):  # Assuming you have exactly 3 tools
+	for i in range(TOOL_NAMES.size()):  # Dynamically handle tools based on TOOL_NAMES size
 		var tool_slot = $MarginContainer/HBoxContainer.get_node("tool_slot_%d" % i)
 		if tool_slot:
 			tool_slot.set_meta("tool_index", i)  # Store the tool index as metadata
 			tool_slot.connect("gui_input", Callable(self, "_on_tool_clicked").bind(tool_slot))
+
+	# Add seed as a tool option dynamically in the HUD
+	var tool_switcher = get_node_or_null(tool_switcher_path)
+	if tool_switcher:
+		tool_switcher.emit_signal("tool_changed", TOOL_NAMES[0])  # Set the default tool to "hoe"
 
 	# NextTodo: Add future drag-and-drop functionality here.
 	#  - Allow users to drag tools from the HUD and swap positions.
@@ -26,7 +32,8 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 		# When a tool slot is clicked, retrieve its tool index and emit the tool_changed signal.
 		if clicked_texture_rect and clicked_texture_rect.has_meta("tool_index"):
 			var index = clicked_texture_rect.get_meta("tool_index")
-			emit_signal("tool_changed", TOOL_NAMES[index])  # Emit tool_changed with tool name
+			if index >= 0 and index < TOOL_NAMES.size():  # Validate index range
+				emit_signal("tool_changed", TOOL_NAMES[index])  # Emit tool_changed with tool name
 
 	# NextTodo: Add sound or animation when a tool is selected.
 	#  - Play a sound effect to confirm the tool switch.
@@ -35,7 +42,7 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 func _highlight_active_tool(new_tool: String) -> void:
 	# Update the highlight state for each tool slot
 	# The highlight node (ColorRect) is toggled visible based on the active tool.
-	for i in range(3):  # Assuming you have exactly 3 tools
+	for i in range(TOOL_NAMES.size()):  # Iterate over all tools dynamically
 		var tool_slot = $MarginContainer/HBoxContainer.get_node("tool_slot_%d" % i)
 		if tool_slot:
 			var highlight = tool_slot.get_node("Highlight")

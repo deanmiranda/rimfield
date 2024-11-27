@@ -14,6 +14,7 @@ func _ready():
 
 func _on_game_loaded():
 	_load_farm_state()  # Apply loaded state when notified
+	
 func _load_farm_state():
 	var farming_manager = get_node_or_null(farming_manager_path)
 	if not farming_manager:
@@ -25,7 +26,6 @@ func _load_farm_state():
 		print("Error: TileMapLayer not found!")
 		return
 
-	# Apply the farm state to the tiles
 	for position in GameState.farm_state.keys():
 		var state = GameState.get_tile_state(position)
 		match state:
