@@ -9,19 +9,23 @@ extends Node2D
 @export var farming_manager_path: NodePath # farming_manager path
 
 func _ready():
-	_load_farm_state()
+	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
+	_load_farm_state()  # Also run on initial entry
 
+func _on_game_loaded():
+	_load_farm_state()  # Apply loaded state when notified
 func _load_farm_state():
-	# Access the farming manager
 	var farming_manager = get_node_or_null(farming_manager_path)
 	if not farming_manager:
 		print("Error: Farming Manager not found!")
 		return
 
-	# Access the tilemap layer
 	var tilemap = get_node(tilemap_layer)
-	
-	# Iterate through saved farm states and restore tiles
+	if not tilemap:
+		print("Error: TileMapLayer not found!")
+		return
+
+	# Apply the farm state to the tiles
 	for position in GameState.farm_state.keys():
 		var state = GameState.get_tile_state(position)
 		match state:
@@ -31,7 +35,6 @@ func _load_farm_state():
 				tilemap.set_cell(position, farming_manager.TILE_ID_TILLED, Vector2i(0, 0))
 			"planted":
 				tilemap.set_cell(position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
-
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource):
