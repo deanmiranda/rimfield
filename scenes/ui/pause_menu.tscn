@@ -4,7 +4,7 @@
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_p544r"]
 
 [node name="PauseMenu" type="Control"]
-z_index = 100
+z_index = 1000
 layout_mode = 3
 anchors_preset = 0
 tooltip_text = "This is a menu tooltip does it work its on the PauseMenu Root node."
@@ -18,6 +18,7 @@ offset_right = 2.0
 offset_bottom = 10.0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+z_index = 1000
 layout_mode = 2
 
 [node name="ResumeButton" type="Button" parent="MarginContainer/VBoxContainer"]

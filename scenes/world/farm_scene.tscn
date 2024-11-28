@@ -2191,7 +2191,7 @@ grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
 [node name="PlayerSpawn" type="CharacterBody2D" parent="."]
-z_index = 1000
+z_index = 100
 position = Vector2(0, -24)
 script = ExtResource("2_cxpbg")
 metadata/_edit_group_ = true
@@ -2213,7 +2213,6 @@ visible = false
 texture = ExtResource("4_wq533")
 
 [node name="PlayerCamera" type="Camera2D" parent="PlayerSpawn"]
-zoom = Vector2(5, 5)
 limit_smoothed = true
 position_smoothing_enabled = true
 
