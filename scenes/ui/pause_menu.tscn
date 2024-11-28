@@ -26,24 +26,12 @@ tooltip_text = "Lets get back to derpin'"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Resume"
 
-[node name="New Game" type="Button" parent="MarginContainer/VBoxContainer"]
-layout_mode = 2
-tooltip_text = "Lets get back to derpin'"
-theme_override_fonts/font = ExtResource("2_p544r")
-text = "New Game"
-
 [node name="SaveGame" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Lets get back to derpin'"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Save
 "
-
-[node name="LoadGame" type="Button" parent="MarginContainer/VBoxContainer"]
-layout_mode = 2
-tooltip_text = "Lets get back to derpin'"
-theme_override_fonts/font = ExtResource("2_p544r")
-text = "Load"
 
 [node name="ExitButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -53,5 +41,4 @@ text = "Quit"
 
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/SaveGame" to="." method="_on_save_game_pressed"]
-[connection signal="pressed" from="MarginContainer/VBoxContainer/LoadGame" to="." method="_on_load_game_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]

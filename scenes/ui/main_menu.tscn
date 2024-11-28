@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://xlohfwh564na"]
 
-[ext_resource type="Script" path="res://scripts/scenes/main_menu.gd" id="1_0ef74"]
-[ext_resource type="Texture2D" uid="uid://cg1wubhccuodj" path="res://assets/main/RimfieldValley.webp" id="2_v0dna"]
+[ext_resource type="Script" path="res://scripts/scenes/main_menu.gd" id="1_7w23d"]
+[ext_resource type="Texture2D" uid="uid://cg1wubhccuodj" path="res://assets/main/RimfieldValley.webp" id="2_j5rje"]
 
 [node name="Node2D" type="Control"]
 layout_mode = 3
@@ -10,7 +10,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_0ef74")
+script = ExtResource("1_7w23d")
 
 [node name="RimfieldBackground" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -26,7 +26,7 @@ grow_vertical = 2
 
 [node name="TextureRect" type="TextureRect" parent="RimfieldBackground"]
 layout_mode = 2
-texture = ExtResource("2_v0dna")
+texture = ExtResource("2_j5rje")
 expand_mode = 2
 stretch_mode = 3
 
@@ -35,25 +35,36 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_bottom = 6.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+z_index = 10
+layout_direction = 1
 layout_mode = 2
+alignment = 1
 
 [node name="NewGame" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "New Game
 "
 
-[node name="LoadGame" type="MenuButton" parent="CenterContainer/VBoxContainer"]
-layout_mode = 2
-text = "Load Game"
-
 [node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "Exit"
 
+[node name="MarginContainer" type="MarginContainer" parent="CenterContainer"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/MarginContainer"]
+layout_mode = 2
+
+[node name="LoadGame" type="MenuButton" parent="CenterContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Load Game"
+
 [connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
-[connection signal="pressed" from="CenterContainer/VBoxContainer/LoadGame" to="." method="_on_load_game_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]
+[connection signal="pressed" from="CenterContainer/MarginContainer/VBoxContainer/LoadGame" to="." method="_on_load_game_pressed"]

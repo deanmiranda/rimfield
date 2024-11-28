@@ -32,8 +32,8 @@ func _on_exit_button_pressed() -> void:
 
 
 func _on_save_game_pressed() -> void:
-	GameState.save_game();
-
-
-func _on_load_game_pressed() -> void:
-	GameState.load_game();
+	# Save to a dynamic slot based on current time
+	var timestamp = Time.get_unix_time_from_system()
+	var save_file = "save_slot_%s.json" % timestamp
+	GameState.save_game(save_file)
+	print("Game saved to:", save_file)
