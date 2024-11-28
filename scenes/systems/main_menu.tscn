@@ -1,0 +1,59 @@
+[gd_scene load_steps=3 format=3 uid="uid://xlohfwh564na"]
+
+[ext_resource type="Script" path="res://scripts/scenes/main_menu.gd" id="1_0ef74"]
+[ext_resource type="Texture2D" uid="uid://cg1wubhccuodj" path="res://assets/main/RimfieldValley.webp" id="2_v0dna"]
+
+[node name="Node2D" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_0ef74")
+
+[node name="RimfieldBackground" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = 24.0
+offset_right = -16.0
+offset_bottom = 24.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="RimfieldBackground"]
+layout_mode = 2
+texture = ExtResource("2_v0dna")
+expand_mode = 2
+stretch_mode = 3
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+
+[node name="NewGame" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "New Game
+"
+
+[node name="LoadGame" type="MenuButton" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Load Game"
+
+[node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Exit"
+
+[connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
+[connection signal="pressed" from="CenterContainer/VBoxContainer/LoadGame" to="." method="_on_load_game_pressed"]
+[connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]
