@@ -1,0 +1,79 @@
+[gd_scene load_steps=3 format=3 uid="uid://xlohfwh564na"]
+
+[ext_resource type="Script" path="res://scripts/scenes/main_menu.gd" id="1_7w23d"]
+[ext_resource type="Texture2D" uid="uid://cg1wubhccuodj" path="res://assets/main/RimfieldValley.webp" id="2_j5rje"]
+
+[node name="Node2D" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_7w23d")
+
+[node name="RimfieldBackground" type="CenterContainer" parent="."]
+custom_minimum_size = Vector2(1920, 1080)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = 24.0
+offset_right = -16.0
+offset_bottom = 24.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="RimfieldBackground"]
+layout_mode = 2
+texture = ExtResource("2_j5rje")
+stretch_mode = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = 6.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
+z_index = 10
+layout_direction = 1
+layout_mode = 2
+alignment = 1
+
+[node name="NewGame" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "New Game
+"
+
+[node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Exit"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+offset_left = 912.0
+offset_top = 581.0
+offset_right = 1008.0
+offset_bottom = 612.0
+
+[node name="ColorRect" type="ColorRect" parent="VBoxContainer"]
+custom_minimum_size = Vector2(96, 35)
+layout_mode = 2
+color = Color(0.176, 0.176, 0.176, 0.5)
+
+[node name="LoadGame" type="MenuButton" parent="VBoxContainer/ColorRect"]
+layout_mode = 2
+offset_right = 96.0
+offset_bottom = 35.0
+size_flags_vertical = 3
+tooltip_text = "Load game"
+text = "Load Game"
+
+[connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
+[connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]
+[connection signal="pressed" from="VBoxContainer/ColorRect/LoadGame" to="." method="_on_load_game_pressed"]

@@ -11,6 +11,7 @@ var tool_switcher: Node
 const TILE_ID_GRASS = 0
 const TILE_ID_DIRT = 1
 const TILE_ID_TILLED = 2
+const TILE_ID_PLANTED = 3
 
 var current_tool: String = "hoe"
 
@@ -45,24 +46,27 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		var is_dirt = tile_data.get_custom_data("dirt") == true
 		var is_tilled = tile_data.get_custom_data("tilled") == true
 
-		var emitter_scene  # Holds the particle emitter resource to use
 		match current_tool:
 			"hoe":
 				if is_grass:
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
-					emitter_scene = _get_emitter_scene("dirt")
 			"till":
 				if is_dirt:
 					_set_tile_custom_state(target_cell, TILE_ID_TILLED, "tilled")
-					emitter_scene = _get_emitter_scene("tilled")
 			"pickaxe":
-				if is_tilled:
+				if is_tilled or is_dirt:
 					_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
-					emitter_scene = _get_emitter_scene("grass")
+			"seed":
+				if is_tilled:  # Only allow planting on tilled soil
+					_set_tile_custom_state(target_cell, TILE_ID_PLANTED, "planted")
+					_start_growth_cycle(target_cell)
 
-		# Trigger dust if an emitter_scene is assigned
-		if emitter_scene:
-			_trigger_dust_at_tile(target_cell, emitter_scene)
+func _start_growth_cycle(cell: Vector2i):
+	await get_tree().create_timer(10.0).timeout  # Wait for 10 seconds
+	# Automatically grow the plant after the timer expires
+	if GameState.get_tile_state(cell) == "planted":
+		_set_tile_custom_state(cell, TILE_ID_PLANTED, "grown")  # Update state for grown crop
+
 
 func _get_emitter_scene(state: String) -> Resource:
 	# Fetch the correct emitter based on the state
@@ -85,4 +89,11 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 		farm_scene.trigger_dust(cell, emitter_scene)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
+	# Update the visual state
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
+	
+	# Update the GameState for persistence
+	if GameState:
+		GameState.update_tile_state(cell, _state)
+	else:
+		print("Error: GameState is null!")
