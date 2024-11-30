@@ -49,6 +49,7 @@ text = "Quit"
 
 [node name="SaveFeedbackLabel" type="Label" parent="MarginContainer/VBoxContainer"]
 visible = false
+custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 autowrap_mode = 3

@@ -1,5 +1,7 @@
 extends Control
 
+const LOAD_MENU = preload("res://scenes/ui/load_menu.tscn")  # Preload the load menu scene
+
 @export var default_save_file: String = "save_slot_1.json"  # Default save file for "New Game"
 
 func _on_new_game_pressed() -> void:
@@ -10,47 +12,39 @@ func _on_new_game_pressed() -> void:
 func _on_exit_pressed() -> void:
 	get_tree().quit()  # Exit the game
 
-func _on_load_game_selected(index: int) -> void:
-	var load_game_menu = $VBoxContainer/ColorRect/LoadGame
-	var popup = load_game_menu.get_popup()
-	var save_file = popup.get_item_text(index)
-
-	if save_file:
-		if GameState.load_game(save_file):
-			print("Game loaded successfully from:", save_file)
-			GameState.change_scene(GameState.current_scene)
-		else:
-			print("Failed to load save file:", save_file)
+# Add a new function for the Load Game button
+func _on_load_game_pressed() -> void:
+	if LOAD_MENU == null:
+		print("Error: LOAD_MENU could not be preloaded.")
+		return
+	
+	var load_instance = LOAD_MENU.instantiate()
+	if load_instance:
+		get_tree().root.add_child(load_instance)  # Add as a child of the root to overlay on top of everything
+		print("Load scene added successfully.")
+	else:
+		print("Error: Could not instantiate LOAD_MENU.")
 
 func _ready() -> void:
-	# Ensure New Game and Exit buttons are properly connected
-	if not $CenterContainer/VBoxContainer/NewGame.is_connected("pressed", Callable(self, "_on_new_game_pressed")):
-		$CenterContainer/VBoxContainer/NewGame.connect("pressed", Callable(self, "_on_new_game_pressed"))
-	if not $CenterContainer/VBoxContainer/Exit.is_connected("pressed", Callable(self, "_on_exit_pressed")):
-		$CenterContainer/VBoxContainer/Exit.connect("pressed", Callable(self, "_on_exit_pressed"))
+	# Ensure New Game, Exit, and Load Game buttons are properly connected
 
-	# Load game button setup
-	var load_game_menu = $VBoxContainer/ColorRect/LoadGame
-	if load_game_menu == null or not (load_game_menu is MenuButton):
-		return
+	var new_game_button = $CenterContainer/VBoxContainer/NewGame
+	if new_game_button != null:
+		if not new_game_button.is_connected("pressed", Callable(self, "_on_new_game_pressed")):
+			new_game_button.connect("pressed", Callable(self, "_on_new_game_pressed"))
+	else:
+		print("Error: NewGame button not found.")
 
-	# Load game menu popup setup
-	var popup = load_game_menu.get_popup()
-	if popup == null:
-		return
-	popup.clear()
+	var exit_button = $CenterContainer/VBoxContainer/Exit
+	if exit_button != null:
+		if not exit_button.is_connected("pressed", Callable(self, "_on_exit_pressed")):
+			exit_button.connect("pressed", Callable(self, "_on_exit_pressed"))
+	else:
+		print("Error: Exit button not found.")
 
-	# Check for save files
-	var dir = DirAccess.open("user://")
-	if dir == null:
-		return
-
-	# List all JSON save files in the user directory
-	for file_name in dir.get_files():
-		print("Found file:", file_name)
-		if file_name.ends_with(".json"):
-			popup.add_item(file_name)
-
-	# Connect the dropdown signal
-	if not popup.is_connected("id_pressed", Callable(self, "_on_load_game_selected")):
-		popup.connect("id_pressed", Callable(self, "_on_load_game_selected"))
+	var load_game_button = $VBoxContainer/ColorRect/LoadGame
+	if load_game_button != null:
+		if not load_game_button.is_connected("pressed", Callable(self, "_on_load_game_pressed")):
+			load_game_button.connect("pressed", Callable(self, "_on_load_game_pressed"))
+	else:
+		print("Error: LoadGameButton not found.")

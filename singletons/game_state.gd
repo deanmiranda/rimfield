@@ -58,6 +58,42 @@ func save_game(file: String = "") -> void:
 	# Manage saved files to ensure only the 5 most recent are kept
 	manage_save_files()
 
+# Loads the game state from a specified save file
+func load_game(file: String = "") -> bool:
+	if file != "":
+		set_save_file(file)
+	
+	if not FileAccess.file_exists(current_save_file):
+		print("Error: Save file does not exist:", current_save_file)
+		return false
+
+	var file_access = FileAccess.open(current_save_file, FileAccess.READ)
+	if file_access == null:
+		print("Error: Failed to open save file for reading:", current_save_file)
+		return false
+
+	var json = JSON.new()
+	var parse_status = json.parse(file_access.get_as_text())
+	file_access.close()
+
+	if parse_status == OK:
+		var save_data = json.data
+		farm_state = save_data.get("farm_state", {})
+		current_scene = save_data.get("current_scene", "farm_scene")
+		print("Game loaded successfully from:", current_save_file)
+		
+		emit_signal("game_loaded")
+
+		# Explicitly change to the loaded scene after loading
+		get_tree().paused = false  # Unpause the game if paused
+		change_scene(current_scene)
+
+		return true
+	else:
+		print("Error parsing save file: Error Code", parse_status)
+		return false
+
+
 # Manages save files, ensuring only 5 most recent saves are kept
 func manage_save_files() -> void:
 	var save_dir = DirAccess.open("user://")
@@ -106,8 +142,17 @@ func _extract_timestamp_from_filename(file_name: String) -> float:
 
 # Clears the current game state and prepares a fresh start
 func new_game() -> void:
-	current_scene = "farm_scene"  # Reset to the starting scene
-	farm_state.clear()  # Clear all tile states
+	# Reset to the starting scene
+	current_scene = "farm_scene"
 
-	# Only manage save files if we’re saving—not when starting a new game
-	print("New game initialized.")
+	# Clear all tile states
+	farm_state.clear()
+
+	# Set the initial save file path (conventionally to a new save slot)
+	set_save_file("save_slot_initial.json")
+
+	# Save the game state to create an initial save for the new game
+	save_game(current_save_file)
+
+	# Output log for debug confirmation
+	print("New game initialized and initial save created.")

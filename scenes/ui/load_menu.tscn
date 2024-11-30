@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3 uid="uid://b5gg48ttcun6s"]
+
+[ext_resource type="Script" path="res://scripts/ui/load_menu.gd" id="1_gncla"]
+
+[node name="LoadMenu" type="Control" node_paths=PackedStringArray("dropdown", "confirmation_panel")]
+custom_minimum_size = Vector2(300, 150)
+layout_mode = 3
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+script = ExtResource("1_gncla")
+dropdown = NodePath("CenterContainer/MainVBox/SaveDropdown")
+confirmation_panel = NodePath("CenterContainer/MainVBox/ConfirmationPanel")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainVBox" type="VBoxContainer" parent="CenterContainer"]
+layout_mode = 2
+
+[node name="SaveDropdown" type="OptionButton" parent="CenterContainer/MainVBox"]
+layout_mode = 2
+
+[node name="ConfirmationPanel" type="Control" parent="CenterContainer/MainVBox"]
+visible = false
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/MainVBox/ConfirmationPanel"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="ConfirmationLabel" type="Label" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer"]
+custom_minimum_size = Vector2(105, 0)
+layout_direction = 2
+layout_mode = 2
+text = "Are you sure?"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/ConfirmationLabel"]
+layout_mode = 0
+offset_top = 24.0
+offset_right = 70.0
+offset_bottom = 55.0
+
+[node name="YesButton" type="Button" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/ConfirmationLabel/HBoxContainer"]
+layout_mode = 2
+text = "Yes"
+
+[node name="NoButton" type="Button" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/ConfirmationLabel/HBoxContainer"]
+layout_mode = 2
+text = "Cancel"
+
+[connection signal="item_selected" from="CenterContainer/MainVBox/SaveDropdown" to="." method="_on_save_dropdown_item_selected"]
+[connection signal="pressed" from="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/ConfirmationLabel/HBoxContainer/YesButton" to="." method="_on_yes_button_pressed"]
+[connection signal="pressed" from="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/ConfirmationLabel/HBoxContainer/NoButton" to="." method="_on_no_button_pressed"]
