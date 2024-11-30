@@ -32,23 +32,18 @@ func _ready() -> void:
 	# Load game button setup
 	var load_game_menu = $VBoxContainer/ColorRect/LoadGame
 	if load_game_menu == null or not (load_game_menu is MenuButton):
-		print("Error: LoadGame not found or not a MenuButton!")
 		return
 
 	# Load game menu popup setup
 	var popup = load_game_menu.get_popup()
 	if popup == null:
-		print("Error: Popup not found in LoadGame MenuButton!")
 		return
 	popup.clear()
 
 	# Check for save files
 	var dir = DirAccess.open("user://")
 	if dir == null:
-		print("Error: Unable to access user:// directory.")
 		return
-
-	print("Checking for save files in user:// directory...")
 
 	# List all JSON save files in the user directory
 	for file_name in dir.get_files():
@@ -59,6 +54,3 @@ func _ready() -> void:
 	# Connect the dropdown signal
 	if not popup.is_connected("id_pressed", Callable(self, "_on_load_game_selected")):
 		popup.connect("id_pressed", Callable(self, "_on_load_game_selected"))
-
-	print("NewGame connected:", $CenterContainer/VBoxContainer/NewGame.is_connected("pressed", Callable(self, "_on_new_game_pressed")))
-	print("Exit connected:", $CenterContainer/VBoxContainer/Exit.is_connected("pressed", Callable(self, "_on_exit_pressed")))

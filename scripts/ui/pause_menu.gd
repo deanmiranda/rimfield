@@ -9,9 +9,7 @@ func _ready() -> void:
 	var feedback_label = $MarginContainer/VBoxContainer/SaveFeedbackLabel
 	if feedback_label:
 		feedback_label.visible = false
-		print("Feedback label set to invisible during _ready().")
-	else:
-		print("SaveFeedbackLabel not found in _ready().")
+
 
 func _focus_on_resume() -> void:
 	# This is just to make sure the resume button gets focus
@@ -48,15 +46,15 @@ func _on_save_game_pressed() -> void:
 		feedback_label.visible = true
 		feedback_label.text = "Game Saving..."
 		print("Feedback label set to visible, text set to 'Game Saving...'")
-		
+
 		# Force an immediate UI update
 		await get_tree().process_frame  # Allow one frame to process to update the label
 
 		# Validate save file and update feedback
-		await get_tree().create_timer(0.2).timeout  # Small delay to ensure save file is registered
+		await get_tree().create_timer(0.5).timeout  # Increased delay to ensure save file is registered
 		if FileAccess.file_exists(save_file_path):
-			feedback_label.text = "Game Saved!"
-			print("Feedback label text updated to 'Game Saved!'")
+			feedback_label.text = "Game Saved! Older saves will be deleted if the limit is exceeded."
+			print("Feedback label text updated to 'Game Saved! Older saves will be deleted if the limit is exceeded.'")
 
 			# Force an immediate UI update after changing the text
 			await get_tree().process_frame  # Allow one frame to process to update the label
@@ -69,7 +67,6 @@ func _on_save_game_pressed() -> void:
 			print("Save file validation failed. File not found.")
 	else:
 		print("SaveFeedbackLabel not found!")
-
 
 func _on_back_to_main_menu_pressed() -> void:
 	# Unpause the game before switching to the main menu

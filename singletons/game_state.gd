@@ -7,7 +7,7 @@ var current_scene: String = "farm_scene"
 var farm_state: Dictionary = {}
 
 # Current save file being used (defaults to a single save file)
-var current_save_file: String = "user://save_data.json"  # Corrected to include user:// only once
+var current_save_file: String = "user://save_data.json"
 
 # Signal to notify when a game is loaded successfully
 signal game_loaded
@@ -28,110 +28,86 @@ func change_scene(new_scene: String) -> void:
 # Sets the save file path to use for saving and loading
 func set_save_file(file: String) -> void:
 	if file.begins_with("user://"):
-		current_save_file = file  # Use as is if already prefixed correctly
+		current_save_file = file
 	else:
-		current_save_file = "user://%s" % file  # Prefix if needed
+		current_save_file = "user://%s" % file
 
 # Saves the game state to the currently active save file
 func save_game(file: String = "") -> void:
 	if file != "":
-		set_save_file(file)  # Dynamically update the save file path
+		set_save_file(file)
 
-	# Ensure current_save_file is valid
 	if current_save_file == "":
 		print("Error: No save file path provided.")
 		return
 
-	# Prepare save data
 	var save_data = {
 		"farm_state": farm_state,
 		"current_scene": current_scene
 	}
 
-	# Attempt to open the file for writing
 	var file_access = FileAccess.open(current_save_file, FileAccess.WRITE)
 	if file_access == null:
 		print("Error: Failed to open save file for writing:", current_save_file)
 		return
 
-	# Save the data to the file
 	file_access.store_string(JSON.stringify(save_data))
 	file_access.close()
 	print("Game saved to:", current_save_file)
 
-	# Clean old saves to keep only the most recent 5
-	clean_old_saves(5)
+	# Manage saved files to ensure only the 5 most recent are kept
+	manage_save_files()
 
+# Manages save files, ensuring only 5 most recent saves are kept
+func manage_save_files() -> void:
+	var save_dir = DirAccess.open("user://")
+	if save_dir == null:
+		print("Error: Could not open save directory.")
+		return
 
-# Loads the game state from the currently active save file
-func load_game(file: String = "") -> bool:
-	if file != "":
-		set_save_file(file)  # Dynamically update the save file path
-	if FileAccess.file_exists(current_save_file):
-		var file_access = FileAccess.open(current_save_file, FileAccess.READ)
-		var json = JSON.new()
-		var parse_status = json.parse(file_access.get_as_text())
-		file_access.close()
+	# Gather all save files that match the "save_slot_" pattern
+	var save_files = []
+	save_dir.list_dir_begin()  # No arguments in Godot 4
+	var file_name = save_dir.get_next()
+	while file_name != "":
+		if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
+			save_files.append(file_name)
+		file_name = save_dir.get_next()
+	save_dir.list_dir_end()
 
-		if parse_status == OK:
-			var save_data = json.data
-			farm_state.clear()
-			for key in save_data.get("farm_state", {}).keys():
-				var position = Vector2i(key.split(",")[0].to_int(), key.split(",")[1].to_int())
-				farm_state[position] = save_data["farm_state"][key]
-			current_scene = save_data.get("current_scene", "farm_scene")
-			print("Game loaded successfully from:", current_save_file)
-			emit_signal("game_loaded")
-			return true
-		else:
-			print("Error parsing save file: Error Code", parse_status)
-			return false
-	else:
-		print("No save file found at:", current_save_file)
-		return false
+	# Sort save files by timestamp and keep only the 5 newest
+	save_files.sort_custom(func(a, b):
+		var timestamp_a = _extract_timestamp_from_filename(a)
+		var timestamp_b = _extract_timestamp_from_filename(b)
+		return int(timestamp_a - timestamp_b)
+	)
+
+	# Skip the most recently saved file, assuming it will be the one with the highest timestamp
+	while save_files.size() > 5:
+		var oldest_save = save_files.pop_front()
+		if oldest_save == current_save_file.replace("user://", ""):
+			print("Skipping current save file:", oldest_save)
+			continue
+
+		var delete_dir = DirAccess.open("user://")
+		if delete_dir:
+			var delete_result = delete_dir.remove(oldest_save)
+			if delete_result == OK:
+				print("Deleted old save file:", oldest_save)
+			else:
+				print("Error: Failed to delete old save file:", oldest_save)
+
+# Helper function to extract timestamp from save file name
+func _extract_timestamp_from_filename(file_name: String) -> float:
+	var components = file_name.split("_")
+	if components.size() > 1:
+		return components[-1].to_float()  # Extract the last part and convert to float
+	return 0.0
 
 # Clears the current game state and prepares a fresh start
 func new_game() -> void:
 	current_scene = "farm_scene"  # Reset to the starting scene
 	farm_state.clear()  # Clear all tile states
+
+	# Only manage save files if we’re saving—not when starting a new game
 	print("New game initialized.")
-
-
-# Limit the number of save files to the most recent 5
-func clean_old_saves(max_saves: int = 5) -> void:
-	var dir = DirAccess.open("user://")
-	if dir == null:
-		print("Error: Could not open user:// directory.")
-		return
-
-	var save_files = []
-
-	# Iterate through files in the user directory to collect save files
-	while true:
-		var file_name = dir.get_next()
-		if file_name == "":
-			break  # No more files
-		if file_name.begins_with("save_slot_") and file_name.endswith(".json"):
-			save_files.append(file_name)
-
-	# If there are more than the max number of saves, remove the oldest ones
-	if save_files.size() > max_saves:
-		# Sort the files by their timestamp, assuming the format used for the filenames
-		save_files.sort_custom(Callable(self, "_sort_saves_by_timestamp"))
-
-		# Remove the oldest files, keeping only the most recent ones
-		var files_to_remove = save_files.size() - max_saves
-		for i in range(files_to_remove):
-			var file_path = "user://%s" % save_files[i]
-			if FileAccess.file_exists(file_path):
-				var remove_result = dir.remove(file_path)
-				if remove_result != OK:
-					print("Error removing file:", file_path)
-				else:
-					print("Removed old save file:", file_path)
-
-# Helper function to sort save files based on timestamp
-func _sort_saves_by_timestamp(a: String, b: String) -> int:
-	var a_timestamp = a.replace("save_slot_", "").replace(".json", "").to_float()
-	var b_timestamp = b.replace("save_slot_", "").replace(".json", "").to_float()
-	return int(a_timestamp - b_timestamp)

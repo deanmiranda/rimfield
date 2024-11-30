@@ -15,7 +15,7 @@ func change_scene(scene_path: String, spawn_position: Vector2 = Vector2.ZERO) ->
 	get_tree().change_scene_to_file(scene_path)
 
 	# Print for debugging
-	print("Scene changed to:", current_scene)
+	#print("Scene changed to:", current_scene)
 
 	# After changing the scene, handle pause state appropriately
 	if current_scene.ends_with("main_menu.tscn"):
