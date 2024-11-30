@@ -22,6 +22,10 @@ offset_bottom = 10.0
 z_index = 1000
 layout_mode = 2
 
+[node name="BackToMainMenu" type="Button" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Main Menu"
+
 [node name="ResumeButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Lets get back to derpin'"
@@ -45,6 +49,7 @@ text = "Quit"
 visible = false
 layout_mode = 2
 
+[connection signal="pressed" from="MarginContainer/VBoxContainer/BackToMainMenu" to="." method="_on_back_to_main_menu_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/SaveGame" to="." method="_on_save_game_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]

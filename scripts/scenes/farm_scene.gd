@@ -8,13 +8,50 @@ extends Node2D
 @export var debug_disable_dust: bool = true  # Toggle to disable dust emitter
 @export var farming_manager_path: NodePath # farming_manager path
 
+# Pause Menu specific properties
+var pause_menu: Control
+var paused = false
+
 func _ready():
+	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
 	_load_farm_state()  # Also run on initial entry
 
+	# Pause menu setup
+	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
+	if not pause_menu_scene:
+		print("Error: Failed to load PauseMenu scene.")
+		return
+
+	if pause_menu_scene is PackedScene:
+		pause_menu = pause_menu_scene.instantiate()
+		add_child(pause_menu)  # Add the pause menu to this scene
+		pause_menu.visible = false
+		print("Pause menu added to farm_scene.")
+	else:
+		print("Error: Loaded resource is not a PackedScene.")
+
+func _input(event: InputEvent) -> void:
+	# Handle ESC key input specifically in farm_scene
+	if event.is_action_pressed("ui_cancel"):
+		toggle_pause_menu()
+
+func toggle_pause_menu():
+	# Toggle the pause menu visibility in the gameplay scene
+	if pause_menu.visible:
+		pause_menu.hide()
+		get_tree().paused = false  # Unpause the entire game
+		paused = false
+		print("Pause menu hidden.")
+	else:
+		pause_menu.show()
+		get_tree().paused = true  # Pause the entire game, but leave UI active
+		paused = true
+		print("Pause menu shown.")
+
 func _on_game_loaded():
 	_load_farm_state()  # Apply loaded state when notified
-	
+
 func _load_farm_state():
 	var farming_manager = get_node_or_null(farming_manager_path)
 	if not farming_manager:
@@ -36,9 +73,7 @@ func _load_farm_state():
 			"planted":
 				tilemap.set_cell(position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
 
-
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource):
-
 	var particle_emitter = emitter_scene.instantiate()
 	add_child(particle_emitter)
 

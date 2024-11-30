@@ -59,6 +59,10 @@ func save_game(file: String = "") -> void:
 	file_access.close()
 	print("Game saved to:", current_save_file)
 
+	# Clean old saves to keep only the most recent 5
+	clean_old_saves(5)
+
+
 # Loads the game state from the currently active save file
 func load_game(file: String = "") -> bool:
 	if file != "":
@@ -91,3 +95,43 @@ func new_game() -> void:
 	current_scene = "farm_scene"  # Reset to the starting scene
 	farm_state.clear()  # Clear all tile states
 	print("New game initialized.")
+
+
+# Limit the number of save files to the most recent 5
+func clean_old_saves(max_saves: int = 5) -> void:
+	var dir = DirAccess.open("user://")
+	if dir == null:
+		print("Error: Could not open user:// directory.")
+		return
+
+	var save_files = []
+
+	# Iterate through files in the user directory to collect save files
+	while true:
+		var file_name = dir.get_next()
+		if file_name == "":
+			break  # No more files
+		if file_name.begins_with("save_slot_") and file_name.endswith(".json"):
+			save_files.append(file_name)
+
+	# If there are more than the max number of saves, remove the oldest ones
+	if save_files.size() > max_saves:
+		# Sort the files by their timestamp, assuming the format used for the filenames
+		save_files.sort_custom(Callable(self, "_sort_saves_by_timestamp"))
+
+		# Remove the oldest files, keeping only the most recent ones
+		var files_to_remove = save_files.size() - max_saves
+		for i in range(files_to_remove):
+			var file_path = "user://%s" % save_files[i]
+			if FileAccess.file_exists(file_path):
+				var remove_result = dir.remove(file_path)
+				if remove_result != OK:
+					print("Error removing file:", file_path)
+				else:
+					print("Removed old save file:", file_path)
+
+# Helper function to sort save files based on timestamp
+func _sort_saves_by_timestamp(a: String, b: String) -> int:
+	var a_timestamp = a.replace("save_slot_", "").replace(".json", "").to_float()
+	var b_timestamp = b.replace("save_slot_", "").replace(".json", "").to_float()
+	return int(a_timestamp - b_timestamp)

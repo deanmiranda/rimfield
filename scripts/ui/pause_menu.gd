@@ -69,3 +69,15 @@ func _on_save_game_pressed() -> void:
 			print("Save file validation failed. File not found.")
 	else:
 		print("SaveFeedbackLabel not found!")
+
+
+func _on_back_to_main_menu_pressed() -> void:
+	# Unpause the game before switching to the main menu
+	get_tree().paused = false
+	
+	# Assuming there's a SceneManager singleton that handles scene transitions
+	if SceneManager:
+		SceneManager.change_scene("res://scenes/ui/main_menu.tscn")
+	else:
+		# If there's no SceneManager, just change scene directly
+		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
