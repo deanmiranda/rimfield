@@ -31,13 +31,13 @@ func _input(event: InputEvent) -> void:
 func toggle_pause_menu():
 	if pause_menu.visible:
 		pause_menu.hide()
-		Engine.time_scale = 1
+		get_tree().paused = false  # Unpause the entire game
 		paused = false
 	else:
 		pause_menu.show()
-		Engine.time_scale = 0
+		get_tree().paused = true  # Pause the entire game, but leave UI active
 		paused = true
 
 func handle_pause_request(paused_state: bool):
-	Engine.time_scale = 0 if paused_state else 1
+	get_tree().paused = paused_state
 	paused = paused_state

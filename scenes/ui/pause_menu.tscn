@@ -4,6 +4,7 @@
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_p544r"]
 
 [node name="PauseMenu" type="Control"]
+process_mode = 3
 z_index = 1000
 layout_mode = 3
 anchors_preset = 0
@@ -39,6 +40,10 @@ layout_mode = 2
 tooltip_text = "Stop derpin' :-/"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Quit"
+
+[node name="SaveFeedbackLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
 
 [connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
 [connection signal="pressed" from="MarginContainer/VBoxContainer/SaveGame" to="." method="_on_save_game_pressed"]
