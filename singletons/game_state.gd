@@ -7,7 +7,7 @@ var current_scene: String = "farm_scene"
 var farm_state: Dictionary = {}
 
 # Current save file being used (defaults to a single save file)
-var current_save_file: String = "user://save_data.json"
+var current_save_file: String = "user://save_slot_initial.json"  # Updated to follow save_slot convention
 
 # Signal to notify when a game is loaded successfully
 signal game_loaded
@@ -70,7 +70,7 @@ func manage_save_files() -> void:
 	save_dir.list_dir_begin()  # No arguments in Godot 4
 	var file_name = save_dir.get_next()
 	while file_name != "":
-		if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
+		if file_name.begins_with("save_slot_") and file_name.ends_with(".json") and file_name != "save_slot_initial.json":
 			save_files.append(file_name)
 		file_name = save_dir.get_next()
 	save_dir.list_dir_end()

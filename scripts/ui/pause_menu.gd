@@ -38,31 +38,49 @@ func _on_save_game_pressed() -> void:
 	var save_file_path = "user://save_slot_%s.json" % timestamp
 
 	GameState.save_game(save_file_path)  # Save the game
-	print("Game saved to:", save_file_path)
 
 	# Provide feedback for saving
 	var feedback_label = $MarginContainer/VBoxContainer/SaveFeedbackLabel
 	if feedback_label:
 		feedback_label.visible = true
 		feedback_label.text = "Game Saving..."
-		print("Feedback label set to visible, text set to 'Game Saving...'")
 
 		# Force an immediate UI update
 		await get_tree().process_frame  # Allow one frame to process to update the label
 
 		# Validate save file and update feedback
-		await get_tree().create_timer(0.5).timeout  # Increased delay to ensure save file is registered
+		await get_tree().create_timer(0.5).timeout  # Small delay to ensure save file is registered
 		if FileAccess.file_exists(save_file_path):
-			feedback_label.text = "Game Saved! Older saves will be deleted if the limit is exceeded."
-			print("Feedback label text updated to 'Game Saved! Older saves will be deleted if the limit is exceeded.'")
+			# Check the number of save files
+			var save_dir = DirAccess.open("user://")
+			var save_count = 0
+			if save_dir:
+				save_dir.list_dir_begin()
+				var file_name = save_dir.get_next()
+				while file_name != "":
+					if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
+						save_count += 1
+					file_name = save_dir.get_next()
+				save_dir.list_dir_end()
+			
+			# Set feedback text based on the save count
+			if save_count > 4:
+				feedback_label.text = "Game Saved! If you save again, older saves will be overwritten."
+				
+				# Force an immediate UI update after changing the text
+				await get_tree().process_frame  # Allow one frame to process to update the label
+				
+				# Longer delay for the special warning message
+				await get_tree().create_timer(2.0).timeout  # 2-second delay for longer message
+				feedback_label.visible = false
+			else:
+				feedback_label.text = "Game Saved!"
+				# Force an immediate UI update after changing the text
+				await get_tree().process_frame  # Allow one frame to process to update the label
 
-			# Force an immediate UI update after changing the text
-			await get_tree().process_frame  # Allow one frame to process to update the label
-
-			# Hide feedback after a short delay
-			await get_tree().create_timer(1.5).timeout
-			feedback_label.visible = false
-			print("Feedback hidden after 1.5 seconds.")
+				# Shorter delay for the regular message
+				await get_tree().create_timer(1.5).timeout
+				feedback_label.visible = false
 		else:
 			print("Save file validation failed. File not found.")
 	else:
