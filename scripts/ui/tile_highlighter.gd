@@ -1,6 +1,7 @@
 extends Node2D
 
 @export var farmable_layer_path: NodePath
+@export var tool_switcher_path: NodePath  # To locate ToolSwitcher in the scene
 var farmable_layer: TileMapLayer  # The farmable layer to highlight on
 var highlight_sprite: Sprite2D  # Visual feedback sprite
 
@@ -18,6 +19,15 @@ func _ready() -> void:
 	else:
 		print("Farmable layer path is not assigned.")
 
+	# Locate ToolSwitcher and connect its signal to update highlighting
+	if tool_switcher_path:
+		var tool_switcher = get_node_or_null(tool_switcher_path) as Node
+		if tool_switcher:
+			if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
+				tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
+		else:
+			print("Error: ToolSwitcher node not found.")
+
 	# Create and configure the highlight sprite
 	highlight_sprite = Sprite2D.new()
 	add_child(highlight_sprite)
@@ -25,6 +35,11 @@ func _ready() -> void:
 	highlight_sprite.modulate = highlight_color
 	highlight_sprite.visible = false
 	highlight_sprite.z_index = 100
+
+func _on_tool_changed(new_tool: String) -> void:
+	# This function will be called when the tool changes via keyboard input
+	# For now, we are only printing to verify if it's being called.
+	print("Tool changed to:", new_tool)
 
 func _process(_delta: float) -> void:
 	if not farmable_layer:
@@ -42,8 +57,6 @@ func _process(_delta: float) -> void:
 	var local_mouse_position = farmable_layer.to_local(mouse_position)
 	var tile_position = farmable_layer.local_to_map(local_mouse_position)
 	var tile_world_position = farmable_layer.map_to_local(tile_position)
-
-	#print("Hovered Tile Cell:", tile_position, " | World Position:", tile_world_position)
 
 	# Check if tile is within farmable layer bounds
 	if farmable_layer.get_used_rect().has_point(tile_position):

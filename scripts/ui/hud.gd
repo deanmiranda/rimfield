@@ -1,60 +1,43 @@
 extends CanvasLayer
 
-@export var tool_switcher_path: NodePath  # Existing tool switcher reference
-signal tool_changed(new_tool: String)  # Signal to notify tool changes
+@export var tool_switcher_path: NodePath
+signal tool_changed(new_tool: String)
 
-const TOOL_NAMES = ["hoe", "till", "pickaxe", "seed"]  # Added "seed"
+const TOOL_NAMES = ["hoe", "till", "pickaxe", "seed"]
 
 func _ready() -> void:
 	# Connect the signal to highlight the active tool
-	# This is triggered whenever the active tool changes, either through HUD clicks or input actions.
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
 
-	# Dynamically connect signals for each TextureRect node
-	# Each TextureRect represents a tool slot in the HUD. Signals are connected dynamically based on setup.
-	for i in range(TOOL_NAMES.size()):  # Dynamically handle tools based on TOOL_NAMES size
-		var tool_slot = $MarginContainer/HBoxContainer.get_node("tool_slot_%d" % i)
-		if tool_slot:
-			tool_slot.set_meta("tool_index", i)  # Store the tool index as metadata
+	# Connect to ToolSwitcher signals if path provided
+	if tool_switcher_path:
+		var tool_switcher = get_node_or_null(tool_switcher_path)
+		if tool_switcher and not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
+			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
+
+	# Dynamically connect signals for each TextureButton node
+	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
+	for i in range(TOOL_NAMES.size()):
+		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
+			var tool_slot = tool_buttons[i]
+			tool_slot.set_meta("tool_index", i)
 			tool_slot.connect("gui_input", Callable(self, "_on_tool_clicked").bind(tool_slot))
 
-	# Add seed as a tool option dynamically in the HUD
-	var tool_switcher = get_node_or_null(tool_switcher_path)
-	if tool_switcher:
-		tool_switcher.emit_signal("tool_changed", TOOL_NAMES[0])  # Set the default tool to "hoe"
+	# Set default tool as "hoe"
+	emit_signal("tool_changed", TOOL_NAMES[0])
 
-	# NextTodo: Add future drag-and-drop functionality here.
-	#  - Allow users to drag tools from the HUD and swap positions.
-	#  - Integrate with inventory management to equip items dynamically into tool slots.
-
-func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> void:
+func _on_tool_clicked(event: InputEvent, clicked_texture_button: TextureButton) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		# When a tool slot is clicked, retrieve its tool index and emit the tool_changed signal.
-		if clicked_texture_rect and clicked_texture_rect.has_meta("tool_index"):
-			var index = clicked_texture_rect.get_meta("tool_index")
-			if index >= 0 and index < TOOL_NAMES.size():  # Validate index range
-				emit_signal("tool_changed", TOOL_NAMES[index])  # Emit tool_changed with tool name
-
-	# NextTodo: Add sound or animation when a tool is selected.
-	#  - Play a sound effect to confirm the tool switch.
-	#  - Highlight the HUD slot visually to indicate active selection.
+		if clicked_texture_button and clicked_texture_button.has_meta("tool_index"):
+			var index = clicked_texture_button.get_meta("tool_index")
+			if index >= 0 and index < TOOL_NAMES.size():
+				emit_signal("tool_changed", TOOL_NAMES[index])
 
 func _highlight_active_tool(new_tool: String) -> void:
 	# Update the highlight state for each tool slot
-	# The highlight node (ColorRect) is toggled visible based on the active tool.
-	for i in range(TOOL_NAMES.size()):  # Iterate over all tools dynamically
-		var tool_slot = $MarginContainer/HBoxContainer.get_node("tool_slot_%d" % i)
-		if tool_slot:
-			var highlight = tool_slot.get_node("Highlight")
+	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
+	for i in range(TOOL_NAMES.size()):
+		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
+			var highlight = tool_buttons[i].get_node("Highlight")
 			if highlight:
 				highlight.visible = (TOOL_NAMES[i] == new_tool)
-
-	# NextTodo: Expand logic for drag and drop and additional tool slots.
-	#  - Add support for additional slots in the HUD (e.g., food, seeds, etc.).
-	#  - Ensure drag-and-drop correctly updates the active tool when swapping slots.
-	#  - Consider dynamically managing tool_slots to support a larger inventory system.
-
-# Overall NextTodo:
-#  - Refactor to decouple HUD-specific logic from tool switching logic for better modularity.
-#  - Create a centralized inventory manager to handle tools and HUD updates.
-#  - Add support for hover effects, indicating when a tool can be swapped or equipped.

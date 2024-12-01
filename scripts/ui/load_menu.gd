@@ -73,6 +73,7 @@ func _on_yes_button_pressed() -> void:
 		GameState.load_game(save_metadata[selected_index])  # Load the selected save
 		self.queue_free()  # Hide and remove the load menu from the scene tree to clean up
 	confirmation_panel.visible = false  # Hide the confirmation panel
+	
 # Called when the player cancels the load action
 func _on_no_button_pressed() -> void:
 	confirmation_panel.visible = false  # Just hide the confirmation panel

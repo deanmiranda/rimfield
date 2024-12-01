@@ -12,25 +12,31 @@ const TILE_ID_GRASS = 0
 const TILE_ID_DIRT = 1
 const TILE_ID_TILLED = 2
 const TILE_ID_PLANTED = 3
+const TILE_ID_GROWN = 4  # Assuming "grown" is the next state after planting
 
-var current_tool: String = "hoe"
+var current_tool: String = "hoe"  # Default starting tool
 
 func _ready() -> void:
+	# Get the farmable layer for tile interactions
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
 
+	# Get the tool switcher and connect tool changed signals
 	if tool_switcher_path:
 		tool_switcher = get_node_or_null(tool_switcher_path) as Node
 		if tool_switcher and not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-			current_tool = tool_switcher.get("current_tool")
+			current_tool = tool_switcher.get("current_tool")  # Sync current tool at startup
 
+	# Connect the HUD to the farming manager to ensure tool changes are handled
 	var hud = get_node("../HUD")
 	if hud and not hud.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 		hud.connect("tool_changed", Callable(self, "_on_tool_changed"))
 
 func _on_tool_changed(new_tool: String) -> void:
+	# Update the current tool when HUD or tool switcher signals a change
 	current_tool = new_tool
+	print("Tool changed to:", current_tool)
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	if not farmable_layer:
@@ -59,14 +65,13 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 			"seed":
 				if is_tilled:  # Only allow planting on tilled soil
 					_set_tile_custom_state(target_cell, TILE_ID_PLANTED, "planted")
-					_start_growth_cycle(target_cell)
+					#_start_growth_cycle(target_cell)
 
-func _start_growth_cycle(cell: Vector2i):
-	await get_tree().create_timer(10.0).timeout  # Wait for 10 seconds
-	# Automatically grow the plant after the timer expires
-	if GameState.get_tile_state(cell) == "planted":
-		_set_tile_custom_state(cell, TILE_ID_PLANTED, "grown")  # Update state for grown crop
-
+#func _start_growth_cycle(cell: Vector2i):
+	#await get_tree().create_timer(10.0).timeout  # Wait for 10 seconds
+	## Automatically grow the plant after the timer expires
+	#if GameState.get_tile_state(cell) == "planted":
+		#_set_tile_custom_state(cell, TILE_ID_GROWN, "grown")  # Update state for grown crop
 
 func _get_emitter_scene(state: String) -> Resource:
 	# Fetch the correct emitter based on the state
@@ -79,8 +84,6 @@ func _get_emitter_scene(state: String) -> Resource:
 				return farm_scene.tilled_emitter_scene
 			"grass":
 				return farm_scene.grass_emitter_scene
-			# Uncomment this line to skip dust for testing
-			# "dust": return null
 	return null
 
 func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
@@ -91,9 +94,14 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
 	# Update the visual state
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
-	
+
 	# Update the GameState for persistence
 	if GameState:
 		GameState.update_tile_state(cell, _state)
 	else:
 		print("Error: GameState is null!")
+
+	# Trigger the corresponding emitter for the updated state
+	var emitter_scene = _get_emitter_scene(_state)
+	if emitter_scene:
+		_trigger_dust_at_tile(cell, emitter_scene)
