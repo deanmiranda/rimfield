@@ -4,7 +4,7 @@ const LOAD_MENU = preload("res://scenes/ui/load_menu.tscn")  # Preload the load 
 
 func _on_new_game_pressed() -> void:
 	GameState.new_game()
-	GameState.save_game()  # Create a new save file with timestamp
+	#GameState.save_game()  # Create a new save file with timestamp
 	GameState.change_scene("farm_scene")  # Start the game on the farm scene
 
 func _on_exit_pressed() -> void:
@@ -39,15 +39,15 @@ func _ready() -> void:
 	else:
 		print("Error: Exit button not found.")
 
-	var load_game_container = $LoadGameContainer
-	var load_game_button = $LoadGameContainer/ColorRect/LoadGame
+	var saved_games_container = $CenterContainer/VBoxContainer/SavedGamesContainer
+	var saved_games_button = $CenterContainer/VBoxContainer/SavedGamesContainer/ColorRect/SavedGames
 	
-	if load_game_button != null:
-		if not load_game_button.is_connected("pressed", Callable(self, "_on_load_game_pressed")):
-			load_game_button.connect("pressed", Callable(self, "_on_load_game_pressed"))
+	if saved_games_button != null:
+		if not saved_games_button.is_connected("pressed", Callable(self, "_on_load_game_pressed")):
+			saved_games_button.connect("pressed", Callable(self, "_on_load_game_pressed"))
 
 		# Set the initial visibility based on saved games
-		load_game_container.visible = _has_saved_games()
+		saved_games_container.visible = _has_saved_games()
 	else:
 		print("Error: LoadGame button not found.")
 

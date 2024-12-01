@@ -41,7 +41,7 @@ grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
 z_index = 10
-layout_direction = 1
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 alignment = 1
 
@@ -54,26 +54,23 @@ text = "New Game
 layout_mode = 2
 text = "Exit"
 
-[node name="LoadGameContainer" type="VBoxContainer" parent="."]
+[node name="SavedGamesContainer" type="VBoxContainer" parent="CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
-offset_left = 912.0
-offset_top = 581.0
-offset_right = 1008.0
-offset_bottom = 612.0
 
-[node name="ColorRect" type="ColorRect" parent="LoadGameContainer"]
+[node name="ColorRect" type="ColorRect" parent="CenterContainer/VBoxContainer/SavedGamesContainer"]
 custom_minimum_size = Vector2(96, 35)
 layout_mode = 2
 color = Color(0.176, 0.176, 0.176, 0.5)
 
-[node name="LoadGame" type="Button" parent="LoadGameContainer/ColorRect"]
+[node name="SavedGames" type="Button" parent="CenterContainer/VBoxContainer/SavedGamesContainer/ColorRect"]
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 offset_right = 96.0
 offset_bottom = 35.0
 size_flags_vertical = 3
 tooltip_text = "Load game"
-text = "Load Game"
+text = "Saved Games"
 
 [connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]
-[connection signal="pressed" from="LoadGameContainer/ColorRect/LoadGame" to="." method="_on_load_game_pressed"]

@@ -6,7 +6,7 @@
 [sub_resource type="Theme" id="Theme_w3dnb"]
 Panel/styles/StyleBoxFlat = ExtResource("2_f4d54")
 
-[node name="LoadMenu" type="Control" node_paths=PackedStringArray("dropdown", "confirmation_panel")]
+[node name="LoadMenu" type="Control" node_paths=PackedStringArray("dropdown", "confirmation_panel", "load_button")]
 top_level = true
 z_index = 1000
 custom_minimum_size = Vector2(300, 150)
@@ -21,6 +21,7 @@ grow_vertical = 2
 script = ExtResource("1_gncla")
 dropdown = NodePath("CenterContainer/MainVBox/SaveDropdown")
 confirmation_panel = NodePath("CenterContainer/MainVBox/ConfirmationPanel")
+load_button = NodePath("CenterContainer/MainVBox/LoadGame")
 
 [node name="ColorRect" type="ColorRect" parent="."]
 visible = false
@@ -48,6 +49,10 @@ layout_mode = 2
 
 [node name="SaveDropdown" type="OptionButton" parent="CenterContainer/MainVBox"]
 layout_mode = 2
+
+[node name="LoadGame" type="Button" parent="CenterContainer/MainVBox"]
+layout_mode = 2
+text = "Load game"
 
 [node name="ConfirmationPanel" type="Control" parent="CenterContainer/MainVBox"]
 z_index = 1001
@@ -101,6 +106,7 @@ layout_mode = 2
 text = "Back"
 
 [connection signal="item_selected" from="CenterContainer/MainVBox/SaveDropdown" to="." method="_on_save_dropdown_item_selected"]
+[connection signal="pressed" from="CenterContainer/MainVBox/LoadGame" to="." method="_on_load_game_pressed"]
 [connection signal="pressed" from="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/HBoxContainer/YesButton" to="." method="_on_yes_button_pressed"]
 [connection signal="pressed" from="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/HBoxContainer/NoButton" to="." method="_on_no_button_pressed"]
 [connection signal="pressed" from="CenterContainer/MainVBox/BackButton" to="." method="_on_back_button_pressed"]

@@ -37,8 +37,9 @@ func save_game(file: String = "") -> void:
 	if file != "":
 		set_save_file(file)
 	else:
-		# Use a timestamp-based file name if no file is provided
-		var timestamp = str(Time.get_unix_time_from_system())
+		# Generate a human-readable and unique timestamp for the save file name
+		var now = Time.get_datetime_dict_from_system()
+		var timestamp = "%d%02d%02d_%02d%02d" % [now.year, now.month, now.day, now.hour, now.minute]
 		current_save_file = "user://save_slot_%s.json" % timestamp
 
 	if current_save_file == "":
@@ -97,7 +98,6 @@ func load_game(file: String = "") -> bool:
 		print("Error parsing save file: Error Code", parse_status)
 		return false
 
-# Manages save files, ensuring only 5 most recent saves are kept
 func manage_save_files() -> void:
 	var save_dir = DirAccess.open("user://")
 	if save_dir == null:
@@ -121,6 +121,7 @@ func manage_save_files() -> void:
 		return int(timestamp_a - timestamp_b)
 	)
 
+	# Remove old saves, keeping only the 5 most recent
 	while save_files.size() > 5:
 		var oldest_save = save_files.pop_front()
 		if oldest_save == current_save_file.replace("user://", ""):
@@ -149,9 +150,3 @@ func new_game() -> void:
 
 	# Clear all tile states
 	farm_state.clear()
-
-	# Save the game state to create an initial save for the new game
-	save_game()  # Automatically creates a new save file with a unique name
-
-	# Output log for debug confirmation
-	print("New game initialized and initial save created.")
