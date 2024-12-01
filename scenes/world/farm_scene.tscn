@@ -2117,19 +2117,16 @@ grow_horizontal = 0
 grow_vertical = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="HUD"]
-custom_minimum_size = Vector2(150, 0)
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -74.5
-offset_top = -63.0
-offset_right = 75.5
-offset_bottom = -23.0
+offset_left = -206.0
+offset_top = -100.0
+offset_right = 206.0
 grow_horizontal = 2
 grow_vertical = 0
-size_flags_horizontal = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="HUD/MarginContainer"]
 layout_mode = 2
