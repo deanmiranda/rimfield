@@ -6,8 +6,8 @@ var current_scene: String = "farm_scene"
 # Tracks the state of farm tiles by position
 var farm_state: Dictionary = {}
 
-# Current save file being used (defaults to a single save file)
-var current_save_file: String = "user://save_slot_initial.json"  # Updated to follow save_slot convention
+# Current save file being used
+var current_save_file: String = ""  # No default save file to prevent initial save issues
 
 # Signal to notify when a game is loaded successfully
 signal game_loaded
@@ -31,11 +31,15 @@ func set_save_file(file: String) -> void:
 		current_save_file = file
 	else:
 		current_save_file = "user://%s" % file
-
-# Saves the game state to the currently active save file
+		
+# Saves the game state to a new save file with a timestamp-based name
 func save_game(file: String = "") -> void:
 	if file != "":
 		set_save_file(file)
+	else:
+		# Use a timestamp-based file name if no file is provided
+		var timestamp = str(Time.get_unix_time_from_system())
+		current_save_file = "user://save_slot_%s.json" % timestamp
 
 	if current_save_file == "":
 		print("Error: No save file path provided.")
@@ -93,7 +97,6 @@ func load_game(file: String = "") -> bool:
 		print("Error parsing save file: Error Code", parse_status)
 		return false
 
-
 # Manages save files, ensuring only 5 most recent saves are kept
 func manage_save_files() -> void:
 	var save_dir = DirAccess.open("user://")
@@ -103,10 +106,10 @@ func manage_save_files() -> void:
 
 	# Gather all save files that match the "save_slot_" pattern
 	var save_files = []
-	save_dir.list_dir_begin()  # No arguments in Godot 4
+	save_dir.list_dir_begin()
 	var file_name = save_dir.get_next()
 	while file_name != "":
-		if file_name.begins_with("save_slot_") and file_name.ends_with(".json") and file_name != "save_slot_initial.json":
+		if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
 			save_files.append(file_name)
 		file_name = save_dir.get_next()
 	save_dir.list_dir_end()
@@ -118,7 +121,6 @@ func manage_save_files() -> void:
 		return int(timestamp_a - timestamp_b)
 	)
 
-	# Skip the most recently saved file, assuming it will be the one with the highest timestamp
 	while save_files.size() > 5:
 		var oldest_save = save_files.pop_front()
 		if oldest_save == current_save_file.replace("user://", ""):
@@ -148,11 +150,8 @@ func new_game() -> void:
 	# Clear all tile states
 	farm_state.clear()
 
-	# Set the initial save file path (conventionally to a new save slot)
-	set_save_file("save_slot_initial.json")
-
 	# Save the game state to create an initial save for the new game
-	save_game(current_save_file)
+	save_game()  # Automatically creates a new save file with a unique name
 
 	# Output log for debug confirmation
 	print("New game initialized and initial save created.")

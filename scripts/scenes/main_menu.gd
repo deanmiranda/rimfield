@@ -2,11 +2,9 @@ extends Control
 
 const LOAD_MENU = preload("res://scenes/ui/load_menu.tscn")  # Preload the load menu scene
 
-@export var default_save_file: String = "save_slot_1.json"  # Default save file for "New Game"
-
 func _on_new_game_pressed() -> void:
 	GameState.new_game()
-	GameState.save_game(default_save_file)  # Save initial game state
+	GameState.save_game()  # Create a new save file with timestamp
 	GameState.change_scene("farm_scene")  # Start the game on the farm scene
 
 func _on_exit_pressed() -> void:
@@ -27,7 +25,6 @@ func _on_load_game_pressed() -> void:
 
 func _ready() -> void:
 	# Ensure New Game, Exit, and Load Game buttons are properly connected
-
 	var new_game_button = $CenterContainer/VBoxContainer/NewGame
 	if new_game_button != null:
 		if not new_game_button.is_connected("pressed", Callable(self, "_on_new_game_pressed")):
@@ -42,9 +39,32 @@ func _ready() -> void:
 	else:
 		print("Error: Exit button not found.")
 
-	var load_game_button = $VBoxContainer/ColorRect/LoadGame
+	var load_game_container = $LoadGameContainer
+	var load_game_button = $LoadGameContainer/ColorRect/LoadGame
+	
 	if load_game_button != null:
 		if not load_game_button.is_connected("pressed", Callable(self, "_on_load_game_pressed")):
 			load_game_button.connect("pressed", Callable(self, "_on_load_game_pressed"))
+
+		# Set the initial visibility based on saved games
+		load_game_container.visible = _has_saved_games()
 	else:
-		print("Error: LoadGameButton not found.")
+		print("Error: LoadGame button not found.")
+
+# Function to check if saved games exist
+func _has_saved_games() -> bool:
+	var save_dir = DirAccess.open("user://")
+	if save_dir == null:
+		print("Error: Could not open save directory.")
+		return false
+
+	save_dir.list_dir_begin()
+	var file_name = save_dir.get_next()
+	while file_name != "":
+		if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
+			save_dir.list_dir_end()  # End the directory listing after finding the save
+			return true  # Found a save file
+		file_name = save_dir.get_next()
+	save_dir.list_dir_end()
+
+	return false  # No save files found
