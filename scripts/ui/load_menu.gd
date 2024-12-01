@@ -30,7 +30,7 @@ func _populate_load_slots() -> void:
 			var formatted_date = Time.get_datetime_string_from_unix_time(timestamp)
 			var scene_name = _get_scene_name_from_save(file_name)
 			var display_text = "%s - %s" % [formatted_date, scene_name]
-
+			
 			dropdown.add_item(display_text)  # Add save slot to dropdown
 			save_metadata[dropdown.get_item_count() - 1] = file_name  # Save metadata by dropdown index
 		file_name = save_dir.get_next()
@@ -51,7 +51,7 @@ func _get_scene_name_from_save(file_name: String) -> String:
 		var json = JSON.new()
 		var parse_status = json.parse(file_access.get_as_text())
 		file_access.close()
-
+		
 		if parse_status == OK:
 			var save_data = json.data
 			return save_data.get("current_scene", "Unknown Scene")
@@ -61,7 +61,7 @@ func _get_scene_name_from_save(file_name: String) -> String:
 func _on_save_dropdown_item_selected(index: int) -> void:
 	if save_metadata.has(index):
 		var file_name = save_metadata[index]
-		var confirmation_text = "Load save from file: %s? (Yes/No)" % file_name
+		var confirmation_text = "Load save from file: %s?" % file_name
 		confirmation_panel.visible = true
 		# Set confirmation text in the UI
 		$CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/ConfirmationLabel.text = confirmation_text
@@ -71,8 +71,12 @@ func _on_yes_button_pressed() -> void:
 	var selected_index = dropdown.get_selected_id()
 	if save_metadata.has(selected_index):
 		GameState.load_game(save_metadata[selected_index])  # Load the selected save
+		self.queue_free()  # Hide and remove the load menu from the scene tree to clean up
 	confirmation_panel.visible = false  # Hide the confirmation panel
-
 # Called when the player cancels the load action
 func _on_no_button_pressed() -> void:
 	confirmation_panel.visible = false  # Just hide the confirmation panel
+
+# Called when the back button is pressed
+func _on_back_button_pressed() -> void:
+	self.visible = false  # Hide the load scene
