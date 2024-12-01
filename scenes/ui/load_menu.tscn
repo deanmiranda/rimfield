@@ -1,0 +1,104 @@
+[gd_scene load_steps=4 format=3 uid="uid://b5gg48ttcun6s"]
+
+[ext_resource type="Script" path="res://scripts/ui/load_menu.gd" id="1_gncla"]
+[ext_resource type="StyleBox" uid="uid://s2yiyu7oit38" path="res://scenes/ui/load_menu.tres" id="2_f4d54"]
+
+[sub_resource type="Theme" id="Theme_w3dnb"]
+Panel/styles/StyleBoxFlat = ExtResource("2_f4d54")
+
+[node name="LoadMenu" type="Control" node_paths=PackedStringArray("dropdown", "confirmation_panel")]
+top_level = true
+z_index = 1000
+custom_minimum_size = Vector2(300, 150)
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+script = ExtResource("1_gncla")
+dropdown = NodePath("CenterContainer/MainVBox/SaveDropdown")
+confirmation_panel = NodePath("CenterContainer/MainVBox/ConfirmationPanel")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+visible = false
+custom_minimum_size = Vector2(300, 50)
+layout_direction = 1
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainVBox" type="VBoxContainer" parent="CenterContainer"]
+clip_contents = true
+custom_minimum_size = Vector2(300, 150)
+layout_mode = 2
+
+[node name="SaveDropdown" type="OptionButton" parent="CenterContainer/MainVBox"]
+layout_mode = 2
+
+[node name="ConfirmationPanel" type="Control" parent="CenterContainer/MainVBox"]
+z_index = 1001
+custom_minimum_size = Vector2(300, 150)
+layout_mode = 2
+size_flags_vertical = 3
+theme = SubResource("Theme_w3dnb")
+
+[node name="ColorRect" type="ColorRect" parent="CenterContainer/MainVBox/ConfirmationPanel"]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0.722441, 0.283399, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/MainVBox/ConfirmationPanel"]
+custom_minimum_size = Vector2(300, 150)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ConfirmationLabel" type="Label" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer"]
+custom_minimum_size = Vector2(300, 150)
+layout_direction = 2
+layout_mode = 2
+text = "Are you sure?"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer"]
+layout_direction = 1
+layout_mode = 2
+alignment = 1
+
+[node name="YesButton" type="Button" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Continue"
+
+[node name="NoButton" type="Button" parent="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="BackButton" type="Button" parent="CenterContainer/MainVBox"]
+layout_mode = 2
+text = "Back"
+
+[connection signal="item_selected" from="CenterContainer/MainVBox/SaveDropdown" to="." method="_on_save_dropdown_item_selected"]
+[connection signal="pressed" from="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/HBoxContainer/YesButton" to="." method="_on_yes_button_pressed"]
+[connection signal="pressed" from="CenterContainer/MainVBox/ConfirmationPanel/VBoxContainer/HBoxContainer/NoButton" to="." method="_on_no_button_pressed"]
+[connection signal="pressed" from="CenterContainer/MainVBox/BackButton" to="." method="_on_back_button_pressed"]
