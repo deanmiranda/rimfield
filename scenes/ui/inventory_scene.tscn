@@ -9,16 +9,19 @@
 atlas = ExtResource("2_cncs4")
 
 [node name="Control" type="Control"]
+z_index = 1000
 custom_minimum_size = Vector2(400, 400)
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_right = -1520.0
-offset_bottom = -680.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -960.0
+offset_right = -560.0
+offset_bottom = 400.0
+grow_vertical = 2
 script = ExtResource("1_40btc")
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
+custom_minimum_size = Vector2(400, 400)
 layout_mode = 1
 anchors_preset = -1
 offset_right = 400.0
@@ -121,3 +124,5 @@ script = ExtResource("2_nmjyy")
 visible = false
 layout_mode = 2
 script = ExtResource("2_nmjyy")
+
+[connection signal="gui_input" from="CenterContainer/GridContainer/Slot_1" to="CenterContainer/GridContainer/Slot_1" method="_on_gui_input"]

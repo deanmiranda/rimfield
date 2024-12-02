@@ -46,9 +46,15 @@ func save_game(file: String = "") -> void:
 		print("Error: No save file path provided.")
 		return
 
+	# Get inventory from ui_manager if available
+	var inventory_items = []
+	if UiManager and UiManager.has_method("get_inventory_items"):
+		inventory_items = UiManager.get_inventory_items()
+
 	var save_data = {
 		"farm_state": farm_state,
-		"current_scene": current_scene
+		"current_scene": current_scene,
+		"inventory_items": inventory_items  # Add inventory items to the saved state
 	}
 
 	var file_access = FileAccess.open(current_save_file, FileAccess.WRITE)
@@ -59,9 +65,6 @@ func save_game(file: String = "") -> void:
 	file_access.store_string(JSON.stringify(save_data))
 	file_access.close()
 	print("Game saved to:", current_save_file)
-
-	# Manage saved files to ensure only the 5 most recent are kept
-	manage_save_files()
 
 # Loads the game state from a specified save file
 func load_game(file: String = "") -> bool:
@@ -87,6 +90,12 @@ func load_game(file: String = "") -> bool:
 		current_scene = save_data.get("current_scene", "farm_scene")
 		print("Game loaded successfully from:", current_save_file)
 		
+		# Ensure ui_manager is accessible
+		if UiManager and UiManager.has_method("add_item_to_inventory"):
+			if save_data.has("inventory_items"):
+				for item in save_data["inventory_items"]:
+					UiManager.add_item_to_inventory(item)
+
 		emit_signal("game_loaded")
 
 		# Explicitly change to the loaded scene after loading

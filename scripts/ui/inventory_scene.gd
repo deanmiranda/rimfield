@@ -5,21 +5,42 @@ var is_open: bool = false
 
 # Reference to slots in the inventory
 var slots: Array
+var inventory_scene: PackedScene = preload("res://scenes/ui/inventory_scene.tscn")
 
 func _ready() -> void:
-	# Initially hide the inventory
-	self.visible = false
-	# Get references to all the button nodes (slots) in the grid container
-	slots = $GridContainer.get_children()
+	# Reference the GridContainer within the inventory
+	var grid_container = get_node_or_null("CenterContainer/GridContainer")
+	if not grid_container:
+		print("GridContainer node not found in inventory scene!")
+		return
+
+	slots = grid_container.get_children()
+
+	# Connect slot signals properly
+	for slot in slots:
+		if slot.has_signal("can_drop_data") and slot.has_signal("drop_data"):
+			if not slot.is_connected("can_drop_data", Callable(self, "_on_can_drop_data")):
+				slot.connect("can_drop_data", Callable(self, "_on_can_drop_data"))
+			if not slot.is_connected("drop_data", Callable(self, "_on_drop_data")):
+				slot.connect("drop_data", Callable(self, "_on_drop_data"))
 
 # Function to toggle inventory visibility
 func toggle_inventory() -> void:
 	is_open = !is_open
 	self.visible = is_open
+
+	# Explicitly calculate and set the position to be centered
+	var viewport_size = get_viewport().get_visible_rect().size
+	self.rect_position = Vector2(
+		viewport_size.x / 2 - self.rect_size.x / 2,
+		viewport_size.y / 2 - self.rect_size.y / 2
+	)
+
 	if is_open:
-		print("Inventory opened.")
+		print("Inventory opened. Visibility:", self.visible, " Position:", self.rect_position, " Size:", self.rect_size, " Viewport Size:", viewport_size)
 	else:
-		print("Inventory closed.")
+		print("Inventory closed. Visibility:", self.visible, " Position:", self.rect_position, " Size:", self.rect_size, " Viewport Size:", viewport_size)
+
 
 # Function to add an item to the first empty slot
 func add_item(item_id: int) -> bool:
@@ -44,16 +65,14 @@ func swap_items(slot_a, slot_b) -> void:
 	slot_a.text = "Item: %d" % slot_a.slot_index if slot_a.slot_index != -1 else ""
 	slot_b.text = "Item: %d" % slot_b.slot_index if slot_b.slot_index != -1 else ""
 
-# Function to handle dragging and dropping of items
-func handle_dragged_item(source_slot_index: int, target_slot) -> void:
-	# Ensure target_slot is valid and we’re not dropping onto the same slot
-	if target_slot.slot_index == source_slot_index:
-		return
+# Handle drop data to execute swapping of items
+func _on_drop_data(position: Vector2, data) -> void:
+	var source_slot = slots[data["slot_index"]]
+	var target_slot = slots.find(position)
+	if target_slot:
+		swap_items(source_slot, target_slot)
 
-	# Swap the item positions
-	swap_items(slots[source_slot_index], target_slot)
-
-func _process(delta: float) -> void:
-	# Detect if the 'i' key is pressed to toggle the inventory
-	if Input.is_action_just_pressed("toggle_inventory"):
-		toggle_inventory()
+# Placeholder for the can_drop_data function (to avoid runtime errors)
+func _on_can_drop_data(position: Vector2, data) -> bool:
+	# Logic to determine if an item can be dropped here
+	return true
