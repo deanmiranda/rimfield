@@ -5,7 +5,6 @@
 
 [node name="PauseMenu" type="Control"]
 process_mode = 3
-z_index = 1000
 layout_mode = 3
 anchors_preset = 0
 tooltip_text = "This is a menu tooltip does it work its on the PauseMenu Root node."
