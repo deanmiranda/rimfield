@@ -50,27 +50,15 @@ layout_mode = 2
 text = "New Game
 "
 
-[node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
+[node name="SavedGames" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
-text = "Exit"
-
-[node name="SavedGamesContainer" type="VBoxContainer" parent="CenterContainer/VBoxContainer"]
-custom_minimum_size = Vector2(200, 0)
-layout_mode = 2
-
-[node name="ColorRect" type="ColorRect" parent="CenterContainer/VBoxContainer/SavedGamesContainer"]
-custom_minimum_size = Vector2(96, 35)
-layout_mode = 2
-color = Color(0.176, 0.176, 0.176, 0.5)
-
-[node name="SavedGames" type="Button" parent="CenterContainer/VBoxContainer/SavedGamesContainer/ColorRect"]
-custom_minimum_size = Vector2(200, 0)
-layout_mode = 2
-offset_right = 96.0
-offset_bottom = 35.0
 size_flags_vertical = 3
 tooltip_text = "Load game"
 text = "Saved Games"
+
+[node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Exit"
 
 [connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]

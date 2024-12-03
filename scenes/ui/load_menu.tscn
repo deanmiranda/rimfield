@@ -59,6 +59,7 @@ fit_to_longest_item = false
 z_index = 100
 z_as_relative = false
 layout_mode = 2
+size_flags_horizontal = 4
 text = "Load game"
 flat = true
 
@@ -66,10 +67,12 @@ flat = true
 z_index = 100
 z_as_relative = false
 layout_mode = 2
+size_flags_horizontal = 4
 text = "Back"
 flat = true
 
 [node name="ConfirmationPanel" type="Control" parent="CenterContainer"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 6

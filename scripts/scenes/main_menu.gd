@@ -39,15 +39,14 @@ func _ready() -> void:
 	else:
 		print("Error: Exit button not found.")
 
-	var saved_games_container = $CenterContainer/VBoxContainer/SavedGamesContainer
-	var saved_games_button = $CenterContainer/VBoxContainer/SavedGamesContainer/ColorRect/SavedGames
+	var saved_games_button = $CenterContainer/VBoxContainer/SavedGames
 	
 	if saved_games_button != null:
 		if not saved_games_button.is_connected("pressed", Callable(self, "_on_load_game_pressed")):
 			saved_games_button.connect("pressed", Callable(self, "_on_load_game_pressed"))
 
 		# Set the initial visibility based on saved games
-		saved_games_container.visible = _has_saved_games()
+		saved_games_button.visible = _has_saved_games()
 	else:
 		print("Error: LoadGame button not found.")
 
