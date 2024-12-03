@@ -1,25 +1,12 @@
 extends TextureButton
 
-@export var slot_index: int = -1  # Index of this slot in the GridContainer
-@export var empty_texture: Texture  # Texture to display when the slot is empty
+@export var slot_index: int = -1
+@export var empty_texture: Texture
+var item_texture: Texture = null
 
-var item_texture: Texture = null  # Current item texture in this slot
-
-# Define left mouse button constant
 const BUTTON_LEFT = 1
 
 func _ready() -> void:
-	# Assign the index of this slot within the GridContainer if not set
-	if slot_index == -1:
-		var parent = get_parent()
-		if parent:
-			slot_index = parent.get_children().find(self)
-			if slot_index == -1:
-				print("Error: Failed to find this slot in its parent's children.")
-		else:
-			print("Error: This slot has no parent node.")
-
-	# Set the initial texture
 	if item_texture == null:
 		texture_normal = empty_texture
 	else:
@@ -27,6 +14,7 @@ func _ready() -> void:
 
 	# Ensure the node receives mouse events
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	
 
 func set_item(new_texture: Texture) -> void:
 	item_texture = new_texture
@@ -35,29 +23,40 @@ func set_item(new_texture: Texture) -> void:
 	else:
 		texture_normal = item_texture
 
-func get_drag_data(position):
+func get_drag_data(_position):
+	
+	print("get_drag_data() called for slot", slot_index)
+	
 	if item_texture != null:
 		print("Dragging item from slot", slot_index)
+
 		var drag_data = {
 			"slot_index": slot_index,
 			"item_texture": item_texture,
-			"source": self  # Include reference to the source slot
+			"source": self  # Reference to the source slot
 		}
-		var drag_preview = create_drag_preview()
-		set_drag_preview(drag_preview)
+
+		# Create a drag preview
+		var drag_preview = TextureRect.new()
+		drag_preview.texture = item_texture
+		drag_preview.rect_size = Vector2(64, 64)  # Adjust size as needed
+		drag_preview.modulate = Color(1, 1, 1, 0.7)  # Semi-transparent
+		set_drag_preview(drag_preview)  # Attach the preview to the mouse
+
 		return drag_data
 	else:
 		return null  # No item to drag
 
-func can_drop_data(position, data):
-	# Allow dropping if the data is valid
+
+func can_drop_data(_mouse_position, data):
+	print("can_drop_data() called for slot", slot_index, "with data:", data)
 	return data.has("item_texture")
 
-func drop_data(position, data):
-	# Swap items between slots
+func drop_data(_mouse_position, data):
 	var from_slot = data["source"]
 	var from_item_texture = data["item_texture"]
 
+	print("drop_data() called for slot", slot_index, "with data:", data)
 	# Swap item textures
 	var temp_texture = item_texture
 	set_item(from_item_texture)
@@ -67,14 +66,15 @@ func drop_data(position, data):
 	else:
 		print("Error: Invalid source slot.")
 
+
 func create_drag_preview() -> Control:
 	var drag_preview = TextureRect.new()
 	drag_preview.texture = item_texture
-	drag_preview.set_size(Vector2(64, 64))  # Adjust as needed
+	drag_preview.set_size(Vector2(64, 64))
 	return drag_preview
 
 # Optional: Handle click events if needed
 func _gui_input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT:
-		print("Slot", slot_index, "clicked.")
-		# Handle click interaction here
+		print("HUD Slot", slot_index, "clicked.")
+		# Handle click interaction here (e.g., emit signals or change tool)

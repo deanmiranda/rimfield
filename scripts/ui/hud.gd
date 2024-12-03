@@ -22,6 +22,9 @@ func _ready() -> void:
 			var tool_slot = tool_buttons[i]
 			tool_slot.set_meta("tool_index", i)
 			tool_slot.connect("gui_input", Callable(self, "_on_tool_clicked").bind(tool_slot))
+			# Remove or comment out this line
+			# tool_slot.draggable = true
+			tool_slot.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	# Set default tool as "hoe"
 	emit_signal("tool_changed", TOOL_NAMES[0])
@@ -41,3 +44,12 @@ func _highlight_active_tool(new_tool: String) -> void:
 			var highlight = tool_buttons[i].get_node("Highlight")
 			if highlight:
 				highlight.visible = (TOOL_NAMES[i] == new_tool)
+
+# Debug function for HUD tools
+func _debug_hud_tools() -> void:
+	print("--- HUD Tools Debug ---")
+	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
+	for i in range(TOOL_NAMES.size()):
+		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
+			print("Tool Name:", TOOL_NAMES[i], "Button Visibility:", tool_buttons[i].visible)
+	print("-------------------------")

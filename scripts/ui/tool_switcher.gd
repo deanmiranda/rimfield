@@ -2,7 +2,6 @@ extends Node
 
 signal tool_changed(new_tool: String)  # Explicitly used signal
 
-@export var tool_label_path: NodePath  # Explicitly validated
 @export var hud_path: NodePath  # Add a path to the HUD to connect directly
 
 const TOOL_HOE = "hoe"

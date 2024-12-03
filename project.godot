@@ -21,6 +21,7 @@ GameState="*res://singletons/game_state.gd"
 SceneManager="*res://singletons/scene_manager.gd"
 Player="*res://singletons/player.gd"
 UiManager="*res://singletons/ui_manager.gd"
+InventoryManager="*res://singletons/inventory_manager.gd"
 
 [display]
 

@@ -1,4 +1,3 @@
-### Updated ui_manager.gd
 extends Node2D
 
 @export var tilemap_layer: NodePath  # Reference the TileMapLayer node
@@ -12,9 +11,6 @@ extends Node2D
 # Pause Menu specific properties
 var pause_menu: Control
 var paused = false
-var ui_manager = UiManager
-
-@onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn")  # Path to the inventory scene
 
 # Reference to the inventory instance
 var inventory_instance: Control = null
@@ -23,10 +19,12 @@ func _ready() -> void:
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
 	_load_farm_state()  # Also run on initial entry
-
-	# UI Manager instantiated
-	instantiate_inventory()
-
+	# Inventory setup
+	if UiManager:
+		UiManager.instantiate_inventory()
+	else:
+		print("Error: UiManager singleton not found.")
+		
 	# Pause menu setup
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
 	if not pause_menu_scene:
@@ -40,12 +38,15 @@ func _ready() -> void:
 		print("Pause menu added to farm_scene.")
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
-
 	
 func _input(event: InputEvent) -> void:
 	# Handle ESC key input specifically in farm_scene
 	if event.is_action_pressed("ui_cancel"):
 		toggle_pause_menu()
+
+	# Handle inventory toggle with "i"
+	if event.is_action_pressed("ui_inventory"):
+		_toggle_inventory()
 
 func toggle_pause_menu() -> void:
 	# Toggle the pause menu visibility in the gameplay scene
@@ -87,20 +88,14 @@ func _load_farm_state() -> void:
 			"planted":
 				tilemap.set_cell(position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
 
-# Function to instantiate the inventory scene globally
-func instantiate_inventory() -> void:
-	if inventory_instance:  # Prevent duplicates
-		return
-
-	inventory_instance = inventory_scene.instantiate()  # Create the inventory
+# Function to toggle inventory visibility
+func _toggle_inventory() -> void:
 	if inventory_instance:
-		# Directly add inventory instance to the root or a known node
-		get_tree().root.add_child(inventory_instance)  # Add it to the root as a fallback
-		inventory_instance.visible = false  # Hidden by default
-		inventory_instance.position = Vector2(0, 0)  # Explicitly set position to ensure visibility
-		print("Inventory instance successfully instantiated.")
-	else:
-		print("Error: Failed to instantiate inventory scene!")
+		inventory_instance.visible = !inventory_instance.visible
+		if inventory_instance.visible:
+			print("Inventory opened.")
+		else:
+			print("Inventory closed.")
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	var particle_emitter = emitter_scene.instantiate()
@@ -116,3 +111,7 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
+
+
+func _gui_input(event: InputEvent) -> void:
+	pass # Replace with function body.
