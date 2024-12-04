@@ -50,7 +50,6 @@ texture_normal = ExtResource("3_i254s")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
-slot_index = 1
 empty_texture = ExtResource("3_i254s")
 
 [node name="Slot_2" type="TextureButton" parent="CenterContainer/GridContainer"]
@@ -60,7 +59,6 @@ texture_normal = ExtResource("3_i254s")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
-slot_index = 2
 empty_texture = ExtResource("3_i254s")
 
 [node name="Slot_3" type="TextureButton" parent="CenterContainer/GridContainer"]
@@ -70,7 +68,6 @@ texture_normal = ExtResource("3_i254s")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
-slot_index = 3
 empty_texture = ExtResource("3_i254s")
 
 [node name="Slot_4" type="TextureButton" parent="CenterContainer/GridContainer"]
@@ -80,7 +77,6 @@ texture_normal = ExtResource("3_i254s")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
-slot_index = 4
 empty_texture = ExtResource("3_i254s")
 
 [node name="Slot_5" type="TextureButton" parent="CenterContainer/GridContainer"]
@@ -90,7 +86,6 @@ texture_normal = ExtResource("3_i254s")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
-slot_index = 5
 empty_texture = ExtResource("3_i254s")
 
 [node name="Slot_6" type="TextureButton" parent="CenterContainer/GridContainer"]
@@ -100,7 +95,6 @@ texture_normal = ExtResource("3_i254s")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
-slot_index = 6
 empty_texture = ExtResource("3_i254s")
 
 [connection signal="gui_input" from="CenterContainer/GridContainer/Slot_1" to="CenterContainer/GridContainer/Slot_1" method="_on_gui_input"]

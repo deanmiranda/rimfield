@@ -63,9 +63,23 @@ func instantiate_inventory() -> void:
 		InventoryManager.set_inventory_instance(inventory_instance)
 
 		# Populate with test items
-		InventoryManager.populate_inventory_with_test_items()
+		populate_test_inventory_items()
 	else:
 		print("Error: Failed to instantiate inventory scene!")
+
+func populate_test_inventory_items() -> void:
+	var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+	if not slots:
+		print("Error: GridContainer not found in inventory instance.")
+		return
+
+	var shovel_texture = preload("res://assets/tiles/tools/shovel.png")  # Example texture path
+	for slot in slots.get_children():
+		if slot is TextureButton and slot.slot_index == 1:  # First slot has `slot_index: 1`
+			slot.set_item(shovel_texture)
+			print("Shovel texture assigned to Slot", slot.slot_index)
+		else:
+			print("Slot", slot.slot_index, "initialized. Empty texture:", slot.empty_texture)
 
 func toggle_inventory() -> void:
 	if not inventory_instance:
@@ -76,10 +90,20 @@ func toggle_inventory() -> void:
 
 	if inventory_instance.visible:
 		print("Inventory opened.")
+		debug_all_slots()
 	else:
 		print("Inventory closed.")
 
-	_debug_inventory_info()  # Print inventory information after toggling
+# Debugging all slots in inventory
+func debug_all_slots() -> void:
+	var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+	if not slots:
+		print("Error: GridContainer not found in inventory instance.")
+		return
+
+	for slot in slots.get_children():
+		if slot is TextureButton:
+			print("Slot", slot.slot_index, "item_texture:", slot.item_texture)
 
 # Helper function to check if we're in a game scene
 func is_in_game_scene() -> bool:
@@ -88,14 +112,18 @@ func is_in_game_scene() -> bool:
 
 func _input(event: InputEvent) -> void:
 	if is_in_game_scene():
-		# Handle ESC key input specifically in farm_scene
-		if event.is_action_pressed("ui_cancel"):
-			toggle_pause_menu()
-
 		# Handle 'i' input to toggle inventory
 		if event.is_action_pressed("ui_inventory"):
 			print("Input detected: 'i' pressed - attempting to toggle inventory.")
 			toggle_inventory()
+
+		# Handle ESC key input for inventory and pause menu
+		if event.is_action_pressed("ui_cancel"):
+			if inventory_instance and inventory_instance.visible:
+				print("ESC pressed - closing inventory.")
+				toggle_inventory()
+			else:
+				toggle_pause_menu()
 
 func toggle_pause_menu() -> void:
 	if pause_menu.visible:
@@ -143,7 +171,7 @@ func _debug_inventory_info() -> void:
 	if slots:
 		for slot in slots.get_children():
 			if slot is TextureButton:
-				var slot_index = slot.get_meta("slot_index", -1)
+				var slot_index = slot.slot_index
 				print("Slot Index:", slot_index,
 					  " Item Texture Assigned:", slot.texture_normal,
 					  " Slot Visibility:", slot.visible)
