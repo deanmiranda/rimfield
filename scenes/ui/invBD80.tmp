@@ -17,30 +17,6 @@ grow_vertical = 2
 script = ExtResource("1_40btc")
 grid_container_path = NodePath("CenterContainer/GridContainer")
 
-[node name="DebugLabel" type="TextEdit" parent="."]
-z_index = 100
-custom_minimum_size = Vector2(1000, 200)
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -500.0
-offset_top = -400.0
-offset_right = 500.0
-grow_horizontal = 2
-grow_vertical = 0
-text = "Text here"
-placeholder_text = "text here"
-
-[node name="ColorRect" type="ColorRect" parent="DebugLabel"]
-z_as_relative = false
-custom_minimum_size = Vector2(100, 50)
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
 [node name="CenterContainer" type="CenterContainer" parent="."]
 z_index = 100
 custom_minimum_size = Vector2(400, 400)
