@@ -12,6 +12,12 @@ func add_item(slot_index: int, item_texture: Texture) -> bool:
 	inventory_slots[slot_index] = item_texture
 	return true
 
+func get_first_empty_slot() -> int:
+	for i in range(inventory_slots.size()):
+		if inventory_slots[i] == null:
+			return i
+	return -1
+	
 # Remove an item from the inventory
 func remove_item(slot_index: int) -> void:
 	if inventory_slots.has(slot_index):

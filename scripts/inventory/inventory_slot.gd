@@ -24,36 +24,24 @@ func _ready() -> void:
 func set_item(new_texture: Texture) -> void:
 	item_texture = new_texture if new_texture != null else empty_texture
 	texture_normal = item_texture
-	print("DEBUG: item_texture set to:", item_texture)
-
 	
 # Handle input events
 func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			print("DEBUG: Mouse click detected on slot:", slot_index)
-			print("DEBUG: Current item_texture:", item_texture)
-			print("DEBUG: is_dragging_global:", is_dragging_global)
 			if is_dragging_global:
-				print("Global drag already in progress. Ignoring drag request for slot:", slot_index)
 				return
 			if is_empty:
-				print("No item to drag in slot:", slot_index)
 				return
 			if item_texture:
-				print("DEBUG: Drag can start for slot:", slot_index)
 				is_dragging = true
 				is_dragging_global = true
 				drag_preview = create_drag_preview(item_texture)
-				print("DEBUG: Drag started for slot:", slot_index, "with item:", item_texture)
-			else:
-				print("DEBUG: No item_texture, drag will not start for slot:", slot_index)
 
 		elif not event.pressed and is_dragging:
 			is_dragging = false
 			is_dragging_global = false
 			handle_drop(get_global_mouse_position())
-			print("Drag stopped for slot:", slot_index)
 			if drag_preview:
 				drag_preview.queue_free()
 				drag_preview = null
@@ -63,12 +51,10 @@ func _on_gui_input(event: InputEvent) -> void:
 			is_dragging = true
 			is_dragging_global = true
 			update_drag_preview_position()
-			print("shuld be dragin")
 
 # Creates a drag preview for the current slot
 func create_drag_preview(item_texture: Texture) -> TextureRect:
 	if drag_preview_instance != null:
-		print("Existing drag preview found. Clearing before creating a new one.")
 		drag_preview_instance.queue_free()
 		drag_preview_instance = null
 
@@ -95,46 +81,35 @@ func update_drag_preview_position() -> void:
 
 # Handle drop logic
 func handle_drop(global_position: Vector2) -> void:
-	print("DEBUG: handle_drop called for slot:", slot_index)
-	print("DEBUG: drag_preview_instance before cleanup:", drag_preview_instance)
 	reset_drag_state()
-	print("DEBUG: Drag state reset in handle_drop for slot:", slot_index)
 
 	var parent_container = get_parent()
 	if parent_container and parent_container is GridContainer:
 		for child in parent_container.get_children():
 			if child is TextureButton and child.get_global_rect().has_point(global_position):
 				if swap_items_with(child):
-					print("Items swapped: Slot", slot_index, "with Target Slot", child.slot_index)
 					return
 
-	debug_inventory_state()
-	print("No valid drop target found for slot:", slot_index)
+	#debug_inventory_state()
 
 # Swap items between slots
 func swap_items_with(target_slot: TextureButton) -> bool:
-	print("DEBUG: Attempting to swap items between slot:", slot_index, "and target slot:", target_slot.slot_index)
 	if target_slot.has_method("set_item"):
 		var temp_texture = target_slot.item_texture
-		print("DEBUG: Current target slot item_texture:", temp_texture)
 		target_slot.set_item(item_texture)
 		set_item(temp_texture)
-		print("DEBUG: Swap complete. Slot:", slot_index, "item_texture:", item_texture)
 		return true
-	print("DEBUG: Target slot does not support set_item.")
 	return false
 
 func reset_drag_state() -> void:
 	if drag_preview_instance:
 		drag_preview_instance.queue_free()
 		drag_preview_instance = null
-		print("DEBUG: Drag preview instance cleared in reset_drag_state.")
 	else:
 		print("DEBUG: No drag preview instance to clear in reset_drag_state.")
 	
 	is_dragging = false
 	is_dragging_global = false
-	print("DEBUG: Drag state flags reset. is_dragging:", is_dragging, "is_dragging_global:", is_dragging_global)
 
 # Debug z-index information
 func debug_z_indexes() -> void:
@@ -145,7 +120,6 @@ func debug_z_indexes() -> void:
 		print("Debugging unavailable. Ensure the parent inventory scene implements debug methods.")
 
 func debug_inventory_state():
-	print("DEBUG: Inventory state after action:")
 	var parent_container = get_parent()
 	if parent_container and parent_container is GridContainer:
 		for child in parent_container.get_children():

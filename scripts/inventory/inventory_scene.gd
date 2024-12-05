@@ -9,19 +9,16 @@ var slots: Array  # Stores references to slot nodes
 func _ready() -> void:
 	var grid_container = get_node_or_null(grid_container_path)
 	if not grid_container:
-		print("GridContainer node not found in inventory scene!")
 		return
 	
 	slots = grid_container.get_children()
 	visualize_inventory()
-	debug_z_indexes_on_screen()
+	#debug_z_indexes_on_screen()
 
 func open_inventory() -> void:
 	is_open = true
 	visualize_inventory()
-	print("Inventory opened. Triggering z-index debug...")
-	debug_z_indexes_on_screen()  # Trigger debug method
-	print("Z-index debug process completed.")
+	#debug_z_indexes_on_screen()  # Trigger debug method
 	
 func visualize_inventory() -> void:
 	if InventoryManager:
@@ -39,12 +36,10 @@ func debug_z_indexes_on_screen(node: Node = null, indent: int = 0) -> void:
 	if node == null:
 		node = self  # Start from the inventory scene root
 
-	print("Inspecting node:", node.name)  # Log the node being inspected
-	
 	if node is CanvasItem:
 		var z_index = node.z_index if node.has_method("z_index") else "N/A"
 		var debug_text = "%sNode: %s, z_index: %s\n" % [" ".repeat(indent), node.name, z_index]
 		print(debug_text)  # For console debugging
 
-	for child in node.get_children():
-		debug_z_indexes_on_screen(child, indent + 2)  # Recursive call for child nodes
+	#for child in node.get_children():
+		#debug_z_indexes_on_screen(child, indent + 2)  # Recursive call for child nodes

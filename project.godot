@@ -17,12 +17,12 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+DroppableFactory="*res://scripts/singletons/droppable_factory.gd"
 GameState="*res://scripts/singletons/game_state.gd"
 SceneManager="*res://scripts/singletons/scene_manager.gd"
 Player="*res://scripts/singletons/player.gd"
 UiManager="*res://scripts/singletons/ui_manager.gd"
 InventoryManager="*res://scripts/singletons/inventory_manager.gd"
-DroppableFactory="*res://scripts/singletons/droppable_factory.gd"
 
 [display]
 

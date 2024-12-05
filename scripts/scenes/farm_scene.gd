@@ -16,9 +16,17 @@ var paused = false
 var inventory_instance: Control = null
 
 func _ready() -> void:
+	# Example: Spawn a carrot at a specific position
+	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200))
+	if droppable:
+		print("Droppable successfully spawned:", droppable.name)
+	else:
+		print("Error: Failed to spawn droppable.")
+
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
 	_load_farm_state()  # Also run on initial entry
+
 	# Inventory setup
 	if UiManager:
 		UiManager.instantiate_inventory()
@@ -38,7 +46,7 @@ func _ready() -> void:
 		print("Pause menu added to farm_scene.")
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
-	
+
 func _input(event: InputEvent) -> void:
 	# Handle ESC key input specifically in farm_scene
 	if event.is_action_pressed("ui_cancel"):

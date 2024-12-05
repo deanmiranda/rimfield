@@ -70,20 +70,15 @@ func instantiate_inventory() -> void:
 func populate_test_inventory_items() -> void:
 	var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
 	if not slots:
-		print("Error: GridContainer not found in inventory instance.")
 		return
 
 	var shovel_texture = preload("res://assets/tiles/tools/shovel.png")  # Example texture path
 	for slot in slots.get_children():
 		if slot is TextureButton and slot.slot_index == 1:  # First slot has `slot_index: 1`
 			slot.set_item(shovel_texture)
-			print("Shovel texture assigned to Slot", slot.slot_index)
-		else:
-			print("Slot", slot.slot_index, "initialized. Empty texture:", slot.empty_texture)
-
+	
 func toggle_inventory() -> void:
 	if not inventory_instance:
-		print("Error: Inventory instance not found.")
 		return
 
 	inventory_instance.visible = not inventory_instance.visible
@@ -114,13 +109,11 @@ func _input(event: InputEvent) -> void:
 	if is_in_game_scene():
 		# Handle 'i' input to toggle inventory
 		if event.is_action_pressed("ui_inventory"):
-			print("Input detected: 'i' pressed - attempting to toggle inventory.")
 			toggle_inventory()
 
 		# Handle ESC key input for inventory and pause menu
 		if event.is_action_pressed("ui_cancel"):
 			if inventory_instance and inventory_instance.visible:
-				print("ESC pressed - closing inventory.")
 				toggle_inventory()
 			else:
 				toggle_pause_menu()
@@ -130,12 +123,10 @@ func toggle_pause_menu() -> void:
 		pause_menu.hide()
 		get_tree().paused = false  # Unpause the entire game
 		paused = false
-		print("Pause menu hidden.")
 	else:
 		pause_menu.show()
 		get_tree().paused = true  # Pause the entire game, but leave UI active
 		paused = true
-		print("Pause menu shown.")
 
 # Function to validate paths and resources
 func validate_paths_and_resources() -> void:
@@ -143,41 +134,36 @@ func validate_paths_and_resources() -> void:
 		print("Warning: Inventory scene is not assigned properly.")
 	# Add further checks for other resources as needed
 
-# Enhanced debugging function with null checks and robust output
-func _debug_inventory_info() -> void:
-	if not inventory_instance:
-		print("Error: Inventory instance is null. Cannot perform debug.")
-		return
-
-	print("--- Enhanced Inventory Debug Info ---")
-
-	# Basic Visibility and Position Information
-	print("Inventory Visibility:", inventory_instance.visible)
-
-	# Using global transform to better inspect positioning
-	if inventory_instance.get_parent():
-		print("Inventory Global Position:", inventory_instance.get_global_transform().origin)
-		print("Inventory Size:", inventory_instance.get_rect().size)
-
-	# Checking Parent Node Status
-	var parent = inventory_instance.get_parent()
-	if parent:
-		print("Parent Node: ", parent.name)
-	else:
-		print("Warning: Inventory instance has no parent assigned.")
-
-	# Checking Each Slot in Inventory for Debugging Purposes
-	var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
-	if slots:
-		for slot in slots.get_children():
-			if slot is TextureButton:
-				var slot_index = slot.slot_index
-				print("Slot Index:", slot_index,
-					  " Item Texture Assigned:", slot.texture_normal,
-					  " Slot Visibility:", slot.visible)
-			else:
-				print("Warning: Unexpected node found in inventory slots. Expected 'TextureButton'. Node name:", slot.name)
-	else:
-		print("Error: 'GridContainer' node not found in inventory instance.")
-
-	print("--- End of Enhanced Inventory Debug Info ---")
+## Enhanced debugging function with null checks and robust output
+#func _debug_inventory_info() -> void:
+	#if not inventory_instance:
+		#print("Error: Inventory instance is null. Cannot perform debug.")
+		#return
+#
+	## Using global transform to better inspect positioning
+	#if inventory_instance.get_parent():
+		#print("Inventory Global Position:", inventory_instance.get_global_transform().origin)
+		#print("Inventory Size:", inventory_instance.get_rect().size)
+#
+	## Checking Parent Node Status
+	#var parent = inventory_instance.get_parent()
+	#if parent:
+		#print("Parent Node: ", parent.name)
+	#else:
+		#print("Warning: Inventory instance has no parent assigned.")
+#
+	## Checking Each Slot in Inventory for Debugging Purposes
+	#var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+	#if slots:
+		#for slot in slots.get_children():
+			#if slot is TextureButton:
+				#var slot_index = slot.slot_index
+				#print("Slot Index:", slot_index,
+					  #" Item Texture Assigned:", slot.texture_normal,
+					  #" Slot Visibility:", slot.visible)
+			#else:
+				#print("Warning: Unexpected node found in inventory slots. Expected 'TextureButton'. Node name:", slot.name)
+	#else:
+		#print("Error: 'GridContainer' node not found in inventory instance.")
+#
+	#print("--- End of Enhanced Inventory Debug Info ---")
