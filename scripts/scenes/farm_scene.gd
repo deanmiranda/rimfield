@@ -16,6 +16,18 @@ var paused = false
 var inventory_instance: Control = null
 
 func _ready() -> void:
+	# Locate the PlayerSpawnPoint node
+	var spawn_point = $PlayerSpawnPoint
+	if not spawn_point:
+		print("Error: PlayerSpawnPoint node not found!")
+		return
+
+	# Instantiate and position the player
+	var player_scene = preload("res://scenes/characters/player/player.tscn")
+	var player_instance = player_scene.instantiate()
+	add_child(player_instance)
+	player_instance.global_position = spawn_point.global_position  # Use spawn point position
+
 	# Example: Spawn a carrot at a specific position
 	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200))
 	if droppable:
@@ -128,7 +140,3 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
-
-
-func _gui_input(event: InputEvent) -> void:
-	pass # Replace with function body.

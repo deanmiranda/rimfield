@@ -7,6 +7,7 @@ var speed: float = 200
 var direction: Vector2 = Vector2.ZERO  # Tracks input direction
 var interactable: Node = null          # Stores the interactable object the player is near
 var farming_manager: Node = null       # Reference to the farming system
+var current_interaction: String = ""  # Track the current interaction
 
 @onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
 
@@ -68,3 +69,11 @@ func _process(_delta: float) -> void:
 
 			# Let farming_manager handle the interaction
 			farming_manager.interact_with_tile(mouse_pos, global_position)
+
+func start_interaction(interaction_type: String):
+	current_interaction = interaction_type
+	print("Player can interact with:", interaction_type)
+
+func stop_interaction():
+	current_interaction = ""
+	print("Player interaction ended.")
