@@ -10,27 +10,37 @@ FarmSim is a 2D farming simulation game inspired by *Stardew Valley*, built usin
 The project is organized as follows:
 
 ```
-/project
-├── assets/
-│   ├── audio/             # Sound effects, music
-│   ├── fonts/             # Fonts for UI
-│   ├── sprites/           # Pixel art for characters, tiles, and items
-│   ├── tilesets/          # Tileset images and configurations
-│   ├── ui/                # UI graphics (buttons, icons, etc.)
-│   └── animations/        # Animation spritesheets
-├── scenes/
-│   ├── world/             # Game world scenes (farm, town, house, etc.)
-│   ├── systems/           # Game system managers (e.g., day/night, NPC management)
-│   ├── ui/                # UI scenes (inventory, HUD, menus)
-│   └── test/              # Test scenes for debugging
-├── scripts/
-│   ├── characters/        # Scripts for player and NPCs
-│   ├── game_systems/      # Core game mechanics and systems
-│   ├── ui/                # Scripts for UI logic
-│   └── utils/             # Utility scripts for shared functionality
-├── singletons/            # Autoload singleton scripts for global management
-├── tests/                 # Unit and functional test scripts
-└── README.md              # Project overview and instructions
+.
++---assets                     # Contains all raw asset files used in the game
+|   +---animations             # Animation files for characters and other elements
+|   +---audio                  # Audio files (music, sound effects)
+|   +---fonts                  # Font files for text and UI elements
+|   +---particles              # Particle textures and configurations
+|   +---sprites                # Individual sprite assets
+|   +---tiles                  # Tile textures for the world
+|   +---tilesets               # Pre-configured tilesets
+|   +---tilesheets             # Full tilesheets for reference or usage
+|   \---ui                     # UI-specific assets (icons, buttons, etc.)
++---resources                  # Predefined reusable resources for the game
+|   \---droppable_items        # Resource files for items that can be picked up or dropped
++---scenes                     # All scenes in the game, organized by type
+|   +---characters             # Scenes for player and NPC characters
+|   +---droppable              # Scenes for droppable items
+|   +---effects                # Particle effects and other visual elements
+|   +---systems                # Scenes for game systems like inventory or save/load
+|   +---ui                     # UI scenes such as menus, HUDs, and overlays
+|   \---world                  # Scenes representing the game world (e.g., farm, house)
++---scripts                    # Game logic, grouped by functionality
+|   +---characters             # Scripts for player and NPC behavior
+|   +---droppable              # Scripts for droppable item behavior
+|   +---game_systems           # Core systems like saving, loading, and inventory
+|   +---scenes                 # Scene-specific scripts
+|   +---singletons             # Global scripts (autoloads) like managers and factories
+|   +---ui                     # UI behavior and interactions
+|   \---utils                  # Utility scripts for general-purpose logic
++---tests                      # Test files for automated or manual testing
+\---textures                   # General textures that don't belong to specific assets
+
 ```
 
 ---
