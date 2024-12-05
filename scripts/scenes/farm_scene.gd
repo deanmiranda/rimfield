@@ -70,15 +70,24 @@ func _load_farm_state() -> void:
 		print("Error: Farming Manager not found!")
 		return
 
-	var tilemap = get_node(tilemap_layer)
+	var tilemap = get_node_or_null(tilemap_layer)
 	if not tilemap:
 		print("Error: TileMapLayer not found!")
 		return
 
 	for position_key in GameState.farm_state.keys():
-		# Convert the position_key from String to Vector2i
-		var position = Vector2i(position_key.split(",")[0].to_int(), position_key.split(",")[1].to_int())
+		# Ensure position_key is a string before splitting
+		var position: Vector2i
+		if position_key is String:
+			var components = position_key.split(",")
+			position = Vector2i(components[0].to_int(), components[1].to_int())
+		elif position_key is Vector2i:
+			position = position_key
+		else:
+			print("Invalid position_key format:", position_key)
+			continue
 
+		# Get the state and set the tile
 		var state = GameState.get_tile_state(position)
 		match state:
 			"dirt":
