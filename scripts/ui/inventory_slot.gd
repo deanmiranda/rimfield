@@ -29,13 +29,12 @@ func _on_gui_input(event: InputEvent) -> void:
 		if event.pressed and item_texture:
 			is_dragging = true
 			drag_preview = create_drag_preview(item_texture)
-			debug_z_indexes()
 		elif not event.pressed and is_dragging:
 			is_dragging = false
-			handle_drop(event.global_position)
+			handle_drop(get_global_mouse_position())
 
 	elif event is InputEventMouseMotion and is_dragging:
-		update_drag_preview_position(event.global_position)
+		update_drag_preview_position()
 
 # Creates a drag preview for the current slot
 func create_drag_preview(item_texture: Texture) -> TextureRect:
@@ -47,24 +46,20 @@ func create_drag_preview(item_texture: Texture) -> TextureRect:
 	drag_preview.texture = item_texture
 	drag_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 	drag_preview.set_custom_minimum_size(Vector2(64, 64))
-	drag_preview.z_index = 1000  # Ensure it's above everything
+	drag_preview.z_index = 1000
 	drag_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# Add to the root of the scene tree
 	get_tree().root.add_child(drag_preview)
 
-	# Set initial position to be exactly under the mouse
-	drag_preview.global_position = get_viewport().get_mouse_position()
+	# Set initial position at the mouse
+	drag_preview.global_position = get_global_mouse_position()
 	return drag_preview
 
-
 # Updates drag preview position
-func update_drag_preview_position(global_position: Vector2) -> void:
+func update_drag_preview_position() -> void:
 	if drag_preview:
-		# Directly position the center of the preview under the mouse
-		drag_preview.global_position = global_position - drag_preview.get_custom_minimum_size() / 2
-# This is the problem area for the ghost item not popping up directly below the mouse. no idea on the z index issue of the inventory.
-
+		drag_preview.global_position = get_global_mouse_position()
 
 # Handle drop logic
 func handle_drop(global_position: Vector2) -> void:
