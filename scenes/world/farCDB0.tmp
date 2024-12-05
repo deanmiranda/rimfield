@@ -5,11 +5,11 @@
 [ext_resource type="Script" path="res://scripts/scenes/farm_scene.gd" id="1_y06tk"]
 [ext_resource type="Script" path="res://scripts/characters/player.gd" id="2_cxpbg"]
 [ext_resource type="Texture2D" uid="uid://bkjrx4kiu2bv" path="res://assets/tilesets/full version/tiles/dirt.png" id="2_h8upm"]
+[ext_resource type="PackedScene" uid="uid://7errgnnxpb4b" path="res://scenes/effects/particles/dirt_particle.tscn" id="3_0o2qv"]
 [ext_resource type="PackedScene" uid="uid://dvh74vph5wjxq" path="res://scenes/effects/particles/grass_particle.tscn" id="3_2nqcv"]
 [ext_resource type="Texture2D" uid="uid://bdjljg632omq6" path="res://assets/sprites/char1.png" id="3_klvh8"]
 [ext_resource type="PackedScene" uid="uid://dg8pdmmnmv562" path="res://scenes/effects/particles/tilled_particle.tscn" id="4_elwg7"]
 [ext_resource type="Texture2D" uid="uid://ctheirr4486xj" path="res://assets/tilesets/full version/tiles/tilled.png" id="4_ibpjr"]
-[ext_resource type="PackedScene" uid="uid://7errgnnxpb4b" path="res://scenes/effects/particles/dirt_particle.tscn" id="4_jv71f"]
 [ext_resource type="Texture2D" uid="uid://bc44curybdckq" path="res://assets/sprites/heart.png" id="4_wq533"]
 [ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="5_lcrq0"]
 [ext_resource type="Script" path="res://scripts/game_systems/farming_manager.gd" id="6_kjwtr"]
@@ -24,7 +24,7 @@
 [ext_resource type="Texture2D" uid="uid://dxnfv5aw2wdsu" path="res://assets/tiles/tools/pick-axe.png" id="11_jloj8"]
 [ext_resource type="Script" path="res://scripts/ui/tool_switcher.gd" id="14_jamvl"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="15_5xps8"]
-[ext_resource type="Script" path="res://scripts/ui/hud_slot.gd" id="16_nggr0"]
+[ext_resource type="Texture2D" uid="uid://bc5s3raptx1f2" path="res://assets/ui/inventory_slot.png" id="15_6dcru"]
 [ext_resource type="Texture2D" uid="uid://cfnt5tyopipyn" path="res://assets/tilesets/full version/tiles/FartSnipSeeds.png" id="18_oew8v"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
@@ -2063,7 +2063,8 @@ script = ExtResource("1_y06tk")
 tilemap_layer = NodePath("Farmable")
 grass_emitter_scene = ExtResource("3_2nqcv")
 tilled_emitter_scene = ExtResource("4_elwg7")
-dirt_emitter_scene = ExtResource("4_jv71f")
+dirt_emitter_scene = ExtResource("3_0o2qv")
+debug_disable_dust = false
 farming_manager_path = NodePath("FarmingManager")
 metadata/_edit_group_ = true
 metadata/_edit_vertical_guides_ = [-504.0, 504.0]
@@ -2085,7 +2086,6 @@ tile_set = SubResource("TileSet_j4vm6")
 
 [node name="Farmable" type="TileMapLayer" parent="."]
 z_index = 10
-z_as_relative = false
 tile_map_data = PackedByteArray("AAD8/wQAAAAAAAAAAAD8/wUAAAAAAAAAAAD8/wYAAAAAAAAAAAD8/wcAAAAAAAAAAAD8/wgAAAAAAAAAAAD8/wkAAAAAAAAAAAD8/woAAAAAAAAAAAD8/wsAAAAAAAAAAAD9/wQAAAAAAAAAAAD9/wUAAAAAAAAAAAD9/wYAAAAAAAAAAAD9/wcAAAAAAAAAAAD9/wgAAAAAAAAAAAD9/wkAAAAAAAAAAAD9/woAAAAAAAAAAAD9/wsAAAAAAAAAAAD+/wQAAAAAAAAAAAD+/wUAAAAAAAAAAAD+/wYAAAAAAAAAAAD+/wcAAAAAAAAAAAD+/wgAAAAAAAAAAAD+/wkAAAAAAAAAAAD+/woAAAAAAAAAAAD+/wsAAAAAAAAAAAD//wQAAAAAAAAAAAD//wUAAAAAAAAAAAD//wYAAAAAAAAAAAD//wcAAAAAAAAAAAD//wgAAAAAAAAAAAD//wkAAAAAAAAAAAD//woAAAAAAAAAAAD//wsAAAAAAAAAAAAAAAQAAQAAAAAAAAAAAAUAAQAAAAAAAAAAAAYAAQAAAAAAAAAAAAcAAQAAAAAAAAAAAAgAAgAAAAAAAAAAAAkAAgAAAAAAAAAAAAoAAgAAAAAAAAAAAAsAAgAAAAAAAAABAAQAAQAAAAAAAAABAAUAAQAAAAAAAAABAAYAAQAAAAAAAAABAAcAAQAAAAAAAAABAAgAAgAAAAAAAAABAAkAAgAAAAAAAAABAAoAAgAAAAAAAAABAAsAAgAAAAAAAAACAAQAAQAAAAAAAAACAAUAAQAAAAAAAAACAAYAAQAAAAAAAAACAAcAAQAAAAAAAAACAAgAAgAAAAAAAAACAAkAAgAAAAAAAAACAAoAAgAAAAAAAAACAAsAAgAAAAAAAAADAAQAAQAAAAAAAAADAAUAAQAAAAAAAAADAAYAAQAAAAAAAAADAAcAAQAAAAAAAAADAAgAAgAAAAAAAAADAAkAAgAAAAAAAAADAAoAAgAAAAAAAAADAAsAAgAAAAAAAAAEAAQAAAAAAAAAAAAEAAUAAAAAAAAAAAAEAAYAAAAAAAAAAAAEAAcAAAAAAAAAAAAEAAgAAAAAAAAAAAAEAAkAAAAAAAAAAAAEAAoAAAAAAAAAAAAEAAsAAAAAAAAAAAAFAAQAAAAAAAAAAAAFAAUAAAAAAAAAAAAFAAYAAAAAAAAAAAAFAAcAAAAAAAAAAAAFAAgAAAAAAAAAAAAFAAkAAAAAAAAAAAAFAAoAAAAAAAAAAAAFAAsAAAAAAAAAAAAGAAQAAAAAAAAAAAAGAAUAAAAAAAAAAAAGAAYAAAAAAAAAAAAGAAcAAAAAAAAAAAAGAAgAAAAAAAAAAAAGAAkAAAAAAAAAAAAGAAoAAAAAAAAAAAAGAAsAAAAAAAAAAAAHAAUAAAAAAAAAAAAHAAYAAAAAAAAAAAAHAAcAAAAAAAAAAAAHAAgAAAAAAAAAAAAHAAkAAAAAAAAAAAAHAAoAAAAAAAAAAAAHAAsAAAAAAAAAAAAIAAUAAAAAAAAAAAAIAAYAAAAAAAAAAAAIAAcAAAAAAAAAAAAIAAgAAAAAAAAAAAAIAAkAAAAAAAAAAAAIAAoAAAAAAAAAAAAIAAsAAAAAAAAAAAAJAAUAAAAAAAAAAAAJAAYAAAAAAAAAAAAJAAcAAAAAAAAAAAAJAAgAAAAAAAAAAAAJAAkAAAAAAAAAAAAJAAoAAAAAAAAAAAAJAAsAAAAAAAAAAAAKAAUAAAAAAAAAAAAKAAYAAAAAAAAAAAAKAAcAAAAAAAAAAAAKAAgAAAAAAAAAAAAKAAkAAAAAAAAAAAAKAAoAAAAAAAAAAAAKAAsAAAAAAAAAAAALAAUAAAAAAAAAAAALAAYAAAAAAAAAAAALAAcAAAAAAAAAAAALAAgAAAAAAAAAAAALAAkAAAAAAAAAAAALAAoAAAAAAAAAAAALAAsAAAAAAAAAAAAIAPz/AAAAAAAAAAAIAP3/AAAAAAAAAAAIAP7/AAAAAAAAAAAIAP//AAAAAAAAAAAIAAAAAAAAAAAAAAAIAAEAAAAAAAAAAAAIAAIAAAAAAAAAAAAIAAMAAAAAAAAAAAAIAAQAAAAAAAAAAAAJAPz/AAAAAAAAAAAJAP3/AAAAAAAAAAAJAP7/AAAAAAAAAAAJAP//AAAAAAAAAAAJAAAAAAAAAAAAAAAJAAEAAAAAAAAAAAAJAAIAAAAAAAAAAAAJAAMAAAAAAAAAAAAJAAQAAAAAAAAAAAAKAPz/AAAAAAAAAAAKAP3/AAAAAAAAAAAKAP7/AAAAAAAAAAAKAP//AAAAAAAAAAAKAAAAAAAAAAAAAAAKAAEAAAAAAAAAAAAKAAIAAAAAAAAAAAAKAAMAAAAAAAAAAAAKAAQAAAAAAAAAAAALAPz/AAAAAAAAAAALAP3/AAAAAAAAAAALAP7/AAAAAAAAAAALAP//AAAAAAAAAAALAAAAAAAAAAAAAAALAAEAAAAAAAAAAAALAAIAAAAAAAAAAAALAAMAAAAAAAAAAAALAAQAAAAAAAAAAAAHAAQAAAAAAAAAAAA=")
 tile_set = SubResource("TileSet_vhej2")
 
@@ -2096,15 +2096,26 @@ tool_switcher_path = NodePath("../ToolSwitcher")
 farm_scene_path = NodePath("..")
 
 [node name="TileHighlighter" type="Sprite2D" parent="."]
-z_index = 11
-z_as_relative = false
+z_index = 100
 script = ExtResource("10_w1f1x")
 farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("15_5xps8")
-tool_switcher_path = NodePath("../ToolSwitcher")
+
+[node name="Highlight" type="ColorRect" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 888.5
+offset_top = 987.0
+offset_right = 888.5
+offset_bottom = 987.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
 [node name="Energy" type="VBoxContainer" parent="HUD"]
 anchors_preset = 3
@@ -2118,16 +2129,19 @@ grow_horizontal = 0
 grow_vertical = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="HUD"]
+custom_minimum_size = Vector2(150, 0)
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -206.0
-offset_top = -100.0
-offset_right = 206.0
+offset_left = -74.5
+offset_top = -63.0
+offset_right = 75.5
+offset_bottom = -23.0
 grow_horizontal = 2
 grow_vertical = 0
+size_flags_horizontal = 3
 
 [node name="HBoxContainer" type="HBoxContainer" parent="HUD/MarginContainer"]
 layout_mode = 2
@@ -2137,13 +2151,11 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+texture_normal = ExtResource("15_6dcru")
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("16_nggr0")
-empty_texture = ExtResource("11_c33k8")
 
 [node name="tool_slot_0" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton"]
-z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
 layout_mode = 2
@@ -2155,19 +2167,12 @@ texture = ExtResource("9_140q7")
 expand_mode = 3
 stretch_mode = 5
 
-[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton"]
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton/tool_slot_0"]
 visible = false
-custom_minimum_size = Vector2(50, 50)
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -25.0
-offset_top = -25.0
-offset_right = 25.0
-offset_bottom = 25.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
@@ -2175,13 +2180,11 @@ color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 [node name="TextureButton1" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
+texture_normal = ExtResource("15_6dcru")
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("16_nggr0")
-empty_texture = ExtResource("11_c33k8")
 
 [node name="tool_slot_1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton1"]
-z_index = 10
 custom_minimum_size = Vector2(25, 40)
 layout_mode = 2
 offset_left = 30.0
@@ -2192,33 +2195,14 @@ texture = ExtResource("10_xl838")
 expand_mode = 3
 stretch_mode = 5
 
-[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton1"]
-visible = false
-custom_minimum_size = Vector2(50, 50)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -25.0
-offset_top = -25.0
-offset_right = 25.0
-offset_bottom = 25.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.31342, 0.766809, 0.1702, 0.631373)
-
 [node name="TextureButton2" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
+texture_normal = ExtResource("15_6dcru")
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("16_nggr0")
-empty_texture = ExtResource("11_c33k8")
 
 [node name="tool_slot_2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton2"]
-z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
 layout_mode = 2
@@ -2230,19 +2214,12 @@ texture = ExtResource("11_jloj8")
 expand_mode = 3
 stretch_mode = 5
 
-[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton2"]
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton2/tool_slot_2"]
 visible = false
-custom_minimum_size = Vector2(50, 50)
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -25.0
-offset_top = -25.0
-offset_right = 25.0
-offset_bottom = 25.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
@@ -2250,13 +2227,11 @@ color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 [node name="TextureButton3" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
+texture_normal = ExtResource("15_6dcru")
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("16_nggr0")
-empty_texture = ExtResource("11_c33k8")
 
 [node name="tool_slot_3" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton3"]
-z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
 layout_mode = 2
@@ -2268,19 +2243,12 @@ texture = ExtResource("18_oew8v")
 expand_mode = 3
 stretch_mode = 5
 
-[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton3"]
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton3/tool_slot_3"]
 visible = false
-custom_minimum_size = Vector2(50, 50)
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -25.0
-offset_top = -25.0
-offset_right = 25.0
-offset_bottom = 25.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
@@ -2313,7 +2281,7 @@ position_smoothing_enabled = true
 
 [node name="ToolSwitcher" type="Node" parent="."]
 script = ExtResource("14_jamvl")
-hud_path = NodePath("../HUD")
+tool_label_path = NodePath("../HUD/Highlight")
 
 [node name="House" type="StaticBody2D" parent="."]
 position = Vector2(-1, -44)
@@ -2367,10 +2335,6 @@ material = SubResource("CanvasItemMaterial_4pxu5")
 shape = SubResource("RectangleShape2D_7nnll")
 
 [connection signal="tool_changed" from="HUD" to="FarmingManager" method="_on_tool_changed"]
-[connection signal="gui_input" from="HUD/MarginContainer/HBoxContainer/TextureButton" to="." method="_gui_input"]
-[connection signal="gui_input" from="HUD/MarginContainer/HBoxContainer/TextureButton1" to="." method="_gui_input"]
-[connection signal="gui_input" from="HUD/MarginContainer/HBoxContainer/TextureButton2" to="." method="_gui_input"]
-[connection signal="gui_input" from="HUD/MarginContainer/HBoxContainer/TextureButton3" to="." method="_gui_input"]
 [connection signal="tool_changed" from="ToolSwitcher" to="FarmingManager" method="_on_tool_changed"]
 [connection signal="tool_changed" from="ToolSwitcher" to="ToolSwitcher" method="_on_tool_changed"]
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]

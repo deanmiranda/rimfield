@@ -11,18 +11,19 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7w23d")
-default_save_file = "SavedGames.json"
 
 [node name="RimfieldBackground" type="CenterContainer" parent="."]
-custom_minimum_size = Vector2(1920, 1080)
+clip_contents = true
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -16.0
-offset_top = 24.0
-offset_right = -16.0
-offset_bottom = 24.0
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -960.0
+offset_top = -540.0
+offset_right = 960.0
+offset_bottom = 540.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -33,16 +34,21 @@ stretch_mode = 2
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_bottom = 6.0
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -50.5
+offset_right = 100.0
+offset_bottom = 50.5
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer"]
 z_index = 10
-layout_direction = 1
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 alignment = 1
 
@@ -51,30 +57,15 @@ layout_mode = 2
 text = "New Game
 "
 
+[node name="SavedGames" type="Button" parent="CenterContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+tooltip_text = "Load game"
+text = "Saved Games"
+
 [node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "Exit"
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
-layout_mode = 2
-offset_left = 912.0
-offset_top = 581.0
-offset_right = 1008.0
-offset_bottom = 612.0
-
-[node name="ColorRect" type="ColorRect" parent="VBoxContainer"]
-custom_minimum_size = Vector2(96, 35)
-layout_mode = 2
-color = Color(0.176, 0.176, 0.176, 0.5)
-
-[node name="LoadGame" type="Button" parent="VBoxContainer/ColorRect"]
-layout_mode = 2
-offset_right = 96.0
-offset_bottom = 35.0
-size_flags_vertical = 3
-tooltip_text = "Load game"
-text = "Load Game"
-
 [connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]
-[connection signal="pressed" from="VBoxContainer/ColorRect/LoadGame" to="." method="_on_load_game_pressed"]

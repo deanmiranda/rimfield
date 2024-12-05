@@ -13,3 +13,8 @@ func add_to_inventory(item: String):
 
 func remove_from_inventory(item: String):
 	inventory.erase(item)
+
+func _process(delta: float) -> void:
+	if Input.is_action_just_pressed("ui_inventory"):
+		if UiManager:
+			UiManager.toggle_inventory()
