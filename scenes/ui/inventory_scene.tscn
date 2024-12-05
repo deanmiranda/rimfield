@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://dv7un6g17mq68"]
+[gd_scene load_steps=6 format=3 uid="uid://dv7un6g17mq68"]
 
 [ext_resource type="Script" path="res://scripts/ui/inventory_scene.gd" id="1_40btc"]
 [ext_resource type="Script" path="res://scripts/ui/inventory_slot.gd" id="2_nmjyy"]
 [ext_resource type="Texture2D" uid="uid://c64aaduodhpm0" path="res://assets/ui/inventory_border.png" id="2_tj6s3"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_i254s"]
+[ext_resource type="Texture2D" uid="uid://chyfuhy7xfxnl" path="res://assets/ui/inventory_empty_slot.png" id="4_evcc6"]
 
 [node name="Control" type="Control"]
 z_index = 100
@@ -58,8 +59,7 @@ layout_mode = 2
 texture = ExtResource("2_tj6s3")
 
 [node name="GridContainer" type="GridContainer" parent="CenterContainer"]
-z_index = 101
-z_as_relative = false
+z_index = 102
 layout_mode = 2
 columns = 6
 
@@ -72,6 +72,7 @@ ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
 slot_index = 1
+empty_texture = ExtResource("4_evcc6")
 
 [node name="TextureRect" type="TextureRect" parent="CenterContainer/GridContainer/Slot_1"]
 z_index = 101
@@ -96,6 +97,7 @@ ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
 slot_index = 2
+empty_texture = ExtResource("4_evcc6")
 
 [node name="TextureRect2" type="TextureRect" parent="CenterContainer/GridContainer/Slot_2"]
 z_index = 101
@@ -119,6 +121,7 @@ ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
 slot_index = 3
+empty_texture = ExtResource("4_evcc6")
 
 [node name="TextureRect3" type="TextureRect" parent="CenterContainer/GridContainer/Slot_3"]
 z_index = 101
@@ -143,6 +146,7 @@ ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
 slot_index = 4
+empty_texture = ExtResource("4_evcc6")
 
 [node name="TextureRect4" type="TextureRect" parent="CenterContainer/GridContainer/Slot_4"]
 z_index = 101
@@ -167,6 +171,7 @@ ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
 slot_index = 5
+empty_texture = ExtResource("4_evcc6")
 
 [node name="TextureRect5" type="TextureRect" parent="CenterContainer/GridContainer/Slot_5"]
 z_index = 101
@@ -191,6 +196,7 @@ ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_nmjyy")
 slot_index = 6
+empty_texture = ExtResource("4_evcc6")
 
 [node name="TextureRect6" type="TextureRect" parent="CenterContainer/GridContainer/Slot_6"]
 z_index = 101

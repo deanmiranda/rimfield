@@ -2096,7 +2096,8 @@ tool_switcher_path = NodePath("../ToolSwitcher")
 farm_scene_path = NodePath("..")
 
 [node name="TileHighlighter" type="Sprite2D" parent="."]
-z_index = 100
+z_index = 11
+z_as_relative = false
 script = ExtResource("10_w1f1x")
 farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")

@@ -19,12 +19,11 @@ func _ready() -> void:
 	# Initialize debug label
 	if debug_label:
 		debug_label.text = "Debug initialized.\n"
-		debug_label.z_index = 1000  # Ensure it's rendered above everything
-		debug_label.visible = true  # Ensure visibility
+		debug_label.z_index = 1000
+		debug_label.visible = true
 	else:
-		print("DebugLabel node not found or is inaccessible.")
+		append_debug_message("DebugLabel node not found or inaccessible.", true)
 
-	# Temporary debug call
 	debug_z_indexes_on_screen()
 
 func open_inventory() -> void:
@@ -45,11 +44,13 @@ func visualize_inventory() -> void:
 				print("Unexpected node in inventory slots:", slot.name)
 
 # Append debug information to the label
-func append_debug_message(message: String) -> void:
+func append_debug_message(message: String, is_error: bool = false) -> void:
 	if debug_label:
-		print("Appending to DebugLabel:", message)  # Confirm what’s being appended
-		debug_label.text += message + "\n"  # Append with a new line
-		debug_label.queue_redraw()  # Ensure it's redrawn on screen
+		var prefix = "[ERROR] " if is_error else "[DEBUG] "
+		var formatted_message = prefix + message
+		debug_label.text += formatted_message + "\n"
+		debug_label.queue_redraw()
+		print(formatted_message)  # Also print to console for convenience
 	else:
 		print("DebugLabel node is missing! Message:", message)
 
