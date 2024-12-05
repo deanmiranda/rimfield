@@ -39,18 +39,32 @@ func _on_gui_input(event: InputEvent) -> void:
 
 # Creates a drag preview for the current slot
 func create_drag_preview(item_texture: Texture) -> TextureRect:
+	if item_texture == null:
+		push_error("Invalid texture passed to create_drag_preview().")
+		return null
+
 	var drag_preview = TextureRect.new()
 	drag_preview.texture = item_texture
+	drag_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 	drag_preview.set_custom_minimum_size(Vector2(64, 64))
-	drag_preview.z_index = 100
+	drag_preview.z_index = 1000  # Ensure it's above everything
+	drag_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Add to the root of the scene tree
 	get_tree().root.add_child(drag_preview)
+
+	# Set initial position to be exactly under the mouse
 	drag_preview.global_position = get_viewport().get_mouse_position()
 	return drag_preview
+
 
 # Updates drag preview position
 func update_drag_preview_position(global_position: Vector2) -> void:
 	if drag_preview:
+		# Directly position the center of the preview under the mouse
 		drag_preview.global_position = global_position - drag_preview.get_custom_minimum_size() / 2
+# This is the problem area for the ghost item not popping up directly below the mouse. no idea on the z index issue of the inventory.
+
 
 # Handle drop logic
 func handle_drop(global_position: Vector2) -> void:
