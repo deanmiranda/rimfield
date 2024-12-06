@@ -114,3 +114,27 @@ func set_inventory_instance(instance: Control) -> void:
 		print("Inventory instance set successfully.")
 	else:
 		print("Error: Provided instance is not a valid Control node.")
+
+func add_item_to_first_empty_slot(item_data: Resource) -> bool:
+	print("Attempting to add item:", item_data.item_id, "to inventory.")
+	for i in range(inventory_slots.size()):
+		if inventory_slots[i] == null:  # Check if slot is empty
+			print("Found empty slot:", i)
+			inventory_slots[i] = item_data.texture
+			print("Item added to slot:", i, "Item ID:", item_data.item_id)
+			update_inventory_ui()  # Trigger UI update
+			return true
+	print("Inventory full. Could not add item:", item_data.item_id)
+	return false
+
+func update_inventory_ui() -> void:
+	print("Updating inventory UI...")
+	for i in range(inventory_slots.size()):
+		var slot = $HUD/SlotContainer.get_child(i)  # Adjust path to your inventory slots
+		if slot and inventory_slots[i] != null:
+			print("Updating slot:", i, "with texture:", inventory_slots[i])
+			slot.texture = inventory_slots[i]  # Update slot texture
+		else:
+			print("Clearing slot:", i)
+			slot.texture = null  # Clear the slot if empty
+	print("Inventory UI updated.")

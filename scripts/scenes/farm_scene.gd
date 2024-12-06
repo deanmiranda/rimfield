@@ -140,3 +140,12 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
+
+func spawn_test_droppable():
+	print("Spawning test droppable...")
+	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200))
+	if droppable:
+		print("Droppable spawned:", droppable.name)
+		droppable.connect("picked_up", Callable(InventoryManager, "add_item_to_first_empty_slot"))
+	else:
+		print("Error: Failed to spawn droppable.")

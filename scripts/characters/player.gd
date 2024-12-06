@@ -9,6 +9,7 @@ var interactable: Node = null          # Stores the interactable object the play
 var farming_manager: Node = null       # Reference to the farming system
 var current_interaction: String = ""  # Track the current interaction
 
+@onready var inventory_manager = InventoryManager  # Singleton reference
 @onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
 
 func _ready() -> void:
@@ -77,3 +78,12 @@ func start_interaction(interaction_type: String):
 func stop_interaction():
 	current_interaction = ""
 	print("Player interaction ended.")
+	
+func interact_with_droppable(droppable_data: Resource) -> void:
+	print("Player interacting with droppable. Item ID:", droppable_data.item_id)
+	if inventory_manager:
+		var success = inventory_manager.add_item_to_first_empty_slot(droppable_data)
+		if success:
+			print("Item added to inventory:", droppable_data.item_id)
+		else:
+			print("Inventory full! Could not pick up:", droppable_data.item_id)

@@ -1,10 +1,16 @@
+# droppable_generic.gd
 extends Node2D
 
 @export var item_data: Resource  # Reference to the DroppableItem resource
 
+signal picked_up(item_data: Resource)  # Signal to emit when picked up
+
+var player: Node = null  # Reference to the player
+
 func _ready() -> void:
 	# Ensure item_data is set
 	if not item_data:
+		print("Error: item_data is not assigned!")
 		queue_free()
 		return
 
@@ -16,9 +22,14 @@ func _ready() -> void:
 		print("Error: Sprite2D or texture is missing!")
 
 	# Connect interaction logic (on Area2D enter)
-	$Area2D.body_entered.connect(_on_body_entered)
+	print("Connecting body_entered signal for droppable...")
 
-func _on_body_entered(body: Node) -> void:
-	if body.name == "Player":  # Example: check if the player overlaps
-		DroppableFactory.add_to_inventory(item_data)  # Add to inventory via factory
-		queue_free()  # Remove the droppable from the world
+func _on_body_entered(body: Node2D) -> void:
+	# Check if the body is the player using type or class name
+	if body is CharacterBody2D and body.name == "Player":
+		print("Body entered droppable area:", body.name)
+		player = body  # Store reference to the player
+		emit_signal("picked_up", item_data)  # Emit signal with item data
+		queue_free()  # Remove droppable from the world
+	else:
+		print("Non-player body entered. Ignoring.")

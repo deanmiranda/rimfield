@@ -312,24 +312,24 @@ height = 22.0
 [node name="Player" type="Node2D"]
 visibility_layer = 2
 
-[node name="CharacterBody2d" type="CharacterBody2D" parent="."]
+[node name="Player" type="CharacterBody2D" parent="."]
 z_index = 100
 position = Vector2(0, -24)
 script = ExtResource("1_3wfiv")
 metadata/_edit_group_ = true
 metadata/_edit_lock_ = true
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="CharacterBody2d"]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player"]
 texture_repeat = 1
 sprite_frames = SubResource("SpriteFrames_srdkc")
 animation = &"stand_up"
 speed_scale = 2.0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="CharacterBody2d"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
 position = Vector2(0, 6)
 shape = SubResource("CapsuleShape2D_jppql")
 debug_color = Color(0.907394, 0.199351, 0.568449, 0.42)
 
-[node name="PlayerCamera" type="Camera2D" parent="CharacterBody2d"]
+[node name="PlayerCamera" type="Camera2D" parent="Player"]
 limit_smoothed = true
 position_smoothing_enabled = true
