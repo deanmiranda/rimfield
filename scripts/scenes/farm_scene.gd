@@ -7,7 +7,9 @@ extends Node2D
 @export var cell_size: Vector2 = Vector2(16, 16)  # Define the size of each cell manually or export for flexibility
 @export var debug_disable_dust: bool = true  # Toggle to disable dust emitter
 @export var farming_manager_path: NodePath  # farming_manager path
+@export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
 
+var hud_instance: Node = null
 # Pause Menu specific properties
 var pause_menu: Control
 var paused = false
@@ -58,7 +60,14 @@ func _ready() -> void:
 		print("Pause menu added to farm_scene.")
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
-
+# Instantiate and add the HUD
+	if hud_scene:
+		hud_instance = hud_scene.instantiate()
+		add_child(hud_instance)
+		print("HUD instance added to farm scene.")
+	else:
+		print("Error: HUD scene not assigned!")
+		
 func _input(event: InputEvent) -> void:
 	# Handle ESC key input specifically in farm_scene
 	if event.is_action_pressed("ui_cancel"):

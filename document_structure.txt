@@ -162,6 +162,8 @@ C:.
 +---resources
 |   \---droppable_items
 +---scenes
+|   +---characters
+|   |   \---player
 |   +---droppable
 |   +---effects
 |   |   \---particles

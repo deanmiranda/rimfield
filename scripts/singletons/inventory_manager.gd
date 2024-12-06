@@ -126,15 +126,30 @@ func add_item_to_first_empty_slot(item_data: Resource) -> bool:
 			return true
 	print("Inventory full. Could not add item:", item_data.item_id)
 	return false
-
+	
 func update_inventory_ui() -> void:
 	print("Updating inventory UI...")
+
+	# Fetch HUD node using its path
+	var hud = get_node_or_null("res://scenes/ui/hud.tscn")
+	if not hud:
+		print("Error: HUD instance not found.")
+		return
+
+	# Access the inventory container within the HUD
+	var inventory_container = hud.get_node_or_null("MarginContainer/HBoxContainer")
+	if not inventory_container:
+		print("Error: Inventory container not found in HUD.")
+		return
+
+	# Iterate through the inventory slots
 	for i in range(inventory_slots.size()):
-		var slot = $HUD/SlotContainer.get_child(i)  # Adjust path to your inventory slots
+		var slot = inventory_container.get_child(i)  # Get the TextureButton or slot node
 		if slot and inventory_slots[i] != null:
 			print("Updating slot:", i, "with texture:", inventory_slots[i])
-			slot.texture = inventory_slots[i]  # Update slot texture
+			slot.texture_normal = inventory_slots[i]  # Update slot texture
 		else:
 			print("Clearing slot:", i)
-			slot.texture = null  # Clear the slot if empty
+			slot.texture_normal = null  # Clear the slot if empty
+
 	print("Inventory UI updated.")

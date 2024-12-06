@@ -2,12 +2,11 @@
 extends Node
 
 @export var farmable_layer_path: NodePath
-@export var tool_switcher_path: NodePath
+@export var hud_path: NodePath  # Add this to directly reference the HUD
 @export var farm_scene_path: NodePath  # Reference the farm scene
 
 var farmable_layer: TileMapLayer
 var tool_switcher: Node
-
 const TILE_ID_GRASS = 0
 const TILE_ID_DIRT = 1
 const TILE_ID_TILLED = 2
@@ -20,18 +19,25 @@ func _ready() -> void:
 	# Get the farmable layer for tile interactions
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
+		if not farmable_layer:
+			print("Error: Farmable layer not found!")
 
-	# Get the tool switcher and connect tool changed signals
-	if tool_switcher_path:
-		tool_switcher = get_node_or_null(tool_switcher_path) as Node
-		if tool_switcher and not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
-			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-			current_tool = tool_switcher.get("current_tool")  # Sync current tool at startup
-
-	# Connect the HUD to the farming manager to ensure tool changes are handled
-	var hud = get_node("../HUD")
-	if hud and not hud.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
-		hud.connect("tool_changed", Callable(self, "_on_tool_changed"))
+	# Get the HUD and tool switcher
+	if hud_path:
+		var hud = get_node_or_null(hud_path)
+		if hud:
+			print("HUD found:", hud.name)
+			tool_switcher = hud.get_node("ToolSwitcher")
+			if tool_switcher:
+				print("Tool switcher found:", tool_switcher.name)
+				# Connect tool switcher signal
+				if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
+					tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
+					current_tool = tool_switcher.get("current_tool")  # Sync tool state
+			else:
+				print("Error: ToolSwitcher not found as a child of HUD.")
+		else:
+			print("Error: HUD not found at path:", hud_path)
 
 func _on_tool_changed(new_tool: String) -> void:
 	# Update the current tool when HUD or tool switcher signals a change
@@ -66,12 +72,6 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 				if is_tilled:  # Only allow planting on tilled soil
 					_set_tile_custom_state(target_cell, TILE_ID_PLANTED, "planted")
 					#_start_growth_cycle(target_cell)
-
-#func _start_growth_cycle(cell: Vector2i):
-	#await get_tree().create_timer(10.0).timeout  # Wait for 10 seconds
-	## Automatically grow the plant after the timer expires
-	#if GameState.get_tile_state(cell) == "planted":
-		#_set_tile_custom_state(cell, TILE_ID_GROWN, "grown")  # Update state for grown crop
 
 func _get_emitter_scene(state: String) -> Resource:
 	# Fetch the correct emitter based on the state
