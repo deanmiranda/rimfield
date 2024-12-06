@@ -27,9 +27,11 @@ func _ready() -> void:
 func _on_body_entered(body: Node2D) -> void:
 	# Check if the body is the player using type or class name
 	if body is CharacterBody2D and body.name == "Player":
-		print("Body entered droppable area:", body.name)
-		player = body  # Store reference to the player
-		emit_signal("picked_up", item_data)  # Emit signal with item data
-		queue_free()  # Remove droppable from the world
-	else:
-		print("Non-player body entered. Ignoring.")
+		print("Droppable picked up by player. Item ID:", item_data.item_id)
+		# Pass the HUD when adding the tool to the inventory
+		var hud = get_tree().current_scene.get_node("HUD")
+		if hud and InventoryManager.add_tool_to_slot(item_data, hud):
+			print("Tool successfully added to inventory.")
+			queue_free()  # Remove the droppable from the world
+		else:
+			print("Tool slots are full. Could not pick up tool.")

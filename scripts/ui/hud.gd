@@ -46,7 +46,13 @@ func _highlight_active_tool(new_tool: String) -> void:
 			if highlight:
 				highlight.visible = (TOOL_NAMES[i] == new_tool)
 
-
+func update_hud() -> void:
+	if InventoryManager:
+		print("HUD requesting inventory update...")
+		InventoryManager.update_tool_slots(self)
+	else:
+		print("Error: InventoryManager not found.")
+		
 # Helper function to check if a node shares the same tree
 func is_a_parent(node: Node) -> bool:
 	return node and node.get_tree() == get_tree()

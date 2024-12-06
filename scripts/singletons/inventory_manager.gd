@@ -153,3 +153,31 @@ func update_inventory_ui() -> void:
 			slot.texture_normal = null  # Clear the slot if empty
 
 	print("Inventory UI updated.")
+
+func add_tool_to_slot(item_data: Resource, hud: Node) -> bool:
+	print("Attempting to add tool:", item_data.item_id, "to tool slots.")
+	for i in range(5):  # Assuming 5 tool slots
+		if not inventory_slots.has(i) or inventory_slots[i] == null:
+			inventory_slots[i] = item_data.texture
+			print("Tool added to slot:", i, "Item ID:", item_data.item_id)
+			update_tool_slots(hud)  # Pass HUD to update the UI
+			return true
+	print("Tool slots full. Could not add tool:", item_data.item_id)
+	return false
+
+	
+func update_tool_slots(hud: Node) -> void:
+	print("Updating tool slots in HUD...")
+
+	# Get the HUD tool buttons
+	var tool_buttons = hud.get_node("MarginContainer/HBoxContainer").get_children()
+
+	for i in range(5):  # Assuming 5 slots
+		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
+			var slot = tool_buttons[i]
+			if inventory_slots.has(i) and inventory_slots[i] != null:  # Check if the slot has an item
+				slot.texture_normal = inventory_slots[i]
+				print("Slot", i, "updated with tool texture:", inventory_slots[i])
+			else:
+				slot.texture_normal = preload("res://assets/ui/inventory_empty_slot.png")  # Fallback empty texture
+				print("Slot", i, "cleared (empty).")
