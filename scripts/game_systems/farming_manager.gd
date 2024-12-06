@@ -26,10 +26,8 @@ func _ready() -> void:
 	if hud_path:
 		var hud = get_node_or_null(hud_path)
 		if hud:
-			print("HUD found:", hud.name)
 			tool_switcher = hud.get_node("ToolSwitcher")
 			if tool_switcher:
-				print("Tool switcher found:", tool_switcher.name)
 				# Connect tool switcher signal
 				if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 					tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
@@ -42,7 +40,6 @@ func _ready() -> void:
 func _on_tool_changed(new_tool: String) -> void:
 	# Update the current tool when HUD or tool switcher signals a change
 	current_tool = new_tool
-	print("Tool changed to:", current_tool)
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	if not farmable_layer:

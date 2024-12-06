@@ -12,7 +12,6 @@ func _ready() -> void:
 	# Access ToolSwitcher via sibling relationship
 	var tool_switcher = get_node("../ToolSwitcher")
 	if tool_switcher:
-		print("ToolSwitcher found as sibling:", tool_switcher.name)
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
 			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
 	else:
@@ -47,9 +46,10 @@ func _highlight_active_tool(new_tool: String) -> void:
 				highlight.visible = (TOOL_NAMES[i] == new_tool)
 
 func update_hud() -> void:
+	print('update hud reached error on InventoryManager maybe?');
 	if InventoryManager:
 		print("HUD requesting inventory update...")
-		InventoryManager.update_tool_slots(self)
+		InventoryManager.update_hud_slots(self)
 	else:
 		print("Error: InventoryManager not found.")
 		

@@ -144,6 +144,7 @@ func update_inventory_ui() -> void:
 
 	# Iterate through the inventory slots
 	for i in range(inventory_slots.size()):
+		print('inventory size', inventory_slots.size())
 		var slot = inventory_container.get_child(i)  # Get the TextureButton or slot node
 		if slot and inventory_slots[i] != null:
 			print("Updating slot:", i, "with texture:", inventory_slots[i])
@@ -154,30 +155,65 @@ func update_inventory_ui() -> void:
 
 	print("Inventory UI updated.")
 
-func add_tool_to_slot(item_data: Resource, hud: Node) -> bool:
-	print("Attempting to add tool:", item_data.item_id, "to tool slots.")
+func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
+	print("Checking if I can add a tool:", item_data.item_id, " to tool slots.")
+
+	# Iterate through tool slots
 	for i in range(5):  # Assuming 5 tool slots
-		if not inventory_slots.has(i) or inventory_slots[i] == null:
-			inventory_slots[i] = item_data.texture
-			print("Tool added to slot:", i, "Item ID:", item_data.item_id)
-			update_tool_slots(hud)  # Pass HUD to update the UI
-			return true
-	print("Tool slots full. Could not add tool:", item_data.item_id)
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/tool_slot_" + str(i)
+		var slot = hud.get_node_or_null(slot_path)
+
+		if slot:
+			print("Checking HUD slot:", slot_path, "Texture:", slot.texture)
+			if slot.texture != null:  # Skip if slot already has a tool
+				print("Slot", i, "already has a tool:", slot.texture, "Skipping to the next slot.")
+				continue
+
+			# Directly assign the droppable's texture
+			if item_data and item_data.texture:
+				slot.texture = item_data.texture
+				print("Tool added to HUD slot", i, "with texture:", item_data.texture)
+				return true
+
+			print("Error: Droppable item_data is null or missing texture.")
+		else:
+			print("HUD slot", i, "not found at path:", slot_path)
+
+	print("add Item to hud: All HUD slots are full. Add to inventory (not implemented yet).")
 	return false
 
-	
-func update_tool_slots(hud: Node) -> void:
-	print("Updating tool slots in HUD...")
 
-	# Get the HUD tool buttons
-	var tool_buttons = hud.get_node("MarginContainer/HBoxContainer").get_children()
 
-	for i in range(5):  # Assuming 5 slots
-		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
-			var slot = tool_buttons[i]
-			if inventory_slots.has(i) and inventory_slots[i] != null:  # Check if the slot has an item
-				slot.texture_normal = inventory_slots[i]
-				print("Slot", i, "updated with tool texture:", inventory_slots[i])
-			else:
-				slot.texture_normal = preload("res://assets/ui/inventory_empty_slot.png")  # Fallback empty texture
-				print("Slot", i, "cleared (empty).")
+func update_hud_slots_ui(hud: Node) -> void:
+	print("Updating ui for HUD...")
+	print("Children of MarginContainer/HBoxContainer:", hud.get_node("HUD/MarginContainer/HBoxContainer").get_children())
+
+	# Iterate through tool slots (tool_slot_0 to tool_slot_4)
+	for i in range(5):  # Assuming 5 tool slots
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/tool_slot_" + str(i)
+		var slot = hud.get_node_or_null(slot_path)
+
+		if slot:
+			print("Checking HUD slot:", slot_path, "Texture:", slot.texture)
+			if slot.texture != null:  # Check if the slot already has a tool
+				print("Slot", i, "already has a tool:", slot.texture, "Skipping to the next slot.")
+				continue  # Skip to the next slot if this one is occupied
+
+			# Fetch the item texture from inventory_slots
+			var item_texture = inventory_slots.get(i, null)
+			print("Fetched item_texture for HUD slot", i, ":", item_texture)
+
+			if item_texture == null:
+				print("No item texture available for inventory slot", i, ". Cannot assign to HUD.")
+				continue  # Skip to the next slot
+
+			# Validate the item_texture before assignment
+			print("Validating item texture type:", item_texture.get_class(), "Resource ID:", item_texture.get_rid())
+			slot.texture = item_texture  # Assign the tool to the HUD slot
+			print("Tool added to HUD slot", i, "with texture:", item_texture)
+			return  # Exit after assigning the tool
+		else:
+			print("HUD slot", i, "not found at path:", slot_path)
+
+	# If no HUD slots are available, print the message
+	print("Update_hud_slots ui visual: All HUD slots are full. Add to inventory (not implemented yet).")

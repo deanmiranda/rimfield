@@ -6,6 +6,7 @@ extends Node2D
 signal picked_up(item_data: Resource)  # Signal to emit when picked up
 
 var player: Node = null  # Reference to the player
+var hud: Node = null  # Reference to the HUD
 
 func _ready() -> void:
 	# Ensure item_data is set
@@ -13,7 +14,7 @@ func _ready() -> void:
 		print("Error: item_data is not assigned!")
 		queue_free()
 		return
-
+	
 	# Set the texture of the Sprite2D
 	var sprite = $Sprite2D
 	if sprite and item_data.texture:
@@ -21,17 +22,18 @@ func _ready() -> void:
 	else:
 		print("Error: Sprite2D or texture is missing!")
 
-	# Connect interaction logic (on Area2D enter)
-	print("Connecting body_entered signal for droppable...")
-
 func _on_body_entered(body: Node2D) -> void:
-	# Check if the body is the player using type or class name
 	if body is CharacterBody2D and body.name == "Player":
-		print("Droppable picked up by player. Item ID:", item_data.item_id)
-		# Pass the HUD when adding the tool to the inventory
-		var hud = get_tree().current_scene.get_node("HUD")
-		if hud and InventoryManager.add_tool_to_slot(item_data, hud):
-			print("Tool successfully added to inventory.")
-			queue_free()  # Remove the droppable from the world
+		if hud and item_data and item_data.texture:
+			print("Droppable picked up by player. Texture:", item_data.texture)
+
+			# Pass the texture to the HUD's tool slot logic
+			var added = InventoryManager.add_item_to_hud_slot(item_data, hud)
+			
+			if not added:
+				print("All tool slots are full. Droppable texture will be handled by inventory.")
+
+			# Remove the droppable from the world
+			queue_free()
 		else:
-			print("Tool slots are full. Could not pick up tool.")
+			print("HUD reference or item data is null; cannot update.")

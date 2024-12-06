@@ -10,7 +10,6 @@ extends Node2D
 @export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
 
 var hud_instance: Node = null
-# Pause Menu specific properties
 var pause_menu: Control
 var paused = false
 
@@ -30,13 +29,6 @@ func _ready() -> void:
 	add_child(player_instance)
 	player_instance.global_position = spawn_point.global_position  # Use spawn point position
 
-	# Example: Spawn a carrot at a specific position
-	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200))
-	if droppable:
-		print("Droppable successfully spawned:", droppable.name)
-	else:
-		print("Error: Failed to spawn droppable.")
-
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
 	_load_farm_state()  # Also run on initial entry
@@ -46,28 +38,28 @@ func _ready() -> void:
 		UiManager.instantiate_inventory()
 	else:
 		print("Error: UiManager singleton not found.")
-		
+
 	# Pause menu setup
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
-	if not pause_menu_scene:
-		print("Error: Failed to load PauseMenu scene.")
-		return
-
 	if pause_menu_scene is PackedScene:
 		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)  # Add the pause menu to this scene
+		add_child(pause_menu)
 		pause_menu.visible = false
-		print("Pause menu added to farm_scene.")
 	else:
-		print("Error: Loaded resource is not a PackedScene.")
-# Instantiate and add the HUD
+		print("Error: Failed to load PauseMenu scene.")
+
+	# Instantiate and add the HUD
 	if hud_scene:
 		hud_instance = hud_scene.instantiate()
 		add_child(hud_instance)
-		print("HUD instance added to farm scene.")
 	else:
 		print("Error: HUD scene not assigned!")
-		
+
+	# Spawn a test droppable
+	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200), hud_instance)
+
+
+
 func _input(event: InputEvent) -> void:
 	# Handle ESC key input specifically in farm_scene
 	if event.is_action_pressed("ui_cancel"):
@@ -83,12 +75,10 @@ func toggle_pause_menu() -> void:
 		pause_menu.hide()
 		get_tree().paused = false  # Unpause the entire game
 		paused = false
-		print("Pause menu hidden.")
 	else:
 		pause_menu.show()
 		get_tree().paused = true  # Pause the entire game, but leave UI active
 		paused = true
-		print("Pause menu shown.")
 
 func _on_game_loaded() -> void:
 	_load_farm_state()  # Apply loaded state when notified
@@ -130,10 +120,6 @@ func _load_farm_state() -> void:
 func _toggle_inventory() -> void:
 	if inventory_instance:
 		inventory_instance.visible = !inventory_instance.visible
-		if inventory_instance.visible:
-			print("Inventory opened.")
-		else:
-			print("Inventory closed.")
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	var particle_emitter = emitter_scene.instantiate()
@@ -149,12 +135,3 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
-
-func spawn_test_droppable():
-	print("Spawning test droppable...")
-	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200))
-	if droppable:
-		print("Droppable spawned:", droppable.name)
-		droppable.connect("picked_up", Callable(InventoryManager, "add_item_to_first_empty_slot"))
-	else:
-		print("Error: Failed to spawn droppable.")
