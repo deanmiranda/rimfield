@@ -46,9 +46,7 @@ func _highlight_active_tool(new_tool: String) -> void:
 				highlight.visible = (TOOL_NAMES[i] == new_tool)
 
 func update_hud() -> void:
-	print('update hud reached error on InventoryManager maybe?');
 	if InventoryManager:
-		print("HUD requesting inventory update...")
 		InventoryManager.update_hud_slots(self)
 	else:
 		print("Error: InventoryManager not found.")

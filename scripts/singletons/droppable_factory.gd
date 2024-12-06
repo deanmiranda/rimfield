@@ -40,8 +40,8 @@ func spawn_droppable(item_id: String, position: Vector2, hud_instance: Node) -> 
 	# Add the droppable to the current scene tree
 	get_tree().current_scene.add_child(droppable_instance)
 
-	# Log the droppable's current parent
-	if droppable_instance.get_parent():
-		print("Droppable's current parent:", droppable_instance.get_parent().name)
+	# # Log the droppable's current parent
+	# if droppable_instance.get_parent():
+	# 	print("Droppable's current parent:", droppable_instance.get_parent().name)
 
 	return droppable_instance

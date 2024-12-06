@@ -13,7 +13,6 @@ func _ready() -> void:
 	# Access HUD via sibling relationship
 	var hud = get_node("../HUD")
 	if hud:
-		print("HUD found as sibling:", hud.name)
 		if not is_connected("tool_changed", Callable(hud, "_highlight_active_tool")):
 			connect("tool_changed", Callable(hud, "_highlight_active_tool"))
 	else:

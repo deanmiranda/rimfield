@@ -25,8 +25,6 @@ func _ready() -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D and body.name == "Player":
 		if hud and item_data and item_data.texture:
-			print("Droppable picked up by player. Texture:", item_data.texture)
-
 			# Pass the texture to the HUD's tool slot logic
 			var added = InventoryManager.add_item_to_hud_slot(item_data, hud)
 			

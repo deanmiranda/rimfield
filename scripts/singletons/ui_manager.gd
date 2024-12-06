@@ -28,7 +28,6 @@ func _ready() -> void:
 		pause_menu = pause_menu_scene.instantiate()
 		add_child(pause_menu)  # Add the pause menu to this scene
 		pause_menu.visible = false
-		print("Pause menu added to farm_scene.")
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
 
@@ -39,7 +38,6 @@ func _ready() -> void:
 func instantiate_inventory() -> void:
 	if inventory_instance:  # Prevent duplicates
 		if inventory_instance.get_parent():  # Already added to the scene tree
-			print("Inventory instance already exists and is part of the scene tree.")
 			return
 
 	if inventory_scene is PackedScene:
@@ -56,8 +54,6 @@ func instantiate_inventory() -> void:
 		inventory_instance.offset_top = -200
 		inventory_instance.offset_right = 200
 		inventory_instance.offset_bottom = 200
-
-		print("Inventory instance successfully instantiated and added to UiManager.")
 
 		# Set the inventory_instance in InventoryManager
 		InventoryManager.set_inventory_instance(inventory_instance)
@@ -84,10 +80,7 @@ func toggle_inventory() -> void:
 	inventory_instance.visible = not inventory_instance.visible
 
 	if inventory_instance.visible:
-		print("Inventory opened.")
 		debug_all_slots()
-	else:
-		print("Inventory closed.")
 
 # Debugging all slots in inventory
 func debug_all_slots() -> void:

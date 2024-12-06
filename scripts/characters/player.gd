@@ -15,11 +15,9 @@ var current_interaction: String = ""  # Track the current interaction
 func _ready() -> void:
 	# Locate farming system if in the farm scene
 	var farm_scene = get_tree().current_scene
-	print("Current scene:", farm_scene)
 
 	if farm_scene and farm_scene.has_node("FarmingManager"):
 		farming_manager = farm_scene.get_node("FarmingManager")
-		print("FarmingManager found and connected:", farming_manager)
 	else:
 		farming_manager = null
 		print("No FarmingManager found in this scene. Current children of the scene:")
@@ -73,11 +71,10 @@ func _process(_delta: float) -> void:
 
 func start_interaction(interaction_type: String):
 	current_interaction = interaction_type
-	print("Player can interact with:", interaction_type)
+	# print("Player can interact with:", interaction_type)
 
 func stop_interaction():
 	current_interaction = ""
-	print("Player interaction ended.")
 	
 func interact_with_droppable(droppable_data: Resource) -> void:
 	print("Player interacting with droppable. Item ID:", droppable_data.item_id)
