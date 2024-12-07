@@ -48,23 +48,46 @@ func _ready() -> void:
 	else:
 		print("Error: Failed to load PauseMenu scene.")
 
+	var farming_manager = $FarmingManager 
 	# Instantiate and add the HUD
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
-		
 		# Pass HUD instance to the farming manager
-		var farming_manager = get_node_or_null(farming_manager_path)
-		if farming_manager:
-			print('dean farming manager found setting hud', hud_instance)
-			farming_manager.set_hud(hud_instance)
+		if farming_manager and hud_instance:
+			var hud_script = $Hud/HUD
+			if hud_script:
+				farming_manager.set_hud(hud_instance)  # Link HUD to FarmingManager
+				hud_script.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
+			else:
+				print("Error: hud_instance is not an instance of HUD script.")
+		else:
+			print("Error: Could not link FarmingManager and HUD.")
 	else:
 		print("Error: HUD scene not assigned!")
 
 	# Spawn a test droppable
-	var droppable = DroppableFactory.spawn_droppable("carrot", Vector2(100, 200), hud_instance)
+	spawn_random_droppables(10)  # Spawn 10 droppables
 
+func spawn_random_droppables(count: int) -> void:
+	if not hud_instance:
+		print("Error: HUD instance is null! Droppables cannot be spawned.")
+		return
 
+	for i in range(count):
+		var droppable_name = _get_random_droppable_name()
+		var random_position = _get_random_farm_position()
+		DroppableFactory.spawn_droppable(droppable_name, random_position, hud_instance)
+
+func _get_random_droppable_name() -> String:
+	var droppable_names = ["carrot", "strawberry", "tomato"]  # Add more droppable types
+	return droppable_names[randi() % droppable_names.size()]
+
+func _get_random_farm_position() -> Vector2:
+	var farm_area = Rect2(Vector2(0, 0), Vector2(128, 128))  # Define the bounds of your farm
+	var random_x = randi() % int(farm_area.size.x) + farm_area.position.x
+	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
+	return Vector2(random_x, random_y)
 
 func _input(event: InputEvent) -> void:
 	# Handle ESC key input specifically in farm_scene

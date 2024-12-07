@@ -57,7 +57,6 @@ func set_hud_by_slot(slot_index: int) -> void:
 				current_tool = TOOL_MAP.get(item_texture, "unknown")
 				
 				emit_signal("tool_changed", slot_index, item_texture)
-				print("Tool updated. Current tool:", current_tool)
 			else:
 				print("Tool node in slot ", slot_index, " is empty. Cannot set tool.")
 		else:

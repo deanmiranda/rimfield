@@ -24,25 +24,21 @@ func _ready() -> void:
 			
 func set_hud(hud_instance: Node) -> void:
 	hud_path = hud_instance  # Save the reference for future use
-	print("HUD instance received in Farming Manager:", hud_instance)
 
 	# Set up the Tool Switcher from the HUD
 	tool_switcher = hud_instance.get_node("ToolSwitcher")
-	print('toolswitcher dean:', tool_switcher)
 	if tool_switcher:
-		print('tool_switcher.get("current_tool")', tool_switcher.get("current_tool"))
 		# Connect tool switcher signal
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
 		current_tool = tool_switcher.get("current_tool")  # Sync tool states
-		print("ToolSwitcher initialized. Current tool:", current_tool)
 	else:
 		print("Error: ToolSwitcher not found as a child of HUD.")
 
 
 func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
 	if item_texture:
-		# Use metadata or mapping logic to determine the tool name from the texture
+		# Dynamically map the tool name using texture or metadata
 		current_tool = _get_tool_name_from_texture(item_texture)
 		print("Tool updated to:", current_tool)
 	else:
@@ -58,7 +54,6 @@ func _get_tool_name_from_texture(item_texture: Texture) -> String:
 	return tool_map.get(item_texture, "unknown")  # Default to "unknown" if not found
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
-	print("Interacting with tile. Target:", target_pos, "Player:", player_pos)
 	
 	if not farmable_layer:
 		print("Farmable layer is null.")
