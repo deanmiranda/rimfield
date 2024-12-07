@@ -89,26 +89,6 @@ func _get_random_farm_position() -> Vector2:
 	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
 	return Vector2(random_x, random_y)
 
-func _input(event: InputEvent) -> void:
-	# Handle ESC key input specifically in farm_scene
-	if event.is_action_pressed("ui_cancel"):
-		toggle_pause_menu()
-
-	# Handle inventory toggle with "i"
-	if event.is_action_pressed("ui_inventory"):
-		_toggle_inventory()
-
-func toggle_pause_menu() -> void:
-	# Toggle the pause menu visibility in the gameplay scene
-	if pause_menu.visible:
-		pause_menu.hide()
-		get_tree().paused = false  # Unpause the entire game
-		paused = false
-	else:
-		pause_menu.show()
-		get_tree().paused = true  # Pause the entire game, but leave UI active
-		paused = true
-
 func _on_game_loaded() -> void:
 	_load_farm_state()  # Apply loaded state when notified
 
@@ -145,10 +125,6 @@ func _load_farm_state() -> void:
 			"planted":
 				tilemap.set_cell(position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
 
-# Function to toggle inventory visibility
-func _toggle_inventory() -> void:
-	if inventory_instance:
-		inventory_instance.visible = !inventory_instance.visible
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	var particle_emitter = emitter_scene.instantiate()

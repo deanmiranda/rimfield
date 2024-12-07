@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/scenes/main_menu.gd" id="1_7w23d"]
 [ext_resource type="Texture2D" uid="uid://cg1wubhccuodj" path="res://assets/main/RimfieldValley.webp" id="2_j5rje"]
 
-[node name="Node2D" type="Control"]
+[node name="Main_Menu" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0

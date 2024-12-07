@@ -15,25 +15,26 @@ var paused = false
 var inventory_instance: Control = null  # Reference to the inventory instance
 
 func _ready() -> void:
-	# Inventory setup
+	update_input_processing()
+	set_process(true) 
+	
 	instantiate_inventory()  # Call inventory instantiation
-
-	# Pause menu setup
-	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
-	if not pause_menu_scene:
-		print("Error: Failed to load PauseMenu scene.")
-		return
-
-	if pause_menu_scene is PackedScene:
-		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)  # Add the pause menu to this scene
-		pause_menu.visible = false
-	else:
-		print("Error: Loaded resource is not a PackedScene.")
-
+	pause_menu_setup()
+	set_process_input(true)  # Ensure UiManager can process global inputs
+	
 	# Validation check for paths and resources
-	validate_paths_and_resources()
+	#validate_paths_and_resources()
 
+var last_scene_name: String = ""
+
+func _process(delta: float) -> void:
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		var current_scene_name = current_scene.name
+		if current_scene_name != last_scene_name:
+			last_scene_name = current_scene_name
+			update_input_processing()
+			
 # Function to instantiate the inventory scene globally
 func instantiate_inventory() -> void:
 	if inventory_instance:  # Prevent duplicates
@@ -59,59 +60,62 @@ func instantiate_inventory() -> void:
 		InventoryManager.set_inventory_instance(inventory_instance)
 
 		# Populate with test items
-		populate_test_inventory_items()
+		#populate_test_inventory_items()
 	else:
 		print("Error: Failed to instantiate inventory scene!")
 
-func populate_test_inventory_items() -> void:
-	var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
-	if not slots:
-		return
+#func populate_test_inventory_items() -> void:
+	#var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+	#if not slots:
+		#return
+#
+	#var shovel_texture = preload("res://assets/tiles/tools/shovel.png")  # Example texture path
+	#for slot in slots.get_children():
+		#if slot is TextureButton and slot.slot_index == 1:  # First slot has `slot_index: 1`
+			#slot.set_item(shovel_texture)
+	#
 
-	var shovel_texture = preload("res://assets/tiles/tools/shovel.png")  # Example texture path
-	for slot in slots.get_children():
-		if slot is TextureButton and slot.slot_index == 1:  # First slot has `slot_index: 1`
-			slot.set_item(shovel_texture)
-	
-func toggle_inventory() -> void:
-	if not inventory_instance:
-		return
-
-	inventory_instance.visible = not inventory_instance.visible
-
-	if inventory_instance.visible:
-		debug_all_slots()
 
 # Debugging all slots in inventory
-func debug_all_slots() -> void:
-	var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
-	if not slots:
-		print("Error: GridContainer not found in inventory instance.")
+#func debug_all_slots() -> void:
+	#var slots = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+	#if not slots:
+		#print("Error: GridContainer not found in inventory instance.")
+		#return
+#
+	#for slot in slots.get_children():
+		#if slot is TextureButton:
+			#print("Slot", slot.slot_index, "item_texture:", slot.item_texture)
+
+func pause_menu_setup() -> void:
+		# Pause menu setup
+	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
+	if not pause_menu_scene:
+		print("Error: Failed to load PauseMenu scene.")
 		return
 
-	for slot in slots.get_children():
-		if slot is TextureButton:
-			print("Slot", slot.slot_index, "item_texture:", slot.item_texture)
-
-# Helper function to check if we're in a game scene
-func is_in_game_scene() -> bool:
-	var current_scene = get_tree().current_scene
-	return current_scene and current_scene.name.begins_with("farm_")
+	if pause_menu_scene is PackedScene:
+		pause_menu = pause_menu_scene.instantiate()
+		add_child(pause_menu)  # Add the pause menu to this scene
+		pause_menu.visible = false
+	else:
+		print("Error: Loaded resource is not a PackedScene.")
 
 func _input(event: InputEvent) -> void:
-	if is_in_game_scene():
-		# Handle 'i' input to toggle inventory
-		if event.is_action_pressed("ui_inventory"):
-			toggle_inventory()
+	if event.is_action_pressed("ui_cancel"):
+		if inventory_instance and inventory_instance.visible:
+			toggle_inventory()  # Close inventory first
+		elif pause_menu and not pause_menu.visible:
+			toggle_pause_menu()  # Open pause menu if inventory is closed
+		elif pause_menu and pause_menu.visible:
+			toggle_pause_menu()  # Close pause menu
 
-		# Handle ESC key input for inventory and pause menu
-		if event.is_action_pressed("ui_cancel"):
-			if inventory_instance and inventory_instance.visible:
-				toggle_inventory()
-			else:
-				toggle_pause_menu()
+	elif event.is_action_pressed("ui_inventory"):
+		toggle_inventory()
 
+# Function to toggle pause menu visibility
 func toggle_pause_menu() -> void:
+	# Toggle the pause menu visibility in the gameplay scene
 	if pause_menu.visible:
 		pause_menu.hide()
 		get_tree().paused = false  # Unpause the entire game
@@ -121,11 +125,15 @@ func toggle_pause_menu() -> void:
 		get_tree().paused = true  # Pause the entire game, but leave UI active
 		paused = true
 
+# Function to toggle inventory visibility
+func toggle_inventory() -> void:
+	if inventory_instance:
+		inventory_instance.visible = !inventory_instance.visible
+
 # Function to validate paths and resources
 func validate_paths_and_resources() -> void:
 	if not inventory_scene:
 		print("Warning: Inventory scene is not assigned properly.")
-	# Add further checks for other resources as needed
 
 ## Enhanced debugging function with null checks and robust output
 #func _debug_inventory_info() -> void:
@@ -160,3 +168,27 @@ func validate_paths_and_resources() -> void:
 		#print("Error: 'GridContainer' node not found in inventory instance.")
 #
 	#print("--- End of Enhanced Inventory Debug Info ---")
+
+# Helper functions
+
+# Helper function to check if we're in a game scene
+func is_in_game_scene() -> bool:
+	var current_scene = get_tree().current_scene
+	return current_scene and current_scene.name.begins_with("Main_")
+
+# Helper function to handle main scene not toggling pause/inventory
+func update_input_processing() -> void:
+	# Get the current scene
+	var current_scene = get_tree().current_scene
+
+	if current_scene and current_scene.name != "Main_Menu":  # Enable input only in game scenes
+		set_process_input(true)
+	else:
+		# Disable input processing in non-game scenes
+		set_process_input(false)
+		
+		# Hide inventory and pause menu when switching to non-game scenes
+		if inventory_instance:
+			inventory_instance.visible = false
+		if pause_menu:
+			pause_menu.visible = false

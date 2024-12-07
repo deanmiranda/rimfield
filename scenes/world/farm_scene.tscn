@@ -1744,7 +1744,7 @@ size = Vector2(29, 18.5)
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4pxu5"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7nnll"]
-size = Vector2(20, 32)
+size = Vector2(20, 22)
 
 [node name="Farm" type="Node2D"]
 script = ExtResource("1_y06tk")
@@ -1842,7 +1842,7 @@ uppercase = true
 [node name="CollisionShape2D" type="CollisionShape2D" parent="House/Door"]
 light_mask = 0
 material = SubResource("CanvasItemMaterial_4pxu5")
-position = Vector2(0, 6)
+position = Vector2(0, 1)
 shape = SubResource("RectangleShape2D_7nnll")
 
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]

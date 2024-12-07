@@ -23,6 +23,7 @@ func change_scene(scene_path: String, spawn_position: Vector2 = Vector2.ZERO) ->
 	else:
 		get_tree().paused = false  # Ensure the tree is not paused when switching to gameplay
 
+
 func handle_pause_request(paused_state: bool):
 	get_tree().paused = paused_state
 	paused = paused_state

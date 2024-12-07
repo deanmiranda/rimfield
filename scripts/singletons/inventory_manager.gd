@@ -83,9 +83,9 @@ func add_item_to_first_empty_slot(item_data: Resource) -> bool:
 	# Iterate over the slots in the inventory
 	for slot_index in inventory_slots.keys():
 		if inventory_slots[slot_index] == null:  # Check if the slot is empty
-			print("Found empty slot: ", slot_index)
+			#print("Found empty slot: ", slot_index)
 			inventory_slots[slot_index] = item_data.texture
-			print("Item added to slot: ", slot_index, " Item ID: ", item_data.item_id)
+			#print("Item added to slot: ", slot_index, " Item ID: ", item_data.item_id)
 			sync_inventory_ui()  # Trigger UI update
 			return true
 	return false
@@ -94,7 +94,7 @@ func add_item_to_first_empty_slot(item_data: Resource) -> bool:
 func update_inventory_slots(slot_index: int, item_texture: Texture) -> void:
 	if inventory_slots.has(slot_index):
 		inventory_slots[slot_index] = item_texture
-		print("Inventory slot ", slot_index, " updated with texture: ", item_texture)
+		#print("Inventory slot ", slot_index, " updated with texture: ", item_texture)
 	else:
 		print("Error: Slot index ", slot_index, " is out of bounds.")
 
@@ -114,14 +114,14 @@ func sync_inventory_ui() -> void:
 	# Sync slots with inventory dictionary
 	for i in range(inventory_slots.size()):
 		if i >= grid_container.get_child_count():
-			print("Warning: Slot index", i, "exceeds GridContainer child count.")
+			#print("Warning: Slot index", i, "exceeds GridContainer child count.")
 			break  # Stop if we exceed the available slots in GridContainer
 
 		var slot = grid_container.get_child(i)  # Get slot by index
 		if slot and slot is TextureButton:
 			var item_texture = inventory_slots[i]
 			slot.texture_normal = item_texture if item_texture != null else null  # Update texture
-			print("Updated slot: ", i, " with texture: ", item_texture)
+			#print("Updated slot: ", i, " with texture: ", item_texture)
 		else:
 			print("Warning: Slot", i, "is not a TextureButton or not found.")
 
