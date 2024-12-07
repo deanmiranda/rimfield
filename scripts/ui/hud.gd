@@ -62,8 +62,6 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_button: TextureButton) 
 			emit_signal("tool_changed", index, item_texture)
 
 func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
-	print("Highlighting slot:", slot_index)
-
 	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:

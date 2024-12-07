@@ -6,10 +6,11 @@ var inventory_slots: Dictionary = {}
 # Reference to the inventory UI scene and instance
 @export var inventory_scene: PackedScene
 var inventory_instance: Control = null
+var max_inventory_slots: int = 12  # Default inventory size
 
 func _ready() -> void:
 	# Initialize inventory_slots with 48 empty slots (or more if needed)
-	for i in range(6):  # Replace 48 with the maximum number of slots you expect to support
+	for i in range(max_inventory_slots):  # Replace 48 with the maximum number of slots you expect to support
 		inventory_slots[i] = null
 		
 # Add an item to the inventory (returns true if successful, false if full)
@@ -69,7 +70,87 @@ func instantiate_inventory_ui(parent_node: Node = null) -> void:
 	# Assign textures to slots
 	assign_textures_to_slots()
 
-# Assign textures to the inventory UI slots
+# Set the inventory instance
+func set_inventory_instance(instance: Control) -> void:
+	if instance and instance is Control:
+		inventory_instance = instance
+	else:
+		print("Error: Provided instance is not a valid Control node.")
+
+func add_item_to_first_empty_slot(item_data: Resource) -> bool:
+	print("Attempting to add item:", item_data.item_id, "to inventory.")
+	
+	# Iterate over the slots in the inventory
+	for slot_index in inventory_slots.keys():
+		if inventory_slots[slot_index] == null:  # Check if the slot is empty
+			print("Found empty slot: ", slot_index)
+			inventory_slots[slot_index] = item_data.texture
+			print("Item added to slot: ", slot_index, " Item ID: ", item_data.item_id)
+			sync_inventory_ui()  # Trigger UI update
+			return true
+	return false
+
+#	Functions for the inventory panel
+func update_inventory_slots(slot_index: int, item_texture: Texture) -> void:
+	if inventory_slots.has(slot_index):
+		inventory_slots[slot_index] = item_texture
+		print("Inventory slot ", slot_index, " updated with texture: ", item_texture)
+	else:
+		print("Error: Slot index ", slot_index, " is out of bounds.")
+
+func sync_inventory_ui() -> void:
+	print("Syncing UI with inventory_slots dictionary...")
+
+	if not inventory_instance:
+		print("Error: Inventory instance is null. Cannot sync UI.")
+		return
+
+	# Access the GridContainer for slots
+	var grid_container = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+	if not grid_container:
+		print("Error: GridContainer node not found in inventory instance.")
+		return
+
+	# Sync slots with inventory dictionary
+	for i in range(inventory_slots.size()):
+		if i >= grid_container.get_child_count():
+			print("Warning: Slot index", i, "exceeds GridContainer child count.")
+			break  # Stop if we exceed the available slots in GridContainer
+
+		var slot = grid_container.get_child(i)  # Get slot by index
+		if slot and slot is TextureButton:
+			var item_texture = inventory_slots[i]
+			slot.texture_normal = item_texture if item_texture != null else null  # Update texture
+			print("Updated slot: ", i, " with texture: ", item_texture)
+		else:
+			print("Warning: Slot", i, "is not a TextureButton or not found.")
+
+	print("Inventory UI sync complete.")
+
+#	Functions for Hud 
+func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
+	# Iterate through HUD hud slots
+	for i in range(10):  # Assuming 10 hud slots
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
+		var slot = hud.get_node_or_null(slot_path)
+
+		if slot:
+			if slot.texture != null:  # Skip if slot already has a item
+				continue
+
+			# Directly assign the droppable's texture
+			if item_data and item_data.texture:
+				inventory_slots[i] = item_data.texture  # Update inventory slot for reference
+				slot.texture = item_data.texture  # Update HUD slot
+				return true
+
+		else:
+			print("HUD slot ", i, " not found at path:", slot_path)
+	print('Hud Full returning false and attempting inventory')
+	return false
+
+
+# Assign textures to the UI slots
 func assign_textures_to_slots() -> void:
 	if not inventory_instance:
 		print("Error: No inventory instance available for assigning textures.")
@@ -102,104 +183,48 @@ func assign_textures_to_slots() -> void:
 		else:
 			print("Warning: Unexpected node found in inventory slots. Expected 'TextureButton'. Node name:", slot.name)
 
-# Set the inventory instance
-func set_inventory_instance(instance: Control) -> void:
-	if instance and instance is Control:
-		inventory_instance = instance
-	else:
-		print("Error: Provided instance is not a valid Control node.")
 
-func add_item_to_first_empty_slot(item_data: Resource) -> bool:
-	print("Attempting to add item:", item_data.item_id, "to inventory.")
-	
-	# Iterate over the slots in the inventory
-	for slot_index in inventory_slots.keys():
-		if inventory_slots[slot_index] == null:  # Check if the slot is empty
-			print("Found empty slot:", slot_index)
-			inventory_slots[slot_index] = item_data.texture
-			print("Item added to slot:", slot_index, "Item ID:", item_data.item_id)
-			update_inventory_slots_ui()  # Trigger UI update
-			return true
-	
-	print("Inventory full. Could not add item:", item_data.item_id)
-	return false
+#// Base functionality ends
 
-#functions for the inventory panel
-func update_inventory_slots(slot_index: int, item_texture: Texture) -> void:
-	if inventory_slots.has(slot_index):
-		inventory_slots[slot_index] = item_texture
-		print("Inventory slot", slot_index, "updated with texture:", item_texture)
-	else:
-		print("Error: Slot index", slot_index, "is out of bounds.")
+# Upgrades
 
-func update_inventory_slots_ui() -> void:
-	print("Updating inventory UI...")
-
-	if not inventory_instance:
-		print("Error: Inventory instance not found.")
-		return
-
-	var grid_container = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
-	if not grid_container:
-		print("Error: GridContainer node not found.")
-		return
-
-	for i in inventory_slots.keys():
-		var slot = grid_container.get_child(i)
-		if slot and slot is TextureButton:
-			var item_texture = inventory_slots.get(i)
-			slot.texture_normal = item_texture if item_texture else slot.get("empty_texture")
-		else:
-			print("Unexpected node in inventory grid at index", i)
-
-	print("Inventory UI updated.")
-
-
-func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
-	# Iterate through HUD hud slots
-	for i in range(10):  # Assuming 10 hud slots
-		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
-		var slot = hud.get_node_or_null(slot_path)
-
-		if slot:
-			if slot.texture != null:  # Skip if slot already has a item
-				continue
-
-			# Directly assign the droppable's texture
-			if item_data and item_data.texture:
-				inventory_slots[i] = item_data.texture  # Update inventory slot for reference
-				slot.texture = item_data.texture  # Update HUD slot
-				return true
-
-		else:
-			print("HUD slot", i, "not found at path:", slot_path)
-	print('Hud Full returning false and attempting inventory')
-	return false
-
-func update_hud_slots_ui(hud: Node) -> void:
-	# Iterate through tool slots (hud_slot_0 to hud_slot_4)
-	for i in range(10):  # Assuming 5 tool slots
-		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
-		var slot = hud.get_node_or_null(slot_path)
-
-		if slot:
-			var item_texture = inventory_slots.get(i, null)  # Fetch from inventory_slots
-
-			if item_texture != null:
-				slot.texture = item_texture  # Assign the texture
-			else:
-				slot.texture = null  # Clear the slot if empty
-		else:
-			print("HUD slot", i, "not found at path:", slot_path)
-
-
-#Debug functions
-# Populate the inventory with only a single test item for drag-and-drop testing
-#func populate_inventory_with_test_items() -> void:
-	#var test_texture = preload("res://assets/tiles/tools/shovel.png")
-	#if add_item(0, test_texture):
-		#print("Test item added to inventory at slot 0.")
+#func upgrade_inventory(new_size: int) -> void:
+	#if new_size > max_inventory_slots:
+		#for i in range(max_inventory_slots, new_size):
+			#inventory_slots[i] = null  # Initialize new slots
+		#max_inventory_slots = new_size
+		#print("Inventory upgraded! New size:", max_inventory_slots)
+		#update_inventory_ui()  # Update UI to reflect the new size
 	#else:
-		#print("Error: Could not add test item to inventory.")
+		#print("New size must be larger than current capacity!")
 
-	#assign_textures_to_slots()
+#func update_inventory_ui() -> void:
+		#print('add slots to inventory panel for more inventory');
+		
+#func update_hud_slots_ui(hud: Node) -> void:
+	## Iterate through tool slots (hud_slot_0 to hud_slot_4)
+	#for i in range(10):  # Assuming 5 tool slots
+		#var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
+		#var slot = hud.get_node_or_null(slot_path)
+#
+		#if slot:
+			#var item_texture = inventory_slots.get(i, null)  # Fetch from inventory_slots
+#
+			#if item_texture != null:
+				#slot.texture = item_texture  # Assign the texture
+			#else:
+				#slot.texture = null  # Clear the slot if empty
+		#else:
+			#print("HUD slot", i, "not found at path:", slot_path)
+#
+#
+##Debug functions
+## Populate the inventory with only a single test item for drag-and-drop testing
+##func populate_inventory_with_test_items() -> void:
+	##var test_texture = preload("res://assets/tiles/tools/shovel.png")
+	##if add_item(0, test_texture):
+		##print("Test item added to inventory at slot 0.")
+	##else:
+		##print("Error: Could not add test item to inventory.")
+#
+	##assign_textures_to_slots()

@@ -67,7 +67,7 @@ func _ready() -> void:
 		print("Error: HUD scene not assigned!")
 
 	# Spawn a test droppable
-	spawn_random_droppables(20)  # Spawn 10 droppables
+	spawn_random_droppables(120)  # Spawn 10 droppables
 
 func spawn_random_droppables(count: int) -> void:
 	if not hud_instance:
@@ -84,7 +84,7 @@ func _get_random_droppable_name() -> String:
 	return droppable_names[randi() % droppable_names.size()]
 
 func _get_random_farm_position() -> Vector2:
-	var farm_area = Rect2(Vector2(0, 0), Vector2(128, 128))  # Define the bounds of your farm
+	var farm_area = Rect2(Vector2(0, 0), Vector2(-400, 400))  # Define the bounds of your farm
 	var random_x = randi() % int(farm_area.size.x) + farm_area.position.x
 	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
 	return Vector2(random_x, random_y)

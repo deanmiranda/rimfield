@@ -29,8 +29,6 @@ func _on_body_entered(body: Node2D) -> void:
 			var added_to_hud = InventoryManager.add_item_to_hud_slot(item_data, hud)
 
 			if not added_to_hud:
-				print("All tool slots are full. Attempting to add to inventory.")
-				
 				# Try adding to inventory as overflow
 				var added_to_inventory = InventoryManager.add_item_to_first_empty_slot(item_data)
 				
