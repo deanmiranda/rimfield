@@ -67,7 +67,7 @@ func _ready() -> void:
 		print("Error: HUD scene not assigned!")
 
 	# Spawn a test droppable
-	spawn_random_droppables(120)  # Spawn 10 droppables
+	spawn_random_droppables(40)  # Spawn 10 droppables
 
 func spawn_random_droppables(count: int) -> void:
 	if not hud_instance:

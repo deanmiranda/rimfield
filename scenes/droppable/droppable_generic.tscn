@@ -5,6 +5,7 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_acbck"]
 
 [node name="Node2D" type="Node2D"]
+z_index = 10
 script = ExtResource("1_bonwn")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
