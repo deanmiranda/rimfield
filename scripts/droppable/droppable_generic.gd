@@ -25,13 +25,20 @@ func _ready() -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D and body.name == "Player":
 		if hud and item_data and item_data.texture:
-			# Pass the texture to the HUD's tool slot logic
-			var added = InventoryManager.add_item_to_hud_slot(item_data, hud)
-			
-			if not added:
-				print("All tool slots are full. Droppable texture will be handled by inventory.")
+			# Try adding to HUD slots first
+			var added_to_hud = InventoryManager.add_item_to_hud_slot(item_data, hud)
 
-			# Remove the droppable from the world
+			if not added_to_hud:
+				print("All tool slots are full. Attempting to add to inventory.")
+				
+				# Try adding to inventory as overflow
+				var added_to_inventory = InventoryManager.add_item_to_first_empty_slot(item_data)
+				
+				if not added_to_inventory:
+					print("Inventory is also full. Droppable remains on the map.")
+					return  # Exit without removing the droppable
+					
+			# If added successfully to HUD or inventory, remove from the map
 			queue_free()
 		else:
 			print("HUD reference or item data is null; cannot update.")
