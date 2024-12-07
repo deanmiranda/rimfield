@@ -36,14 +36,17 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_button: TextureButton) 
 			if index >= 0 and index < TOOL_NAMES.size():
 				emit_signal("tool_changed", TOOL_NAMES[index])
 
-func _highlight_active_tool(new_tool: String) -> void:
-	# Update the highlight state for each tool slot
+func _highlight_active_tool(slot_index: int, item_texture: Texture) -> void:
+	# Update the highlight state for each tool slot based on the active slot index
 	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
-	for i in range(TOOL_NAMES.size()):
-		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
+	for i in range(tool_buttons.size()):
+		if tool_buttons[i] is TextureButton:
 			var highlight = tool_buttons[i].get_node("Highlight")
 			if highlight:
-				highlight.visible = (TOOL_NAMES[i] == new_tool)
+				# Highlight the active slot based on the slot_index
+				highlight.visible = (i == slot_index)
+				if i == slot_index:
+					print("Highlighting slot:", slot_index, "with texture:", item_texture)
 
 func update_hud() -> void:
 	if InventoryManager:

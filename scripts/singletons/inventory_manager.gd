@@ -157,7 +157,7 @@ func update_inventory_ui() -> void:
 func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 	# Iterate through HUD tool slots
 	for i in range(5):  # Assuming 5 tool slots
-		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/tool_slot_" + str(i)
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Tool_slot_" + str(i)
 		var slot = hud.get_node_or_null(slot_path)
 
 		if slot:
@@ -178,7 +178,7 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 func update_hud_slots_ui(hud: Node) -> void:
 	# Iterate through tool slots (tool_slot_0 to tool_slot_4)
 	for i in range(5):  # Assuming 5 tool slots
-		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/tool_slot_" + str(i)
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Tool_slot_" + str(i)
 		var slot = hud.get_node_or_null(slot_path)
 
 		if slot:
