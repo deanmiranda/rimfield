@@ -15,11 +15,6 @@ func _ready() -> void:
 	visualize_inventory()
 	#debug_z_indexes_on_screen()
 
-#func open_inventory() -> void:
-	#is_open = true
-	#visualize_inventory()
-	##debug_z_indexes_on_screen()  # Trigger debug method
-	#
 func visualize_inventory() -> void:
 	if InventoryManager:
 		for slot in slots:

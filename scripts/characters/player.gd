@@ -62,10 +62,9 @@ func _update_animation(input_direction: Vector2) -> void:
 
 func _process(_delta: float) -> void:
 	# Handle interaction input
-	if Input.is_action_just_pressed("ui_interact"):
+	if Input.is_action_just_pressed("ui_mouse_left"):
 		if farming_manager:
 			var mouse_pos = get_global_mouse_position()
-
 			# Let farming_manager handle the interaction
 			farming_manager.interact_with_tile(mouse_pos, global_position)
 

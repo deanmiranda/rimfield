@@ -33,7 +33,6 @@ func _on_body_entered(body: Node2D) -> void:
 				var added_to_inventory = InventoryManager.add_item_to_first_empty_slot(item_data)
 				
 				if not added_to_inventory:
-					print("Inventory is also full. Droppable remains on the map.")
 					return  # Exit without removing the droppable
 					
 			# If added successfully to HUD or inventory, remove from the map

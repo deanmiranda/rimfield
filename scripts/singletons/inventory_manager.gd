@@ -78,7 +78,6 @@ func set_inventory_instance(instance: Control) -> void:
 		print("Error: Provided instance is not a valid Control node.")
 
 func add_item_to_first_empty_slot(item_data: Resource) -> bool:
-	print("Attempting to add item:", item_data.item_id, "to inventory.")
 	
 	# Iterate over the slots in the inventory
 	for slot_index in inventory_slots.keys():
