@@ -51,7 +51,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_0" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_0"]
+[node name="Hud_slot_0" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_0"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -89,7 +89,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_1"]
+[node name="Hud_slot_1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_1"]
 z_index = 10
 custom_minimum_size = Vector2(25, 40)
 layout_mode = 2
@@ -126,7 +126,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_2"]
+[node name="Hud_slot_2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_2"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -164,7 +164,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_3" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_3"]
+[node name="Hud_slot_3" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_3"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -202,7 +202,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_4" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_4"]
+[node name="Hud_slot_4" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_4"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -239,7 +239,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_5" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_5"]
+[node name="Hud_slot_5" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_5"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -276,7 +276,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_6" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_6"]
+[node name="Hud_slot_6" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_6"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -313,7 +313,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_7" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_7"]
+[node name="Hud_slot_7" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_7"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -350,7 +350,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_8" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_8"]
+[node name="Hud_slot_8" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_8"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)
@@ -387,7 +387,7 @@ stretch_mode = 5
 script = ExtResource("2_muuh7")
 empty_texture = ExtResource("3_5va86")
 
-[node name="Tool_slot_9" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_9"]
+[node name="Hud_slot_9" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_9"]
 z_index = 10
 clip_contents = true
 custom_minimum_size = Vector2(25, 40)

@@ -155,13 +155,13 @@ func update_inventory_ui() -> void:
 	print("Inventory UI updated.")
 
 func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
-	# Iterate through HUD tool slots
-	for i in range(5):  # Assuming 5 tool slots
-		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Tool_slot_" + str(i)
+	# Iterate through HUD hud slots
+	for i in range(5):  # Assuming 5 hud slots
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
 		var slot = hud.get_node_or_null(slot_path)
 
 		if slot:
-			if slot.texture != null:  # Skip if slot already has a tool
+			if slot.texture != null:  # Skip if slot already has a item
 				continue
 
 			# Directly assign the droppable's texture
@@ -176,9 +176,9 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 	return false
 
 func update_hud_slots_ui(hud: Node) -> void:
-	# Iterate through tool slots (tool_slot_0 to tool_slot_4)
+	# Iterate through tool slots (hud_slot_0 to hud_slot_4)
 	for i in range(5):  # Assuming 5 tool slots
-		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Tool_slot_" + str(i)
+		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
 		var slot = hud.get_node_or_null(slot_path)
 
 		if slot:

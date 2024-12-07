@@ -21,13 +21,14 @@ func _ready() -> void:
 	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
 	for i in range(TOOL_NAMES.size()):
 		if i < tool_buttons.size() and tool_buttons[i] is TextureButton:
-			var tool_slot = tool_buttons[i]
-			tool_slot.set_meta("tool_index", i)
-			tool_slot.connect("gui_input", Callable(self, "_on_tool_clicked").bind(tool_slot))
-			tool_slot.mouse_filter = Control.MOUSE_FILTER_STOP
+			var hud_slot = tool_buttons[i]
+			hud_slot.set_meta("tool_index", i)
+			hud_slot.connect("gui_input", Callable(self, "_on_tool_clicked").bind(hud_slot))
+			hud_slot.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	# Set default tool as "hoe"
-	emit_signal("tool_changed", TOOL_NAMES[0])
+	for i in range(TOOL_NAMES.size()):  # Temporarily keeping TOOL_NAMES for initialization
+		emit_signal("tool_changed", i, null)  # Emit for each slot with no texture initially
 
 func _on_tool_clicked(event: InputEvent, clicked_texture_button: TextureButton) -> void:
 	if event is InputEventMouseButton and event.pressed:
@@ -36,17 +37,16 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_button: TextureButton) 
 			if index >= 0 and index < TOOL_NAMES.size():
 				emit_signal("tool_changed", TOOL_NAMES[index])
 
-func _highlight_active_tool(slot_index: int, item_texture: Texture) -> void:
-	# Update the highlight state for each tool slot based on the active slot index
+func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
+	print("Highlighting slot:", slot_index)
+
 	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			var highlight = tool_buttons[i].get_node("Highlight")
 			if highlight:
-				# Highlight the active slot based on the slot_index
-				highlight.visible = (i == slot_index)
-				if i == slot_index:
-					print("Highlighting slot:", slot_index, "with texture:", item_texture)
+				highlight.visible = (i == slot_index)  # Highlight the active tool slot
+
 
 func update_hud() -> void:
 	if InventoryManager:

@@ -2,12 +2,19 @@ extends Node
 
 signal tool_changed(slot_index: int, item_texture: Texture)  # Signal for tool changes
 
-var current_tool_slot: int = -1  # Currently active tool slot index
+var current_hud_slot: int = -1  # Currently active tool slot index
 var current_tool_texture: Texture = null  # Texture of the currently active tool
+var current_tool: String = "unknown"  # Default to unknown
+
+ #Tool mapping from texture to tool name
+const TOOL_MAP = {
+	preload("res://assets/tiles/tools/shovel.png"): "hoe",
+	preload("res://assets/tiles/tools/rototiller.png"): "till",
+	preload("res://assets/tiles/tools/pick-axe.png"): "pickaxe",
+	preload("res://assets/tilesets/full version/tiles/FartSnipSeeds.png"): "seed"
+}
 
 func _ready() -> void:
-	print("ToolSwitcher ready: Connecting tool_changed signal to HUD.")
-	
 	# Access HUD via sibling relationship
 	var hud = get_node("../HUD")
 	if hud:
@@ -23,11 +30,9 @@ func _input(event: InputEvent) -> void:
 		if i == 9:  # Special case for "0" key (maps to slot 9)
 			action = "ui_hud_0"
 		if event.is_action_pressed(action):
-			set_tool_by_slot(i)
+			set_hud_by_slot(i)
 
-func set_tool_by_slot(slot_index: int) -> void:
-	print("Setting tool by slot:", slot_index)
-
+func set_hud_by_slot(slot_index: int) -> void:
 	var hud = get_node("../HUD")
 	if not hud:
 		print("Error: HUD not found.")
@@ -38,25 +43,21 @@ func set_tool_by_slot(slot_index: int) -> void:
 	var texture_button = hud.get_node_or_null(button_path)
 	
 	if texture_button:
-		print("Found TextureButton at:", button_path, "Children:", texture_button.get_children())
-		
-		# Access the Tool_slot_X child
-		var slot_path = button_path + "/Tool_slot_" + str(slot_index)
-		var tool_slot = hud.get_node_or_null(slot_path)
+		# Access the Hud_slot_X child
+		var slot_path = button_path + "/Hud_slot_" + str(slot_index)
+		var hud_slot = hud.get_node_or_null(slot_path)
 
-		if tool_slot:
-			print("Tool slot is dean: ", tool_slot)
-			var item_texture = tool_slot.get_texture() if tool_slot.has_method("get_texture") else null
-			print("item_texture is not found! dean: ", item_texture)
+		if hud_slot:
+			var item_texture = hud_slot.get_texture() if hud_slot.has_method("get_texture") else null
 			
 			if item_texture:
-				print("Tool selected from slot:", slot_index, "Texture:", item_texture)
-				current_tool_slot = slot_index
-				print("problem area is here dean: ", current_tool_slot);
+				current_hud_slot = slot_index
 				current_tool_texture = item_texture
+				# Map texture to tool name
+				current_tool = TOOL_MAP.get(item_texture, "unknown")
 				
-				print("or here dean: ", current_tool_slot);
 				emit_signal("tool_changed", slot_index, item_texture)
+				print("Tool updated. Current tool:", current_tool)
 			else:
 				print("Tool node in slot ", slot_index, " is empty. Cannot set tool.")
 		else:

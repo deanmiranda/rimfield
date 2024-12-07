@@ -7,11 +7,11 @@ extends Node2D
 @export var cell_size: Vector2 = Vector2(16, 16)  # Define the size of each cell manually or export for flexibility
 @export var debug_disable_dust: bool = true  # Toggle to disable dust emitter
 @export var farming_manager_path: NodePath  # farming_manager path
-@export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
 
-var hud_instance: Node = null
+var hud_instance: Node
 var pause_menu: Control
 var paused = false
+var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 
 # Reference to the inventory instance
 var inventory_instance: Control = null
@@ -49,9 +49,15 @@ func _ready() -> void:
 		print("Error: Failed to load PauseMenu scene.")
 
 	# Instantiate and add the HUD
-	if hud_scene:
-		hud_instance = hud_scene.instantiate()
+	if hud_scene_path:
+		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
+		
+		# Pass HUD instance to the farming manager
+		var farming_manager = get_node_or_null(farming_manager_path)
+		if farming_manager:
+			print('dean farming manager found setting hud', hud_instance)
+			farming_manager.set_hud(hud_instance)
 	else:
 		print("Error: HUD scene not assigned!")
 

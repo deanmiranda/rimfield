@@ -2,6 +2,11 @@ extends TextureButton
 
 @export var slot_index: int = -1
 @export var empty_texture: Texture
+
+@export var tool_name: String = ""  # Logical name for the tool
+@export var can_farm: bool = false  # Can this tool be used for farming?
+
+
 var item_texture: Texture = null
 
 const BUTTON_LEFT = 1
