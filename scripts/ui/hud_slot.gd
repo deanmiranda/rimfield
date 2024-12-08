@@ -107,5 +107,4 @@ func drop_data(_mouse_position, data):
 
 func _gui_input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT:
-		#print("HUD Slot ", slot_index, " clicked.")
 		emit_signal("tool_selected", slot_index) # Emit signal when a slot is clicked
