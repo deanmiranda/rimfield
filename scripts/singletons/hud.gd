@@ -17,22 +17,21 @@ func _ready() -> void:
 	_on_scene_changed(get_tree().current_scene.name)
 
 func _on_scene_changed(new_scene_name: String) -> void:
-	print("Scene changed to:", new_scene_name)
+	#print("Scene changed to:", new_scene_name)
 	if UiManager._is_not_game_scene():
 		print("Not in a game scene")
 	else:
-		print("In a game scene, setting up HUD")
+		#print("In a game scene, setting up HUD")
 		setup_hud()
 		
 func setup_hud() -> void:
 	var farm_node = get_node_or_null("/root/Farm")  # Adjust to your scene structure
 	if farm_node:
-		print("Farm node found", farm_node)
-		
+		#print("Farm node found", farm_node)
 		farming_manager = get_node_or_null("/root/Farm/FarmingManager")
 	else:
 		print("Error: Farming Manager node not found.")
-		print("Current Scene:", get_tree().current_scene)
+		#print("Current Scene:", get_tree().current_scene)
 #
 	# Access ToolSwitcher via sibling relationship
 	var tool_switcher = get_node("/root/Farm/Hud/ToolSwitcher")
@@ -75,7 +74,7 @@ func set_farming_manager(farming_manager_instance: Node) -> void:
 		print("Error: FarmingManager instance is null. Cannot link.")
 		
 func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
-	print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
+	#print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
 	if farming_manager:
 		farming_manager._on_tool_changed(slot_index, item_texture)
 	else:
