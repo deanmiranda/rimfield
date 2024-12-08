@@ -78,6 +78,24 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_0"]
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "1"
+horizontal_alignment = 2
+vertical_alignment = 2
+
 [node name="TextureButton_1" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
@@ -115,6 +133,24 @@ offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_1"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "1"
+horizontal_alignment = 2
 
 [node name="TextureButton_2" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
@@ -155,6 +191,24 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_2"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "1"
+horizontal_alignment = 2
+
 [node name="TextureButton_3" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
@@ -194,6 +248,24 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_3"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "1"
+horizontal_alignment = 2
+
 [node name="TextureButton_4" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
@@ -231,6 +303,23 @@ offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_4"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+horizontal_alignment = 2
 
 [node name="TextureButton_5" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
@@ -270,6 +359,23 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_5"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+horizontal_alignment = 2
+
 [node name="TextureButton_6" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
@@ -307,6 +413,23 @@ offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_6"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+horizontal_alignment = 2
 
 [node name="TextureButton_7" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
@@ -346,6 +469,23 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_7"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+horizontal_alignment = 2
+
 [node name="TextureButton_8" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
@@ -384,6 +524,23 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
 
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_8"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+horizontal_alignment = 2
+
 [node name="TextureButton_9" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
@@ -421,6 +578,23 @@ offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="Label" type="Label" parent="HUD/MarginContainer/HBoxContainer/TextureButton_9"]
+clip_contents = true
+custom_minimum_size = Vector2(23, 23)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -33.0
+offset_top = -33.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+horizontal_alignment = 2
 
 [node name="ToolSwitcher" type="Node" parent="."]
 script = ExtResource("8_d4ui7")
