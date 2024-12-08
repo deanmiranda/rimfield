@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://deeqn24en0ol1"]
+
+[ext_resource type="Script" path="res://scripts/droppable/droppable_generic.gd" id="1_bonwn"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_acbck"]
+
+[node name="Node2D" type="Node2D"]
+z_index = 10
+script = ExtResource("1_bonwn")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+
+[node name="Area2D" type="Area2D" parent="."]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("CircleShape2D_acbck")
+
+[connection signal="body_entered" from="Area2D" to="." method="_on_body_entered"]

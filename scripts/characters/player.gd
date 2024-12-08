@@ -7,20 +7,19 @@ var speed: float = 200
 var direction: Vector2 = Vector2.ZERO  # Tracks input direction
 var interactable: Node = null          # Stores the interactable object the player is near
 var farming_manager: Node = null       # Reference to the farming system
+var current_interaction: String = ""  # Track the current interaction
 
+@onready var inventory_manager = InventoryManager  # Singleton reference
 @onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
 
 func _ready() -> void:
 	# Locate farming system if in the farm scene
 	var farm_scene = get_tree().current_scene
-	print("Current scene:", farm_scene)
 
 	if farm_scene and farm_scene.has_node("FarmingManager"):
 		farming_manager = farm_scene.get_node("FarmingManager")
-		print("FarmingManager found and connected:", farming_manager)
 	else:
 		farming_manager = null
-		print("No FarmingManager found in this scene. Current children of the scene:")
 		for child in farm_scene.get_children():
 			print("- ", child.name)
 
@@ -62,9 +61,23 @@ func _update_animation(input_direction: Vector2) -> void:
 
 func _process(_delta: float) -> void:
 	# Handle interaction input
-	if Input.is_action_just_pressed("ui_interact"):
+	if Input.is_action_just_pressed("ui_mouse_left"):
 		if farming_manager:
 			var mouse_pos = get_global_mouse_position()
-
 			# Let farming_manager handle the interaction
 			farming_manager.interact_with_tile(mouse_pos, global_position)
+
+func start_interaction(interaction_type: String):
+	current_interaction = interaction_type
+	# print("Player can interact with:", interaction_type)
+
+func stop_interaction():
+	current_interaction = ""
+	
+func interact_with_droppable(droppable_data: Resource) -> void:
+	if inventory_manager:
+		var success = inventory_manager.add_item_to_first_empty_slot(droppable_data)
+		if success:
+			print("Item added to inventory:", droppable_data.item_id)
+		else:
+			print("Inventory full! Could not pick up:", droppable_data.item_id)

@@ -1,0 +1,184 @@
+Folder PATH listing for volume OS
+Volume serial number is C4E8-4C35
+C:.
++---.godot
+|   +---editor
+|   +---imported
+|   \---shader_cache
+|       +---BestFitNormalShaderRD
+|       |   \---da50b1ee325fa09e8a9d2278e44bfbc4e716c11aa4475ca5323315d9d3e84d70
+|       +---BlitShaderRD
+|       |   \---09b63e5347ccb6779fd79e54b093cfc915ec80510efa1f613c9ada9ff2e0f70d
+|       +---BokehDofShaderRD
+|       |   \---39f32133b5111c9c24ab7cd9b202ca96bb3aeb73e0c73ebd7b7a5dae08cb759f
+|       +---CanvasOcclusionShaderRD
+|       |   \---42f2245b35206bcace1cda9e39e9282519e9967978ba6d5956472809525b1150
+|       +---CanvasSdfShaderRD
+|       |   \---f65579ae334cdfb6901aee2527afd18ed626d1067a35c91f12fb632b45ce7f21
+|       +---CanvasShaderRD
+|       |   \---165f6964cfc63fea91c4221f04e7b8a54b5dc39d76b5a57aed5f99b20050b148
+|       +---ClusterDebugShaderRD
+|       |   \---2546937b6acfcec18164bde1022dd572463c5dc6a8dfb2db860e93b1f8cb6cf1
+|       +---ClusterRenderShaderRD
+|       |   \---e138dfa55627ca222eda3daa0739d50014770edfb2a8fbab0fa51e2130af04e8
+|       +---ClusterStoreShaderRD
+|       |   \---44efe54fdfa0811178ad2a7a0207ebc98532c6ae316489503cdc7c5c843a564e
+|       +---CopyShaderRD
+|       |   \---4a43f34799f84bc5a387aff816d36330149d91299172af9be2d3ab05cc0c4e9d
+|       +---CopyToFbShaderRD
+|       |   \---8668028c5ceed89276611359329de4a0f5d40702546caecc31456f63f6f9ffe8
+|       +---CubemapDownsamplerShaderRD
+|       |   \---6376d8aae8d25aa5fed14d9e78a76a69c5566f021773d2b38defa77a573b20f1
+|       +---CubemapFilterShaderRD
+|       |   \---96fd6d20ed52761601cf4665fa909c5a27f13aeaa25940cf720f4e331158ef8e
+|       +---CubemapRoughnessShaderRD
+|       |   \---1d72ea29a087908b2262137858ecb047ac60acf75d2e625661f01be4ce0d3ce2
+|       +---CubeToDpShaderRD
+|       |   \---e3db5adc31b15e80112f4d7497dc8563c39b7d64675a53dcce7f9511c5ca9f80
+|       +---Fsr2AccumulatePassShaderRD
+|       |   \---160fedb5d3ef5cf63f06d76d8bf08e8739978139204922b5f9e4d50a873eef55
+|       +---Fsr2AutogenReactivePassShaderRD
+|       |   \---dd661f6230e50b82cb23ca149e6f15401a0151912d074fd0bad085910647aeaa
+|       +---Fsr2ComputeLuminancePyramidPassShaderRD
+|       |   \---91b43885fedcca5ed604c06712cb9ebd6b2e3d2df8e9185e01069bdabda408ab
+|       +---Fsr2DepthClipPassShaderRD
+|       |   \---f3a7731ebdc135b5cd0910085daa9440b9adba2dccae0797e528638f485437ca
+|       +---Fsr2LockPassShaderRD
+|       |   \---fd7270679041c16c1c160152344dc333e0d4d01a9ea61f5ab1a97a4f148ae642
+|       +---Fsr2RcasPassShaderRD
+|       |   \---1c81d789b4d2bd0f51f75c03bdd7834fc8ce0050500ea90e2fb5b4973a5c507e
+|       +---Fsr2ReconstructPreviousDepthPassShaderRD
+|       |   \---b56b046186e0886ebe0df89f96476a1b6cdd80243d937b9fa3808f57e20326ae
+|       +---Fsr2TcrAutogenPassShaderRD
+|       |   \---51c41e3962f077bfbb9a7b6dd127c0d38925ace2350a44c93a1cf5e7bb7d9a13
+|       +---FsrUpscaleShaderRD
+|       |   \---362fc0b19d06cf68dc6f6f2d99e1f9ccfd8afaef2a65e38a931df5dd9e183d7d
+|       +---GiShaderRD
+|       |   \---2b51ba5b3e4e6be7fc223f7517a8a8b80c61234f3fbd4ffa229da05d747f020a
+|       +---LuminanceReduceShaderRD
+|       |   \---2687da76c0ac04fe197e7093fd065958200b5a2e8e378e0f61c445212a1a0ac4
+|       +---MotionVectorsShaderRD
+|       |   \---cbf3cbdcba0d0a2026c9fbf248556f1acd11beacc38a2e8c5ce7009ee49a1560
+|       +---ParticlesCopyShaderRD
+|       |   \---69566a7b0235d75ec40f504cd5555856aace22b5273899269166fde57287d26e
+|       +---ParticlesShaderRD
+|       |   \---47fcf57848349fdf54197e5c1f64750a69c8d54787d3509ade4781c9faa31654
+|       +---ResolveShaderRD
+|       |   \---4eed9a584e94b3db5e08b3dd178112267127e5cb55e97790e3791fff9eb617f7
+|       +---SceneForwardClusteredShaderRD
+|       |   +---29edc2f36233c2e08b9662507bec9ae15ecd3ff18670dd6a9d9e3c22bb80d2b9
+|       |   +---6598af838acb7313ff626d40126e27c0f884aa1a40a7cf5a1dd2311b2b83f39f
+|       |   +---8d5d67c6d3310219a88106e8336290f6e7be7d1cc12a536cef74b57ba697d3dd
+|       |   \---ff6c4ae20e3f8b8dd34fcdb417869f52a4530caf5116e770d0297554ac18fc6f
+|       +---ScreenSpaceReflectionFilterShaderRD
+|       |   \---dbd56507c7ba6e4548ad94d4267e97184ea703036185204db88001c82b622120
+|       +---ScreenSpaceReflectionScaleShaderRD
+|       |   \---e5b92b2248f95dfc9534e9d5ec71a9d1fedfe58dd8fbbb2e903d8606c1ed8e0c
+|       +---ScreenSpaceReflectionShaderRD
+|       |   \---722d4571bebbe24c59b13360d89825ac27099da739a27f42e20a004e5e92da73
+|       +---SdfgiDebugProbesShaderRD
+|       |   \---41af92f24cfffd1d870ed50e96e7ae1bfd6c2cc11f728d520ef0a827972a1438
+|       +---SdfgiDebugShaderRD
+|       |   \---372719c6eef32a8635d4db9b69f2f8b01b907642dbac0cc26f37ea2a76eeb95d
+|       +---SdfgiDirectLightShaderRD
+|       |   \---803c48e266e0d9c1590d25424071a668b88abc76bcda6fdde74b8524f298683c
+|       +---SdfgiIntegrateShaderRD
+|       |   \---4647045d5ae8023ab209178c191d003ce94a58384c2bf158dfd5d1b256a1feb2
+|       +---SdfgiPreprocessShaderRD
+|       |   \---42b3acb8f8f580e0ad8624239eada43680eb33d7a90e0279cf34b99bad80ffc9
+|       +---ShadowFrustumShaderRD
+|       |   \---c9c1b6421f8f6625effc9ddfa4bb2c09cafda0942b62fb8e1414e90820e18fa0
+|       +---SkeletonShaderRD
+|       |   \---4964fd59acf4406110ae7bca4b716f23ae52cc19864e21a8a35aee53e141e17e
+|       +---SkyShaderRD
+|       |   \---4bc541bfde1c30032df77bb4c98974909ad0368d22557f44e6cf095b26c0490a
+|       +---SortShaderRD
+|       |   \---0b1e36114ab5330dc340cc740b0b946ed2dbf43098119b8d29cfa0222da18b7a
+|       +---SpecularMergeShaderRD
+|       |   \---a119881bb41d0ec2f36a7f060866ec38b88afa6d0e484a431c65b35b5a2e820b
+|       +---SsaoBlurShaderRD
+|       |   \---32baf23e3ccb90d5c6840258a705d953d950a779d125df3b5bb979bd1309f4d4
+|       +---SsaoImportanceMapShaderRD
+|       |   \---6d680b1500cda48a2de67225a98a208373d657c0f128c9e34a1528b50b3c2c5b
+|       +---SsaoInterleaveShaderRD
+|       |   \---d3d5b300acaef6d08dcd3d033f393c424ad653c5ab554883703c29ee6eedf528
+|       +---SsaoShaderRD
+|       |   \---10348af53d51e568e9a1574f4be3c4bc66eb9b2b464c8e4f061d051e1a6c4de9
+|       +---SsEffectsDownsampleShaderRD
+|       |   \---d85ba7758123b2364d96690db4594bb43feabce176805e46abc91aa54c5874d4
+|       +---SsilBlurShaderRD
+|       |   \---dc4c027d65e080b2b5b1af257e3733c6bc35899ce02c3f333249db264836bd41
+|       +---SsilImportanceMapShaderRD
+|       |   \---abbec59f40ae844d9bbca6d058972ef757a0baf48cdf91ef5836a8960f11569e
+|       +---SsilInterleaveShaderRD
+|       |   \---76868dec9e116ecbddcf9a480d808d2509e42cf65d5f7182e4f4cad2e24c9c70
+|       +---SsilShaderRD
+|       |   \---20c3a95a7a0528ebb5844939feeb8fe446ac0dcde9d011e24c2fc54af67e6c6d
+|       +---SubsurfaceScatteringShaderRD
+|       |   \---43df2517be4d76d26d345b88762bb6d272983e54f79d503331a085ec082a97da
+|       +---TaaResolveShaderRD
+|       |   \---66482a84ae3398a2cbd07e92185df239a902d24d388424e0dff9fe998af3c0b4
+|       +---TonemapShaderRD
+|       |   \---1c4748b3de350503048a1f9eca4f1dc2b308086460692ea0a81bababfd80542a
+|       +---VolumetricFogProcessShaderRD
+|       |   \---2c2d7b3b51e66f06069290afb842fc1ee9ee4f60f06a5168b0cee5bd380366bc
+|       +---VolumetricFogShaderRD
+|       |   \---22de546a38a6b3caaa1d02360e0e62d85133e560e5667f2f3f5e34e3145679af
+|       +---VoxelGiDebugShaderRD
+|       |   \---83ec08f78c119345f086a6cbcb0da5d67f664d19fd7ba3259c4948638b76fb8c
+|       +---VoxelGiShaderRD
+|       |   \---8bfb40cf41510d02f432927249e4d6d6708843a0953b4faf61a2f2e3786d4fd0
+|       \---VrsShaderRD
+|           \---def705023965d273a669c1ac6acfd7494138bde25b3e3bde0969c3c7a32c3aae
++---assets
+|   +---animations
+|   +---audio
+|   +---fonts
+|   +---main
+|   +---particles
+|   +---sprites
+|   +---tiles
+|   |   +---farm
+|   |   +---interior full
+|   |   |   +---16x16
+|   |   |   +---basics
+|   |   |   +---doors
+|   |   |   +---fireplace and candles
+|   |   |   +---furniture
+|   |   |   +---pets
+|   |   |   |   +---aquariums
+|   |   |   |   +---budgie
+|   |   |   |   +---cat
+|   |   |   |   +---hamster
+|   |   |   |   \---yorkie
+|   |   |   \---TV gifs
+|   |   \---tools
+|   +---tilesets
+|   |   \---full version
+|   |       \---tiles
+|   +---tilesheets
+|   +---ui
+|   \---world
++---resources
+|   \---droppable_items
++---scenes
+|   +---characters
+|   |   \---player
+|   +---droppable
+|   +---effects
+|   |   \---particles
+|   +---systems
+|   +---test
+|   +---ui
+|   \---world
++---scripts
+|   +---characters
+|   +---droppable
+|   +---game_systems
+|   +---inventory
+|   +---scenes
+|   +---singletons
+|   +---ui
+|   \---utils
++---tests
+\---textures

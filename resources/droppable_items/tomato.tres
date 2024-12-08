@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="DroppableItem" load_steps=3 format=3 uid="uid://d1yfucn571dt2"]
+
+[ext_resource type="Script" path="res://scripts/droppable/droppable_item.gd" id="1_qox4r"]
+[ext_resource type="Texture2D" uid="uid://dauxe3n7274d3" path="res://resources/droppable_items/tomato.png" id="2_x78ac"]
+
+[resource]
+resource_name = "Tomate"
+script = ExtResource("1_qox4r")
+item_id = "2"
+texture = ExtResource("2_x78ac")
+max_stack = 99
+description = "I hate the Tomate"

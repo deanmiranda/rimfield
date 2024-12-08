@@ -8,58 +8,86 @@ extends Node2D
 @export var debug_disable_dust: bool = true  # Toggle to disable dust emitter
 @export var farming_manager_path: NodePath  # farming_manager path
 
-# Pause Menu specific properties
+var hud_instance: Node
 var pause_menu: Control
 var paused = false
+var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 
 # Reference to the inventory instance
 var inventory_instance: Control = null
 
 func _ready() -> void:
+	# Locate the PlayerSpawnPoint node
+	var spawn_point = $PlayerSpawnPoint
+	if not spawn_point:
+		print("Error: PlayerSpawnPoint node not found!")
+		return
+
+	# Instantiate and position the player
+	var player_scene = preload("res://scenes/characters/player/player.tscn")
+	var player_instance = player_scene.instantiate()
+	add_child(player_instance)
+	player_instance.global_position = spawn_point.global_position  # Use spawn point position
+
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
 	_load_farm_state()  # Also run on initial entry
+
 	# Inventory setup
 	if UiManager:
 		UiManager.instantiate_inventory()
 	else:
 		print("Error: UiManager singleton not found.")
-		
+
 	# Pause menu setup
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
-	if not pause_menu_scene:
-		print("Error: Failed to load PauseMenu scene.")
-		return
-
 	if pause_menu_scene is PackedScene:
 		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)  # Add the pause menu to this scene
+		add_child(pause_menu)
 		pause_menu.visible = false
-		print("Pause menu added to farm_scene.")
 	else:
-		print("Error: Loaded resource is not a PackedScene.")
-	
-func _input(event: InputEvent) -> void:
-	# Handle ESC key input specifically in farm_scene
-	if event.is_action_pressed("ui_cancel"):
-		toggle_pause_menu()
+		print("Error: Failed to load PauseMenu scene.")
 
-	# Handle inventory toggle with "i"
-	if event.is_action_pressed("ui_inventory"):
-		_toggle_inventory()
-
-func toggle_pause_menu() -> void:
-	# Toggle the pause menu visibility in the gameplay scene
-	if pause_menu.visible:
-		pause_menu.hide()
-		get_tree().paused = false  # Unpause the entire game
-		paused = false
-		print("Pause menu hidden.")
+	var farming_manager = $FarmingManager 
+	# Instantiate and add the HUD
+	if hud_scene_path:
+		hud_instance = hud_scene_path.instantiate()
+		add_child(hud_instance)
+		# Pass HUD instance to the farming manager
+		if farming_manager and hud_instance:
+			var hud_script = $Hud/HUD
+			if hud_script:
+				farming_manager.set_hud(hud_instance)  # Link HUD to FarmingManager
+				hud_script.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
+			else:
+				print("Error: hud_instance is not an instance of HUD script.")
+		else:
+			print("Error: Could not link FarmingManager and HUD.")
 	else:
-		pause_menu.show()
-		get_tree().paused = true  # Pause the entire game, but leave UI active
-		paused = true
-		print("Pause menu shown.")
+		print("Error: HUD scene not assigned!")
+
+	# Spawn a test droppable
+	spawn_random_droppables(40)  # Spawn 10 droppables
+
+func spawn_random_droppables(count: int) -> void:
+	if not hud_instance:
+		print("Error: HUD instance is null! Droppables cannot be spawned.")
+		return
+
+	for i in range(count):
+		var droppable_name = _get_random_droppable_name()
+		var random_position = _get_random_farm_position()
+		DroppableFactory.spawn_droppable(droppable_name, random_position, hud_instance)
+
+func _get_random_droppable_name() -> String:
+	var droppable_names = ["carrot", "strawberry", "tomato"]  # Add more droppable types
+	return droppable_names[randi() % droppable_names.size()]
+
+func _get_random_farm_position() -> Vector2:
+	var farm_area = Rect2(Vector2(0, 0), Vector2(-400, 400))  # Define the bounds of your farm
+	var random_x = randi() % int(farm_area.size.x) + farm_area.position.x
+	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
+	return Vector2(random_x, random_y)
 
 func _on_game_loaded() -> void:
 	_load_farm_state()  # Apply loaded state when notified
@@ -70,15 +98,24 @@ func _load_farm_state() -> void:
 		print("Error: Farming Manager not found!")
 		return
 
-	var tilemap = get_node(tilemap_layer)
+	var tilemap = get_node_or_null(tilemap_layer)
 	if not tilemap:
 		print("Error: TileMapLayer not found!")
 		return
 
 	for position_key in GameState.farm_state.keys():
-		# Convert the position_key from String to Vector2i
-		var position = Vector2i(position_key.split(",")[0].to_int(), position_key.split(",")[1].to_int())
+		# Ensure position_key is a string before splitting
+		var position: Vector2i
+		if position_key is String:
+			var components = position_key.split(",")
+			position = Vector2i(components[0].to_int(), components[1].to_int())
+		elif position_key is Vector2i:
+			position = position_key
+		else:
+			print("Invalid position_key format:", position_key)
+			continue
 
+		# Get the state and set the tile
 		var state = GameState.get_tile_state(position)
 		match state:
 			"dirt":
@@ -88,14 +125,6 @@ func _load_farm_state() -> void:
 			"planted":
 				tilemap.set_cell(position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
 
-# Function to toggle inventory visibility
-func _toggle_inventory() -> void:
-	if inventory_instance:
-		inventory_instance.visible = !inventory_instance.visible
-		if inventory_instance.visible:
-			print("Inventory opened.")
-		else:
-			print("Inventory closed.")
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	var particle_emitter = emitter_scene.instantiate()
@@ -111,7 +140,3 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
-
-
-func _gui_input(event: InputEvent) -> void:
-	pass # Replace with function body.

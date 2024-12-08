@@ -1,0 +1,433 @@
+[gd_scene load_steps=9 format=3 uid="uid://u1mvuy8l6k23"]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_d1ahy"]
+[ext_resource type="Script" path="res://scripts/ui/hud_slot.gd" id="2_muuh7"]
+[ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_5va86"]
+[ext_resource type="Texture2D" uid="uid://b5vipdhn607jm" path="res://assets/tiles/tools/shovel.png" id="4_ahcmr"]
+[ext_resource type="Texture2D" uid="uid://cevvdhf2p5k2s" path="res://assets/tiles/tools/rototiller.png" id="5_g2ra6"]
+[ext_resource type="Texture2D" uid="uid://dxnfv5aw2wdsu" path="res://assets/tiles/tools/pick-axe.png" id="6_wmhby"]
+[ext_resource type="Texture2D" uid="uid://cfnt5tyopipyn" path="res://assets/tilesets/full version/tiles/FartSnipSeeds.png" id="7_t5p3x"]
+[ext_resource type="Script" path="res://scripts/ui/tool_switcher.gd" id="8_d4ui7"]
+
+[node name="Hud" type="Node"]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("1_d1ahy")
+tool_switcher_path = NodePath("../ToolSwitcher")
+
+[node name="Energy" type="VBoxContainer" parent="HUD"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -40.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="HUD"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -206.0
+offset_top = -100.0
+offset_right = 206.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HUD/MarginContainer"]
+layout_mode = 2
+
+[node name="TextureButton_0" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_0" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_0"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+texture = ExtResource("4_ahcmr")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_0"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_1" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 1
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_1" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_1"]
+z_index = 10
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+texture = ExtResource("5_g2ra6")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_1"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_2" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 2
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_2" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_2"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+texture = ExtResource("6_wmhby")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_2"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_3" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 3
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_3" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_3"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+texture = ExtResource("7_t5p3x")
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_3"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_4" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 4
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_4" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_4"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_4"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_5" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 5
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_5" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_5"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_5"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_6" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 6
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_6" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_6"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_6"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_7" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 7
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_7" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_7"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_7"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_8" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 8
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_8" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_8"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_8"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TextureButton_9" type="TextureButton" parent="HUD/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_muuh7")
+slot_index = 9
+empty_texture = ExtResource("3_5va86")
+
+[node name="Hud_slot_9" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_9"]
+z_index = 10
+clip_contents = true
+custom_minimum_size = Vector2(25, 40)
+layout_mode = 2
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 70.0
+offset_bottom = 70.0
+expand_mode = 3
+stretch_mode = 5
+
+[node name="Highlight" type="ColorRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_9"]
+visible = false
+custom_minimum_size = Vector2(50, 50)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="ToolSwitcher" type="Node" parent="."]
+script = ExtResource("8_d4ui7")
+
+[connection signal="tool_selected" from="HUD/MarginContainer/HBoxContainer/TextureButton_0" to="HUD" method="on_tool_changed"]
+[connection signal="tool_selected" from="HUD/MarginContainer/HBoxContainer/TextureButton_0" to="ToolSwitcher" method="_on_tool_selected"]
+[connection signal="tool_changed" from="ToolSwitcher" to="ToolSwitcher" method="_on_tool_changed"]

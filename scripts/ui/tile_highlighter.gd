@@ -12,12 +12,6 @@ var highlight_sprite: Sprite2D  # Visual feedback sprite
 func _ready() -> void:
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
-		if farmable_layer:
-			print("Tile Highlighter initialized. Layer:", farmable_layer.name)
-		else:
-			print("Error: Farmable layer is not a valid TileMapLayer.")
-	else:
-		print("Farmable layer path is not assigned.")
 
 	# Locate ToolSwitcher and connect its signal to update highlighting
 	if tool_switcher_path:
