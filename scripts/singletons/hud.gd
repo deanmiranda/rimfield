@@ -9,12 +9,13 @@ var hud_initialized = false  # Flag to indicate if the HUD is initialized
 
 func _ready() -> void:
 	print("DEBUG: HUD ready function called.")
+	
 	if hud_initialized:
 		print("DEBUG: HUD already initialized. Skipping ready setup.")
 		return
 
-	# Connect the signal to highlight the active tool
-	connect("tool_changed", Callable(self, "_highlight_active_tool"))
+	# Connect tool_changed via SignalManager
+	SignalManager.connect_tool_changed(self, self)
 	
 	# Connect to UiManager's scene_changed signal
 	if UiManager:
@@ -80,82 +81,73 @@ func setup_hud() -> void:
 	hud_initialized = true  # Mark as initialized
 	print("DEBUG: HUD setup complete.")
 
+# hud.gd
 func connect_gui_signals() -> void:
 	print("DEBUG: Connecting GUI signals.")
 	var slots_container = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
 	if not slots_container:
 		print("ERROR: HBoxContainer not found.")
 		return
-	
-	for slot in slots_container.get_children():
-		if slot.has_signal("gui_input"):
-			if not slot.is_connected("gui_input", Callable(slot, "_gui_input")):
-				slot.connect("gui_input", Callable(slot, "_gui_input"))
-			#print("DEBUG: Connected gui_input for slot:", slot.name)
-		else:
-			print("WARNING: Slot", slot.name, "does not have a gui_input signal.")
 
+	for slot in slots_container.get_children():
+		if slot.has_signal("drag_started"):
+			slot.connect("drag_started", Callable(self, "_start_drag"))
+		if slot.has_signal("item_dropped"):
+			slot.connect("item_dropped", Callable(self, "_on_drop_received"))
+
+# hud.gd
 func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		if Input.is_action_just_pressed("ui_mouse_left"):
-			print("DEBUG: Left click detected.")
-			var index = clicked_texture_rect.get_meta("slot_index")
-			if clicked_texture_rect.texture:
-				print("DEBUG: Emitting tool_changed for slot:", index)
-				emit_signal("tool_changed", index, clicked_texture_rect.texture)
-				_start_drag(clicked_texture_rect)
-			else:
-				print("ERROR: No texture in clicked slot.")
-		elif Input.is_action_just_pressed("ui_mouse_right"):
-			print("DEBUG: Right-click detected. Starting drag.")
-			if Input.is_action_pressed("ui_shift"):
-				_start_drag(clicked_texture_rect, true)
-			else:
-				_start_drag(clicked_texture_rect)
+		var slot_index = clicked_texture_rect.get_meta("slot_index")
+		
+		# Validate texture and create drag data
+		if clicked_texture_rect.texture:
+			var drag_data = {
+				"slot_index": slot_index,
+				"item_texture": clicked_texture_rect.texture,
+				"item_quantity": clicked_texture_rect.get_meta("item_quantity") if clicked_texture_rect.has_meta("item_quantity") else 1
+			}
+			
+			if Input.is_action_just_pressed("ui_mouse_left"):
+				print("DEBUG: Left click detected on slot:", slot_index)
+				emit_signal("tool_changed", slot_index, clicked_texture_rect.texture)
+				_start_drag(drag_data)
+			elif Input.is_action_just_pressed("ui_mouse_right"):
+				print("DEBUG: Right-click detected on slot:", slot_index)
+				if Input.is_action_pressed("ui_shift"):
+					drag_data["half_stack"] = true
+				_start_drag(drag_data)
+		else:
+			print("ERROR: No texture in clicked slot:", slot_index)
 
-func _start_drag(clicked_texture_rect: TextureRect, half_stack: bool = false) -> void:
-	print("DEBUG: Starting drag. Half stack:", half_stack)
-	var slot_index = clicked_texture_rect.get_meta("slot_index")
+# hud.gd
+func _start_drag(slot_data: Dictionary) -> void:
+	print("DEBUG: Starting drag with data:", slot_data)
 
-	if not clicked_texture_rect.texture:
-		print("ERROR: Drag start failed. Texture not found in TextureRect.")
-		return
+	current_drag_data = slot_data
 
-	current_drag_data = {
-		"slot_index": slot_index,
-		"item_texture": clicked_texture_rect.texture,
-		"item_quantity": clicked_texture_rect.get_meta("item_quantity") if clicked_texture_rect.has_meta("item_quantity") else 1
-	}
+	# Create or reuse the drag preview
+	var drag_preview = get_node_or_null("DragPreview")
+	if drag_preview:
+		drag_preview.queue_free()  # Clear old preview
 
-	if half_stack:
-		current_drag_data["item_quantity"] = int(current_drag_data["item_quantity"] / 2)
-		clicked_texture_rect.set_meta("item_quantity", clicked_texture_rect.get_meta("item_quantity") - current_drag_data["item_quantity"])
-	
-	# Create drag preview
-	var existing_drag_preview = get_node_or_null("/root/Farm/Hud/DragPreview")
-	if existing_drag_preview:
-		existing_drag_preview.queue_free()  # Clear any existing preview
-
-	var drag_preview = TextureRect.new()
-	drag_preview.name = "DragPreview"  # Name it for easy access
-	drag_preview.texture = current_drag_data["item_texture"]
+	drag_preview = TextureRect.new()
+	drag_preview.name = "DragPreview"
+	drag_preview.texture = slot_data["item_texture"]
 	drag_preview.set_custom_minimum_size(Vector2(64, 64))
 	drag_preview.modulate = Color(1, 1, 1, 0.7)  # Semi-transparent
 	drag_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 	drag_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# Add the preview to the HUD layer for proper visibility and positioning
-	var hud_layer = get_node_or_null("/root/Farm/Hud")
-	if not hud_layer:
-		print("ERROR: HUD layer not found. Cannot add drag preview.")
-		return
-
-	hud_layer.add_child(drag_preview)
-
-	# Ensure the preview follows the mouse correctly
+	# Add to HUD layer
+	add_child(drag_preview)
 	drag_preview.global_position = get_global_mouse_position()
-	print("DEBUG: Drag preview created with texture:", current_drag_data["item_texture"])
+	print("DEBUG: Drag preview created.")
 
+func _process(delta: float) -> void:
+	var drag_preview = get_node_or_null("DragPreview")
+	if drag_preview:
+		drag_preview.global_position = get_global_mouse_position()
 
 func get_slot_by_index(slot_index: int) -> TextureRect:
 	print("DEBUG: Getting slot by index:", slot_index)
@@ -202,29 +194,27 @@ func _on_drag_ended() -> void:
 		print("DEBUG: No drag preview to remove.")
 
 	current_drag_data.clear()
-
-func _on_drop_received(data: Dictionary) -> void:
-	print("DEBUG: Drop received:", data)
-	var target_slot = get_slot_by_mouse_position()
-	
+# hud.gd
+func _on_drop_received(target_slot_index: int, dropped_data: Dictionary) -> void:
+	print("DEBUG: Drop received on slot:", target_slot_index, "with data:", dropped_data)
+	var target_slot = get_slot_by_index(target_slot_index)
 	if target_slot:
-		print("DEBUG: Dropping onto target slot:", target_slot)
-
-		if target_slot.has_method("stack_items"):
-			target_slot.stack_items(data["item_texture"], data["item_quantity"])
-			print("DEBUG: Stacked items successfully.")
+		if target_slot.stack_items(dropped_data["item_texture"], dropped_data["item_quantity"]):
+			print("DEBUG: Stacked items in target slot.")
 		else:
-			print("ERROR: Target slot does not support stacking.")
+			print("DEBUG: Swapped items in target slot.")
 	else:
-		print("DEBUG: No valid target slot found for drop.")
+		print("DEBUG: Invalid target slot.")
+	_clear_drag_preview()
 
-	# Remove the drag preview
+func _clear_drag_preview() -> void:
 	var drag_preview = get_node_or_null("DragPreview")
 	if drag_preview:
 		drag_preview.queue_free()
-		print("DEBUG: Drag preview removed.")
+		print("DEBUG: Drag preview cleared.")
+	current_drag_data.clear()
 
-func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
+func _highlight_active_tool(slot_index: int, _item_texture: Texture, tool_name: String) -> void:
 	print("DEBUG: Highlighting active tool at slot:", slot_index)
 	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
 	for i in range(tool_buttons.size()):
@@ -246,8 +236,3 @@ func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> voi
 		farming_manager._on_tool_changed(slot_index, item_texture)
 	else:
 		print("ERROR: Farming manager is not linked.")
-
-func _process(delta: float) -> void:
-	var drag_preview = get_node_or_null("/root/Farm/Hud/DragPreview")
-	if drag_preview:
-		drag_preview.global_position = get_global_mouse_position()

@@ -38,10 +38,10 @@ func set_hud(hud_instance: Node) -> void:
 
 
 
-func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
+func _on_tool_changed(slot_index: int, item_texture: Texture, tool_name: String = "unknown") -> void:
 	if item_texture:
 		# Dynamically map the tool name using texture or metadata
-		current_tool = _get_tool_name_from_texture(item_texture)
+		current_tool = tool_name
 	else:
 		print("Error: Tool texture is null. Cannot update tool.")
 

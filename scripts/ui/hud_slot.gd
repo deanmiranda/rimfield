@@ -9,6 +9,9 @@ signal tool_selected(slot_index: int, item_texture: Texture) # Signal emitted wh
 var item_texture: Texture = null
 
 const BUTTON_LEFT = 1
+# hud_slot.gd
+signal drag_started(slot_data: Dictionary)
+signal item_dropped(slot_index: int, dropped_data: Dictionary)
 
 func _ready() -> void:
 	# Initialize the slot with empty or item texture
@@ -60,51 +63,36 @@ func stack_items(item_type: Texture, quantity: int, source_slot: TextureButton =
 		# Cannot stack, item mismatch
 		return false
 
-
-func get_drag_data(_position):
-	if item_texture != null:
-		print("Dragging item from slot", slot_index)
-
-		var drag_data = {
-			"slot_index": slot_index,
-			"item_texture": item_texture,
-			"item_quantity": item_quantity,
-			"source": self  # Reference to the source slot
-		}
-
-		# Create a drag preview
-		var drag_preview = TextureRect.new()
-		drag_preview.texture = item_texture
-		drag_preview.rect_size = Vector2(64, 64)  # Adjust size as needed
-		drag_preview.modulate = Color(1, 1, 1, 0.7)  # Semi-transparent
-		set_drag_preview(drag_preview)
-
-		return drag_data
-	else:
-		return null  # No item to drag
-
-func can_drop_data(_mouse_position, data):
-	return data.has("item_texture")
-
-func drop_data(_mouse_position, data):
-	var from_slot = data["source"]
-	var from_item_texture = data["item_texture"]
-	var from_quantity = data["item_quantity"]
-
-	if stack_items(from_item_texture, from_quantity, from_slot):
-		print("Items stacked successfully.")
-	else:
-		# Swap items if stacking is not possible
-		var temp_texture = item_texture
-		var temp_quantity = item_quantity
-
-		set_item(from_item_texture, from_quantity)
-		if from_slot and from_slot.has_method("set_item"):
-			from_slot.set_item(temp_texture, temp_quantity)
-
-	_update_quantity_label()
-
-
+# hud_slot.gd
 func _gui_input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT:
-		emit_signal("tool_selected", slot_index) # Emit signal when a slot is clicked
+		if item_texture:
+			var drag_data = {
+				"slot_index": slot_index,
+				"item_texture": item_texture,
+				"item_quantity": item_quantity
+			}
+			emit_signal("drag_started", drag_data)
+			# Notify tool_selected centrally
+			SignalManager.connect_tool_changed(self, self)
+		else:
+			print("DEBUG: No item to drag in slot", slot_index)
+		emit_signal("tool_selected", slot_index)
+		
+
+# hud_slot.gd
+func drop_data(_mouse_position, data):
+	if data.has("item_texture"):
+		print("DEBUG: Drop detected. Target slot:", slot_index, "Data:", data)
+
+		if stack_items(data["item_texture"], data["item_quantity"], data.get("source")):
+			print("DEBUG: Items stacked successfully.")
+		else:
+			print("DEBUG: Swapping items in slot:", slot_index)
+			var temp_texture = item_texture
+			var temp_quantity = item_quantity
+			set_item(data["item_texture"], data["item_quantity"])
+			if data.has("source") and data["source"].has_method("set_item"):
+				data["source"].set_item(temp_texture, temp_quantity)
+		# Emit item_dropped signal to notify HUD
+		emit_signal("item_dropped", slot_index, data)
