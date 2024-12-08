@@ -22,6 +22,9 @@ func _ready() -> void:
 		if not farmable_layer:
 			print("Error: Farmable layer not found!")
 	 
+	# Connect to the tool_changed signal via SignalManager
+	SignalManager.connect_tool_changed(SignalManager, self)
+	
 func set_hud(hud_instance: Node) -> void:
 	hud_path = hud_instance
 	tool_switcher = hud_instance.get_node("ToolSwitcher")
@@ -36,12 +39,11 @@ func set_hud(hud_instance: Node) -> void:
 	else:
 		print("Error: ToolSwitcher not found as a child of HUD.")
 
-
-
-func _on_tool_changed(slot_index: int, item_texture: Texture, tool_name: String = "unknown") -> void:
+# farming_manager.gd
+func _on_tool_changed(slot_index: int, item_texture: Texture, tool_name: String) -> void:
 	if item_texture:
-		# Dynamically map the tool name using texture or metadata
 		current_tool = tool_name
+		print("Tool updated to:", tool_name)
 	else:
 		print("Error: Tool texture is null. Cannot update tool.")
 

@@ -8,10 +8,8 @@ var current_drag_data: Dictionary = {}  # Track drag data across slots
 var hud_initialized = false  # Flag to indicate if the HUD is initialized
 
 func _ready() -> void:
-	print("DEBUG: HUD ready function called.")
 	
 	if hud_initialized:
-		print("DEBUG: HUD already initialized. Skipping ready setup.")
 		return
 
 	# Connect tool_changed via SignalManager
@@ -25,33 +23,21 @@ func _ready() -> void:
 	_on_scene_changed(get_tree().current_scene.name)
 
 func _on_scene_changed(new_scene_name: String) -> void:
-	print("DEBUG: Scene changed to:", new_scene_name)
 	if UiManager._is_not_game_scene():
 		print("DEBUG: Not in a game scene.")
 	else:
 		setup_hud()
 		
 func setup_hud() -> void:
-	print("DEBUG: Setting up HUD.")
 	if hud_initialized:
-		print("DEBUG: HUD already initialized. Skipping setup.")
 		return
 		
 	var farm_node = get_node_or_null("/root/Farm")  # Adjust to your scene structure
 	if farm_node:
-		print("DEBUG: Farm node found.")
 		farming_manager = get_node_or_null("/root/Farm/FarmingManager")
 	else:
 		print("ERROR: Farming Manager node not found.")
 
-	# Access ToolSwitcher via sibling relationship
-	var tool_switcher = get_node("/root/Farm/Hud/ToolSwitcher")
-	if tool_switcher:
-		print("DEBUG: ToolSwitcher found.")
-		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
-			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
-	else:
-		print("ERROR: ToolSwitcher not found as sibling.")
 
 	# Dynamically connect signals for each TextureButton node
 	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
@@ -70,20 +56,21 @@ func setup_hud() -> void:
 		var first_slot = tool_buttons[0].get_node("Hud_slot_0")
 		if first_slot and first_slot.texture:
 			print("DEBUG: Emitting tool_changed for first slot.")
-			emit_signal("tool_changed", 0, first_slot.texture)  # Emit signal with the texture from Hud_slot_0
+			# Emit signal for the first slot (to trigger the highlight setup)
+			emit_signal("tool_changed", 0, first_slot.texture, SignalManager.get_tool_name(first_slot.texture))
 			_update_farming_manager_tool(0, first_slot.texture)
+			_highlight_active_tool(0, first_slot.texture, SignalManager.get_tool_name(first_slot.texture))
 		else:
 			print("DEBUG: No texture in first slot. Emitting default tool_changed.")
 			emit_signal("tool_changed", 0, null)
 	
+	
 	# Ensure all gui signals are properly connected
 	connect_gui_signals()
 	hud_initialized = true  # Mark as initialized
-	print("DEBUG: HUD setup complete.")
 
 # hud.gd
 func connect_gui_signals() -> void:
-	print("DEBUG: Connecting GUI signals.")
 	var slots_container = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
 	if not slots_container:
 		print("ERROR: HBoxContainer not found.")
@@ -215,13 +202,17 @@ func _clear_drag_preview() -> void:
 	current_drag_data.clear()
 
 func _highlight_active_tool(slot_index: int, _item_texture: Texture, tool_name: String) -> void:
-	print("DEBUG: Highlighting active tool at slot:", slot_index)
+	print("DEBUG: Highlighting active tool at slot:", slot_index, "with tool:", tool_name)
 	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
-			var highlight = tool_buttons[i].get_node("Highlight")
+			var highlight = tool_buttons[i].get_node_or_null("Highlight")
 			if highlight:
 				highlight.visible = (i == slot_index)
+				print("DEBUG: Highlight for slot", i, "set to visible:", highlight.visible)
+			else:
+				print("ERROR: Highlight node not found for slot:", i)
+
 				
 func set_farming_manager(farming_manager_instance: Node) -> void:
 	print("DEBUG: Setting FarmingManager.") 
@@ -230,9 +221,14 @@ func set_farming_manager(farming_manager_instance: Node) -> void:
 	else:
 		print("ERROR: FarmingManager instance is null. Cannot link.")
 
-func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void: 
-	print("DEBUG: Updating FarmingManager tool. Slot index:", slot_index) 
-	if farming_manager: 
-		farming_manager._on_tool_changed(slot_index, item_texture)
+func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
+	print("DEBUG: Updating FarmingManager tool. Slot index:", slot_index)
+
+	if farming_manager:
+		# Retrieve the tool name using SignalManager's TOOL_MAP
+		var tool_name = SignalManager.get_tool_name(item_texture)
+
+		# Emit the signal using SignalManager for consistency
+		SignalManager.emit_signal("tool_changed", slot_index, item_texture, tool_name)
 	else:
 		print("ERROR: Farming manager is not linked.")

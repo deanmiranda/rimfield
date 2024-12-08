@@ -38,40 +38,44 @@ func _ready() -> void:
 func _on_tool_selected(slot_index: int) -> void:
 	set_hud_by_slot(slot_index)  # Pass item_texture here
 
+# ToolSwitcher.gd
+func _on_tool_changed(slot_index: int, item_texture: Texture, tool_name: String) -> void:
+	print("DEBUG: Tool changed in ToolSwitcher. Slot:", slot_index, "Tool:", tool_name)
+	current_hud_slot = slot_index
+	current_tool_texture = item_texture
+	current_tool = tool_name
 
 func set_hud_by_slot(slot_index: int) -> void:
 	var hud = get_node("../HUD")
 	if not hud:
 		print("Error: HUD not found.")
 		return
-	# Access the TextureButton and list its children
+	# Access the TextureButton and its child Hud_slot_X
 	var button_path = "MarginContainer/HBoxContainer/TextureButton_" + str(slot_index)
 	var texture_button = hud.get_node_or_null(button_path)
-	
+
 	if texture_button:
-		# Access the Hud_slot_X child
 		var slot_path = button_path + "/Hud_slot_" + str(slot_index)
 		var hud_slot = hud.get_node_or_null(slot_path)
 
 		if hud_slot:
 			var item_texture = hud_slot.get_texture() if hud_slot.has_method("get_texture") else null
-			
 			if item_texture:
 				current_hud_slot = slot_index
 				current_tool_texture = item_texture
-				# Map texture to tool name
 				current_tool = TOOL_MAP.get(item_texture, "unknown")
+				# Emit the signal via SignalManager
+				SignalManager.emit_signal("tool_changed", slot_index, item_texture, current_tool)
+				HUD._highlight_active_tool(slot_index, item_texture, current_tool)
 
-				
-				emit_signal("tool_changed", slot_index, item_texture, current_tool)
 			else:
 				print("Tool node in slot ", slot_index, " is empty. Cannot set tool.")
 		else:
 			print("Tool slot not found at path:", slot_path)
 	else:
 		print("TextureButton not found at path:", button_path)
-		
-		
+
+
 func _input(event: InputEvent) -> void:
 	# Handle key inputs to switch tools based on slot numbers (1-0)
 	for i in range(10):  # Keys 1-0 correspond to HUD slots 0-9
