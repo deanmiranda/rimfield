@@ -24,8 +24,8 @@ func _ready() -> void:
 
 	# Dynamically connect signals for each TextureButton node
 	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
-	for i in range(tool_buttons.size()):
-		print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
+	#for i in range(tool_buttons.size()):
+		#print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
 
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
@@ -39,7 +39,7 @@ func _ready() -> void:
 	# Emit tool_changed for the first slot (slot 0)
 	if tool_buttons.size() > 0:
 		var first_slot = tool_buttons[0].get_node("Hud_slot_0")
-		print("should have first tool assigned", first_slot)
+		#print("should have first tool assigned", first_slot)
 		if first_slot and first_slot.texture:
 			emit_signal("tool_changed", 0, first_slot.texture)  # Emit signal with the texture from Hud_slot_0
 			_update_farming_manager_tool(0, first_slot.texture)  # Sync farming manager with the initial tool texture

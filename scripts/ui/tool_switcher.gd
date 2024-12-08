@@ -26,8 +26,8 @@ func _ready() -> void:
 			var tool_slots = tool_container.get_children()
 			for slot in tool_slots:
 				if slot.has_signal("tool_selected"):
-					if not slot.is_connected("tool_selected", Callable(self, "_on_tool_selected_mouse")):
-						slot.connect("tool_selected", Callable(self, "_on_tool_selected_mouse"))
+					if not slot.is_connected("tool_selected", Callable(self, "_on_tool_selected")):
+						slot.connect("tool_selected", Callable(self, "_on_tool_selected"))
 				
 		else:
 			print("Error: Tool container not found in HUD.")
@@ -36,13 +36,8 @@ func _ready() -> void:
 		
 # Signal handler for tool_selected
 func _on_tool_selected(slot_index: int) -> void:
-	print("Selected slot:", slot_index)
 	set_hud_by_slot(slot_index)  # Pass item_texture here
 
-func _on_tool_selected_mouse(slot_index: int) -> void:
-	print("Selected by mouse slot:", slot_index)
-	set_hud_by_slot(slot_index)  # Pass item_texture here
-	
 
 func set_hud_by_slot(slot_index: int) -> void:
 	var hud = get_node("../HUD")

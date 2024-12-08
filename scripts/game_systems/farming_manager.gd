@@ -68,12 +68,12 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		return
 
 	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
-	if tile_data:
-		print("Tile data found for cell:", target_cell)
-		#print("Custom data:", tile_data.get_custom_data())
-	else:
-		#print("No tile data found for cell:", target_cell)
-		return
+	#if tile_data:
+		#print("Tile data found for cell:", target_cell)
+		##print("Custom data:", tile_data.get_custom_data())
+	#else:
+		##print("No tile data found for cell:", target_cell)
+		#return
 
 	if tile_data:
 		var is_grass = tile_data.get_custom_data("grass") == true
