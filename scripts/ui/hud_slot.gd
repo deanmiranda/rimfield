@@ -65,24 +65,34 @@ func stack_items(item_type: Texture, quantity: int, source_slot: TextureButton =
 
 # hud_slot.gd
 func _gui_input(event):
-	if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT:
-		if item_texture:
-			var drag_data = {
-				"slot_index": slot_index,
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == BUTTON_LEFT:
+			if item_texture:
+				var drag_data = {
+					"slot_index": slot_index,
+					"item_texture": item_texture,
+					"item_quantity": item_quantity if item_quantity > 0 else 1  # Corrected ternary syntax
+				}
+				emit_signal("drag_started", drag_data)
+				SignalManager.connect_tool_changed(self, self)
+			else:
+				print("DEBUG: No item to drag in slot", slot_index)
+			emit_signal("tool_selected", slot_index)
+
+		elif not event.pressed and event.button_index == BUTTON_LEFT:
+			# Mouse button released
+			print("DEBUG: Mouse button released on slot", slot_index)
+			emit_signal("item_dropped", slot_index, {
 				"item_texture": item_texture,
-				"item_quantity": item_quantity
-			}
-			emit_signal("drag_started", drag_data)
-			# Notify tool_selected centrally
-			SignalManager.connect_tool_changed(self, self)
-		else:
-			print("DEBUG: No item to drag in slot", slot_index)
-		emit_signal("tool_selected", slot_index)
-		
+				"item_quantity": item_quantity if item_quantity > 0 else 1,  # Corrected ternary syntax
+				"source": self
+			})
+
 
 # hud_slot.gd
 func drop_data(_mouse_position, data):
-	if data.has("item_texture"):
+	print("drop data is called")
+	if data.has("item_texture") and data.has("item_quantity"):
 		print("DEBUG: Drop detected. Target slot:", slot_index, "Data:", data)
 
 		if stack_items(data["item_texture"], data["item_quantity"], data.get("source")):
@@ -95,4 +105,13 @@ func drop_data(_mouse_position, data):
 			if data.has("source") and data["source"].has_method("set_item"):
 				data["source"].set_item(temp_texture, temp_quantity)
 		# Emit item_dropped signal to notify HUD
-		emit_signal("item_dropped", slot_index, data)
+		emit_signal("item_dropped", slot_index, {
+			"item_texture": null,
+			"item_quantity": 0
+		})
+	else:
+		print("DEBUG: Invalid drag data received in drop_data.")
+		emit_signal("item_dropped", slot_index, {
+			"item_texture": null,
+			"item_quantity": 0
+		})

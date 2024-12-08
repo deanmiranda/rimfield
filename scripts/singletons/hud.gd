@@ -184,15 +184,29 @@ func _on_drag_ended() -> void:
 # hud.gd
 func _on_drop_received(target_slot_index: int, dropped_data: Dictionary) -> void:
 	print("DEBUG: Drop received on slot:", target_slot_index, "with data:", dropped_data)
+
+	# Validate that the dropped_data has required keys
+	if not dropped_data.has("item_texture") or not dropped_data.has("item_quantity"):
+		print("DEBUG: Invalid drop data. Skipping.")
+		return
+
+	# Get the target slot (TextureRect)
 	var target_slot = get_slot_by_index(target_slot_index)
 	if target_slot:
-		if target_slot.stack_items(dropped_data["item_texture"], dropped_data["item_quantity"]):
-			print("DEBUG: Stacked items in target slot.")
+		# Call stack_items on the parent (TextureButton)
+		var parent_button = target_slot.get_parent()
+		if parent_button and parent_button.has_method("stack_items"):
+			if parent_button.stack_items(dropped_data["item_texture"], dropped_data["item_quantity"]):
+				print("DEBUG: Stacked items in target slot:", target_slot_index)
+			else:
+				print("DEBUG: Swapped items in target slot:", target_slot_index)
 		else:
-			print("DEBUG: Swapped items in target slot.")
+			print("DEBUG: Parent button does not support stacking.")
 	else:
 		print("DEBUG: Invalid target slot.")
+	
 	_clear_drag_preview()
+
 
 func _clear_drag_preview() -> void:
 	var drag_preview = get_node_or_null("DragPreview")
@@ -209,7 +223,6 @@ func _highlight_active_tool(slot_index: int, _item_texture: Texture, tool_name: 
 			var highlight = tool_buttons[i].get_node_or_null("Highlight")
 			if highlight:
 				highlight.visible = (i == slot_index)
-				print("DEBUG: Highlight for slot", i, "set to visible:", highlight.visible)
 			else:
 				print("ERROR: Highlight node not found for slot:", i)
 
