@@ -20,7 +20,6 @@ func _ready() -> void:
 		farming_manager = farm_scene.get_node("FarmingManager")
 	else:
 		farming_manager = null
-		print("No FarmingManager found in this scene. Current children of the scene:")
 		for child in farm_scene.get_children():
 			print("- ", child.name)
 
@@ -76,7 +75,6 @@ func stop_interaction():
 	current_interaction = ""
 	
 func interact_with_droppable(droppable_data: Resource) -> void:
-	print("Player interacting with droppable. Item ID:", droppable_data.item_id)
 	if inventory_manager:
 		var success = inventory_manager.add_item_to_first_empty_slot(droppable_data)
 		if success:

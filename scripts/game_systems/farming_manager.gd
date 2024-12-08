@@ -21,26 +21,27 @@ func _ready() -> void:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
 		if not farmable_layer:
 			print("Error: Farmable layer not found!")
-			
+	 
 func set_hud(hud_instance: Node) -> void:
-	hud_path = hud_instance  # Save the reference for future use
-
-	# Set up the Tool Switcher from the HUD
+	hud_path = hud_instance
 	tool_switcher = hud_instance.get_node("ToolSwitcher")
+	
 	if tool_switcher:
-		# Connect tool switcher signal
+		# Connect the tool_changed signal
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-		current_tool = tool_switcher.get("current_tool")  # Sync tool states
+		
+		# Ensure a valid tool is set on load
+		var first_slot_tool = tool_switcher.get("current_tool")
 	else:
 		print("Error: ToolSwitcher not found as a child of HUD.")
+
 
 
 func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
 	if item_texture:
 		# Dynamically map the tool name using texture or metadata
 		current_tool = _get_tool_name_from_texture(item_texture)
-		print("Tool updated to:", current_tool)
 	else:
 		print("Error: Tool texture is null. Cannot update tool.")
 

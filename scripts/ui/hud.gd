@@ -41,11 +41,12 @@ func _ready() -> void:
 		var first_slot = tool_buttons[0].get_node("Hud_slot_0")
 		print("should have first tool assigned", first_slot)
 		if first_slot and first_slot.texture:
-			emit_signal("tool_changed", 0, first_slot.texture)  # Emit signal with the texture in slot 0
-			_update_farming_manager_tool(0, first_slot.texture)  # Sync farming manager with the initial tool
+			emit_signal("tool_changed", 0, first_slot.texture)  # Emit signal with the texture from Hud_slot_0
+			_update_farming_manager_tool(0, first_slot.texture)  # Sync farming manager with the initial tool texture
 		else:
-			print("Warning: No texture in the first slot. Defaulting to empty.")
+			print("Warning: No texture in Hud_slot_0. Defaulting to empty.")
 			emit_signal("tool_changed", 0, null)
+
 		
 func set_farming_manager(farming_manager_instance: Node) -> void:
 	if farming_manager_instance:
@@ -54,13 +55,12 @@ func set_farming_manager(farming_manager_instance: Node) -> void:
 		print("Error: FarmingManager instance is null. Cannot link.")
 		
 func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
-	print("DEBUG: _update_farming_manager_tool called with index:", slot_index, "and texture:", item_texture)
+	print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
 	if farming_manager:
 		farming_manager._on_tool_changed(slot_index, item_texture)
-		print("DEBUG: Updated farming manager with tool.")
 	else:
-		print("ERROR: Farming manager not found.")
-	
+		print("Error: Farming manager is not linked.")
+
 func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if clicked_texture_rect and clicked_texture_rect.has_meta("slot_index"):
@@ -73,12 +73,10 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 				print("Error: Parent is not a TextureButton for clicked slot:", index)
 
 func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
-	print("DEBUG: _highlight_active_tool called with slot index:", slot_index)
 	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			var highlight = tool_buttons[i].get_node("Highlight")
 			if highlight:
 				highlight.visible = (i == slot_index)
-				if i == slot_index:
-					print("DEBUG: Highlighting tool slot:", i)
+			
