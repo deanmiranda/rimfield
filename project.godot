@@ -23,6 +23,7 @@ SceneManager="*res://scripts/singletons/scene_manager.gd"
 Player="*res://scripts/singletons/player.gd"
 UiManager="*res://scripts/singletons/ui_manager.gd"
 InventoryManager="*res://scripts/singletons/inventory_manager.gd"
+HUD="*res://scripts/singletons/hud.gd"
 
 [display]
 

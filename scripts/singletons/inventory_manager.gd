@@ -98,7 +98,7 @@ func update_inventory_slots(slot_index: int, item_texture: Texture) -> void:
 		print("Error: Slot index ", slot_index, " is out of bounds.")
 
 func sync_inventory_ui() -> void:
-	print("Syncing UI with inventory_slots dictionary...")
+	#print("Syncing UI with inventory_slots dictionary...")
 
 	if not inventory_instance:
 		print("Error: Inventory instance is null. Cannot sync UI.")
@@ -124,7 +124,7 @@ func sync_inventory_ui() -> void:
 		else:
 			print("Warning: Slot", i, "is not a TextureButton or not found.")
 
-	print("Inventory UI sync complete.")
+	#print("Inventory UI sync complete.")
 
 #	Functions for Hud 
 func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
@@ -145,7 +145,7 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 
 		else:
 			print("HUD slot ", i, " not found at path:", slot_path)
-	print('Hud Full returning false and attempting inventory')
+	#print('Hud Full returning false and attempting inventory')
 	return false
 
 

@@ -55,10 +55,9 @@ func _ready() -> void:
 		add_child(hud_instance)
 		# Pass HUD instance to the farming manager
 		if farming_manager and hud_instance:
-			var hud_script = $Hud/HUD
-			if hud_script:
+			if HUD:
+				HUD.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
 				farming_manager.set_hud(hud_instance)  # Link HUD to FarmingManager
-				hud_script.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
 			else:
 				print("Error: hud_instance is not an instance of HUD script.")
 		else:

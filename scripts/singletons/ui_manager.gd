@@ -10,6 +10,7 @@ var debug_disable_dust: bool = true  # Toggle to disable dust emitter
 # Pause Menu specific properties
 var pause_menu: Control
 var paused = false
+signal scene_changed(new_scene_name: String)
 
 @onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn")  # Path to the inventory scene
 var inventory_instance: Control = null  # Reference to the inventory instance
@@ -34,6 +35,7 @@ func _process(delta: float) -> void:
 		if current_scene_name != last_scene_name:
 			last_scene_name = current_scene_name
 			update_input_processing()
+			emit_signal("scene_changed", current_scene_name)
 			
 # Function to instantiate the inventory scene globally
 func instantiate_inventory() -> void:
@@ -172,7 +174,7 @@ func validate_paths_and_resources() -> void:
 # Helper functions
 
 # Helper function to check if we're in a game scene
-func is_in_game_scene() -> bool:
+func _is_not_game_scene() -> bool:
 	var current_scene = get_tree().current_scene
 	return current_scene and current_scene.name.begins_with("Main_")
 

@@ -8,14 +8,33 @@ var farming_manager: Node = null  # Reference to FarmingManager
 func _ready() -> void:
 # Connect the signal to highlight the active tool
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
-	farming_manager =  get_node("../../FarmingManager")
 	
-	if farming_manager:
-		print("Farming Manager found:", farming_manager)
+	# Connect to UiManager's scene_changed signal
+	if UiManager:
+		UiManager.connect("scene_changed", Callable(self, "_on_scene_changed"))
+
+	# Check current scene on startup
+	_on_scene_changed(get_tree().current_scene.name)
+
+func _on_scene_changed(new_scene_name: String) -> void:
+	#print("Scene changed to:", new_scene_name)
+	if UiManager._is_not_game_scene():
+		print("Not in a game scene")
+	else:
+		#print("In a game scene, setting up HUD")
+		setup_hud()
+		
+func setup_hud() -> void:
+	var farm_node = get_node_or_null("/root/Farm")  # Adjust to your scene structure
+	if farm_node:
+		#print("Farm node found", farm_node)
+		farming_manager = get_node_or_null("/root/Farm/FarmingManager")
 	else:
 		print("Error: Farming Manager node not found.")
+		#print("Current Scene:", get_tree().current_scene)
+#
 	# Access ToolSwitcher via sibling relationship
-	var tool_switcher = get_node("../ToolSwitcher")
+	var tool_switcher = get_node("/root/Farm/Hud/ToolSwitcher")
 	if tool_switcher:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
 			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
@@ -23,7 +42,7 @@ func _ready() -> void:
 		print("Error: ToolSwitcher not found as sibling.")
 
 	# Dynamically connect signals for each TextureButton node
-	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
+	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
 	#for i in range(tool_buttons.size()):
 		#print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
 
@@ -55,7 +74,7 @@ func set_farming_manager(farming_manager_instance: Node) -> void:
 		print("Error: FarmingManager instance is null. Cannot link.")
 		
 func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
-	print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
+	#print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
 	if farming_manager:
 		farming_manager._on_tool_changed(slot_index, item_texture)
 	else:
@@ -73,7 +92,7 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 				print("Error: Parent is not a TextureButton for clicked slot:", index)
 
 func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
-	var tool_buttons = $MarginContainer/HBoxContainer.get_children()
+	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			var highlight = tool_buttons[i].get_node("Highlight")
