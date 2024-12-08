@@ -1,18 +1,17 @@
 extends TextureButton
 
-@export var slot_index: int = -1
+@export var slot_index: int = 0
 @export var empty_texture: Texture
 
-@export var tool_name: String = ""  # Logical name for the tool
-@export var can_farm: bool = false  # Can this tool be used for farming?
+#@export var tool_name: String = ""  # Logical name for the tool
+#@export var can_farm: bool = false  # Can this tool be used for farming?
 
+
+signal tool_selected(slot_index: int, item_texture: Texture) # Signal emitted when the tool is selected
 
 var item_texture: Texture = null
 
 const BUTTON_LEFT = 1
-
-# Signal to inform HUD or ToolSwitcher about tool changes
-signal tool_selected(slot_index: int)
 
 func _ready() -> void:
 	# Initialize the slot with empty or item texture
@@ -69,5 +68,5 @@ func drop_data(_mouse_position, data):
 
 func _gui_input(event):
 	if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT:
-		print("HUD Slot", slot_index, "clicked.")
-		emit_signal("tool_selected", slot_index)  # Emit signal when a slot is clicked
+		print("HUD Slot ", slot_index, " clicked.")
+		emit_signal("tool_selected", slot_index) # Emit signal when a slot is clicked

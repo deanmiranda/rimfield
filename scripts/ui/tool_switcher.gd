@@ -2,7 +2,7 @@ extends Node
 
 signal tool_changed(slot_index: int, item_texture: Texture)  # Signal for tool changes
 
-var current_hud_slot: int = -1  # Currently active tool slot index
+var current_hud_slot: int = 0  # Currently active tool slot index
 var current_tool_texture: Texture = null  # Texture of the currently active tool
 var current_tool: String = "unknown"  # Default to unknown
 
@@ -20,24 +20,35 @@ func _ready() -> void:
 	if hud:
 		if not is_connected("tool_changed", Callable(hud, "_highlight_active_tool")):
 			connect("tool_changed", Callable(hud, "_highlight_active_tool"))
+			# Find and connect all hud_slot signals
+		var tool_container = hud.get_node_or_null("MarginContainer/HBoxContainer")
+		if tool_container:
+			var tool_slots = tool_container.get_children()
+			for slot in tool_slots:
+				if slot.has_signal("tool_selected"):
+					if not slot.is_connected("tool_selected", Callable(self, "_on_tool_selected_mouse")):
+						slot.connect("tool_selected", Callable(self, "_on_tool_selected_mouse"))
+				
+		else:
+			print("Error: Tool container not found in HUD.")
 	else:
 		print("Error: HUD not found as sibling.")
+		
+# Signal handler for tool_selected
+func _on_tool_selected(slot_index: int) -> void:
+	print("Selected slot:", slot_index)
+	set_hud_by_slot(slot_index)  # Pass item_texture here
 
-func _input(event: InputEvent) -> void:
-	# Handle key inputs to switch tools based on slot numbers (1-0)
-	for i in range(10):  # Keys 1-0 correspond to HUD slots 0-9
-		var action = "ui_hud_" + str(i + 1)
-		if i == 9:  # Special case for "0" key (maps to slot 9)
-			action = "ui_hud_0"
-		if event.is_action_pressed(action):
-			set_hud_by_slot(i)
+func _on_tool_selected_mouse(slot_index: int) -> void:
+	print("Selected by mouse slot:", slot_index)
+	set_hud_by_slot(slot_index)  # Pass item_texture here
+	
 
 func set_hud_by_slot(slot_index: int) -> void:
 	var hud = get_node("../HUD")
 	if not hud:
 		print("Error: HUD not found.")
 		return
-
 	# Access the TextureButton and list its children
 	var button_path = "MarginContainer/HBoxContainer/TextureButton_" + str(slot_index)
 	var texture_button = hud.get_node_or_null(button_path)
@@ -63,3 +74,13 @@ func set_hud_by_slot(slot_index: int) -> void:
 			print("Tool slot not found at path:", slot_path)
 	else:
 		print("TextureButton not found at path:", button_path)
+		
+		
+func _input(event: InputEvent) -> void:
+	# Handle key inputs to switch tools based on slot numbers (1-0)
+	for i in range(10):  # Keys 1-0 correspond to HUD slots 0-9
+		var action = "ui_hud_" + str(i + 1)
+		if i == 9:  # Special case for "0" key (maps to slot 9)
+			action = "ui_hud_0"
+		if event.is_action_pressed(action):
+			set_hud_by_slot(i)

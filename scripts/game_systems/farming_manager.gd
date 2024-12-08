@@ -57,14 +57,14 @@ func _get_tool_name_from_texture(item_texture: Texture) -> String:
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	
 	if not farmable_layer:
-		print("Farmable layer is null.")
+		#print("Farmable layer is null.")
 		return
 
 	var target_cell = farmable_layer.local_to_map(target_pos)
-	print("Target cell:", target_cell)
+	#print("Target cell:", target_cell)
 
 	if target_cell.distance_to(farmable_layer.local_to_map(player_pos)) > 1.5:
-		print("Target cell too far from player.")
+		#print("Target cell too far from player.")
 		return
 
 	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
@@ -72,14 +72,14 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		print("Tile data found for cell:", target_cell)
 		#print("Custom data:", tile_data.get_custom_data())
 	else:
-		print("No tile data found for cell:", target_cell)
+		#print("No tile data found for cell:", target_cell)
 		return
 
 	if tile_data:
 		var is_grass = tile_data.get_custom_data("grass") == true
 		var is_dirt = tile_data.get_custom_data("dirt") == true
 		var is_tilled = tile_data.get_custom_data("tilled") == true
-		print("Tile states - Grass:", is_grass, "Dirt:", is_dirt, "Tilled:", is_tilled)
+		#print("Tile states - Grass:", is_grass, "Dirt:", is_dirt, "Tilled:", is_tilled)
 		
 		match current_tool:
 			"hoe":
@@ -115,7 +115,7 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 		farm_scene.trigger_dust(cell, emitter_scene)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
-	print("Setting tile state at:", cell, "to state:", _state, "with tile_id:", tile_id)
+	#print("Setting tile state at:", cell, "to state:", _state, "with tile_id:", tile_id)
 
 	# Update the visual state
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0))
