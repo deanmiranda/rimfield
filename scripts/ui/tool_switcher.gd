@@ -2,10 +2,6 @@ extends Node
 
 signal tool_changed(slot_index: int, item_texture: Texture)  # Signal for tool changes
 
-var current_hud_slot: int = 0  # Currently active tool slot index
-var current_tool_texture: Texture = null  # Texture of the currently active tool
-var current_tool: String = "unknown"  # Default to unknown
-
  #Tool mapping from texture to tool name
 const TOOL_MAP = {
 	preload("res://assets/tiles/tools/shovel.png"): "hoe",
@@ -14,9 +10,15 @@ const TOOL_MAP = {
 	preload("res://assets/tilesets/full version/tiles/FartSnipSeeds.png"): "seed"
 }
 
+var current_hud_slot: int = 0  # Currently active tool slot index
+var current_tool_texture: Texture = null  # Texture of the currently active tool
+var current_tool: String = "unknown"  # Default to unknown
+
+# Cached reference to avoid repeated get_node() calls (follows .cursor/rules/godot.md)
+@onready var hud: Node = get_node("../HUD")
+
 func _ready() -> void:
-	# Access HUD via sibling relationship
-	var hud = get_node("../HUD")
+	# Use cached HUD reference
 	if hud:
 		if not is_connected("tool_changed", Callable(hud, "_highlight_active_tool")):
 			connect("tool_changed", Callable(hud, "_highlight_active_tool"))
@@ -40,7 +42,7 @@ func _on_tool_selected(slot_index: int) -> void:
 
 
 func set_hud_by_slot(slot_index: int) -> void:
-	var hud = get_node("../HUD")
+	# Use cached HUD reference instead of repeated get_node() call
 	if not hud:
 		print("Error: HUD not found.")
 		return
@@ -54,7 +56,10 @@ func set_hud_by_slot(slot_index: int) -> void:
 		var hud_slot = hud.get_node_or_null(slot_path)
 
 		if hud_slot:
-			var item_texture = hud_slot.get_texture() if hud_slot.has_method("get_texture") else null
+			# Use explicit if/else instead of ternary operator (follows .cursor/rules/godot.md)
+			var item_texture: Texture = null
+			if hud_slot.has_method("get_texture"):
+				item_texture = hud_slot.get_texture()
 			
 			if item_texture:
 				current_hud_slot = slot_index

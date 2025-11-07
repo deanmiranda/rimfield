@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://7errgnnxpb4b" path="res://scenes/effects/particles/dirt_particle.tscn" id="4_jv71f"]
 [ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="5_lcrq0"]
 [ext_resource type="Script" uid="uid://csljakhdqm1bl" path="res://scripts/game_systems/farming_manager.gd" id="6_kjwtr"]
-[ext_resource type="Script" uid="uid://220cij0k8x5y" path="res://scripts/game_systems/house_interaction.gd" id="6_rig2i"]
+[ext_resource type="Script" uid="uid://c7trjv3pmpp6o" path="res://scripts/game_systems/house_interaction.gd" id="6_rig2i"]
 [ext_resource type="Texture2D" uid="uid://breduu05uy4ae" path="res://assets/particles/particle-dirt-1x1.png" id="6_t8wgt"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="7_lryf0"]
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="10_7peq5"]

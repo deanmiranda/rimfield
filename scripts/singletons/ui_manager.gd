@@ -15,20 +15,33 @@ signal scene_changed(new_scene_name: String)
 @onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn")  # Path to the inventory scene
 var inventory_instance: Control = null  # Reference to the inventory instance
 
+var last_scene_name: String = ""
+
 func _ready() -> void:
 	update_input_processing()
-	set_process(true) 
+	# Use timer instead of per-frame polling (more efficient than _process())
+	# Check scene changes every 0.1 seconds instead of every frame
+	var timer = Timer.new()
+	timer.wait_time = 0.1
+	timer.timeout.connect(_check_scene_change)
+	timer.autostart = true
+	add_child(timer)
+	set_process(false)  # Disable per-frame polling
 	
 	instantiate_inventory()  # Call inventory instantiation
 	pause_menu_setup()
 	set_process_input(true)  # Ensure UiManager can process global inputs
 	
+	# Check initial scene
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		last_scene_name = current_scene.name
+	
 	# Validation check for paths and resources
 	#validate_paths_and_resources()
 
-var last_scene_name: String = ""
-
-func _process(delta: float) -> void:
+func _check_scene_change() -> void:
+	# Timer-based scene change detection (replaces per-frame _process() polling)
 	var current_scene = get_tree().current_scene
 	if current_scene:
 		var current_scene_name = current_scene.name
