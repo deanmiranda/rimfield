@@ -1,21 +1,29 @@
 ### farming_manager.gd ###
 extends Node
 
-@export var farmable_layer_path: NodePath
-@export var farm_scene_path: NodePath  # Reference the farm scene
-var hud_instance: Node
-var hud_path: Node
-var farmable_layer: TileMapLayer
-var tool_switcher: Node
+# Constants (follows .cursor/rules/godot.md script ordering: Signals → Constants → Exports → Vars)
 const TILE_ID_GRASS = 0
 const TILE_ID_DIRT = 1
 const TILE_ID_TILLED = 2
 const TILE_ID_PLANTED = 3
 const TILE_ID_GROWN = 4  # Assuming "grown" is the next state after planting
 
+@export var farmable_layer_path: NodePath
+@export var farm_scene_path: NodePath  # Reference the farm scene
+
+var hud_instance: Node
+var hud_path: Node
+var farmable_layer: TileMapLayer
+var tool_switcher: Node
 var current_tool: String = "hoe"  # Default starting tool
 
 func _ready() -> void:
+	# Load shared Resources
+	tool_config = load("res://resources/data/tool_config.tres")
+	game_config = load("res://resources/data/game_config.tres")
+	if game_config:
+		interaction_distance = game_config.interaction_distance
+	
 	# Get the farmable layer for tile interactions
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
@@ -38,21 +46,21 @@ func set_hud(hud_instance: Node) -> void:
 
 
 
+# Use shared ToolConfig Resource instead of duplicated tool mapping (follows .cursor/rules/godot.md)
+var tool_config: Resource = null
+# Use shared GameConfig Resource for magic numbers (follows .cursor/rules/godot.md)
+var game_config: Resource = null
+var interaction_distance: float = 1.5  # Default (will be overridden by GameConfig)
+
 func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
 	if item_texture:
-		# Dynamically map the tool name using texture or metadata
-		current_tool = _get_tool_name_from_texture(item_texture)
+		# Use shared ToolConfig to map texture to tool name
+		if tool_config and tool_config.has_method("get_tool_name"):
+			current_tool = tool_config.get_tool_name(item_texture)
+		else:
+			print("Error: ToolConfig not loaded. Cannot map tool.")
 	else:
 		print("Error: Tool texture is null. Cannot update tool.")
-
-func _get_tool_name_from_texture(item_texture: Texture) -> String:
-	var tool_map = {
-		preload("res://assets/tiles/tools/shovel.png"): "hoe",
-		preload("res://assets/tiles/tools/rototiller.png"): "till",
-		preload("res://assets/tiles/tools/pick-axe.png"): "pickaxe",
-		preload("res://assets/tilesets/full version/tiles/FartSnipSeeds.png"): "seed"
-	}
-	return tool_map.get(item_texture, "unknown")  # Default to "unknown" if not found
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	
@@ -63,7 +71,8 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	var target_cell = farmable_layer.local_to_map(target_pos)
 	#print("Target cell:", target_cell)
 
-	if target_cell.distance_to(farmable_layer.local_to_map(player_pos)) > 1.5:
+	# Use GameConfig interaction_distance instead of magic number (follows .cursor/rules/godot.md)
+	if target_cell.distance_to(farmable_layer.local_to_map(player_pos)) > interaction_distance:
 		#print("Target cell too far from player.")
 		return
 

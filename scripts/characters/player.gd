@@ -3,7 +3,9 @@
 
 extends CharacterBody2D
 
-var speed: float = 200
+# Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
+var game_config: Resource = null
+var speed: float = 200  # Default (will be overridden by GameConfig)
 var direction: Vector2 = Vector2.ZERO  # Tracks input direction
 var interactable: Node = null          # Stores the interactable object the player is near
 var farming_manager: Node = null       # Reference to the farming system
@@ -13,6 +15,11 @@ var current_interaction: String = ""  # Track the current interaction
 @onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
 
 func _ready() -> void:
+	# Load GameConfig Resource
+	game_config = load("res://resources/data/game_config.tres")
+	if game_config:
+		speed = game_config.player_speed
+	
 	# Locate farming system if in the farm scene
 	var farm_scene = get_tree().current_scene
 
