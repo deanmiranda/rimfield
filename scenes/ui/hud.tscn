@@ -1,12 +1,12 @@
 [gd_scene load_steps=8 format=3 uid="uid://u1mvuy8l6k23"]
 
-[ext_resource type="Script" path="res://scripts/ui/hud_slot.gd" id="2_muuh7"]
+[ext_resource type="Script" uid="uid://6f3r8jax1xo" path="res://scripts/ui/hud_slot.gd" id="2_muuh7"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_5va86"]
 [ext_resource type="Texture2D" uid="uid://b5vipdhn607jm" path="res://assets/tiles/tools/shovel.png" id="4_ahcmr"]
 [ext_resource type="Texture2D" uid="uid://cevvdhf2p5k2s" path="res://assets/tiles/tools/rototiller.png" id="5_g2ra6"]
 [ext_resource type="Texture2D" uid="uid://dxnfv5aw2wdsu" path="res://assets/tiles/tools/pick-axe.png" id="6_wmhby"]
 [ext_resource type="Texture2D" uid="uid://cfnt5tyopipyn" path="res://assets/tilesets/full version/tiles/FartSnipSeeds.png" id="7_t5p3x"]
-[ext_resource type="Script" path="res://scripts/ui/tool_switcher.gd" id="8_d4ui7"]
+[ext_resource type="Script" uid="uid://cu8i2rdhe4vk8" path="res://scripts/ui/tool_switcher.gd" id="8_d4ui7"]
 
 [node name="Hud" type="Node"]
 

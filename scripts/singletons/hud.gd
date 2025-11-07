@@ -7,6 +7,10 @@ var farming_manager: Node = null  # Reference to FarmingManager
 var current_drag_data: Dictionary = {}  # Track drag data across slots
 var hud_initialized = false  # Flag to indicate if the HUD is initialized
 
+# Cached references to avoid repeated node path lookups
+var slots_container: HBoxContainer = null  # Cached reference to tool slots container
+var hud_scene_instance: Node = null  # Reference to the instantiated HUD scene
+
 func _ready() -> void:
 	
 	if hud_initialized:
@@ -22,7 +26,7 @@ func _ready() -> void:
 	# Check current scene on startup
 	_on_scene_changed(get_tree().current_scene.name)
 
-func _on_scene_changed(new_scene_name: String) -> void:
+func _on_scene_changed(_new_scene_name: String) -> void:
 	if UiManager._is_not_game_scene():
 		print("DEBUG: Not in a game scene.")
 	else:
@@ -38,9 +42,23 @@ func setup_hud() -> void:
 	else:
 		print("ERROR: Farming Manager node not found.")
 
+	# Use cached container reference if available, otherwise try to find it
+	if not slots_container:
+		if hud_scene_instance:
+			slots_container = hud_scene_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		else:
+			# Fallback to absolute path if scene instance not registered
+			var fallback_container = get_node_or_null("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+			if fallback_container:
+				slots_container = fallback_container
+				print("DEBUG: Using fallback path to find slots container.")
+	
+	if not slots_container:
+		print("ERROR: Slots container not found. Cannot setup HUD.")
+		return
 
 	# Dynamically connect signals for each TextureButton node
-	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
+	var tool_buttons = slots_container.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			print("DEBUG: Connecting signals for tool button at index:", i)
@@ -71,7 +89,13 @@ func setup_hud() -> void:
 
 # hud.gd
 func connect_gui_signals() -> void:
-	var slots_container = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	if not slots_container:
+		# Try to refresh cache if not available
+		if hud_scene_instance:
+			slots_container = hud_scene_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		else:
+			slots_container = get_node_or_null("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	
 	if not slots_container:
 		print("ERROR: HBoxContainer not found.")
 		return
@@ -131,14 +155,20 @@ func _start_drag(slot_data: Dictionary) -> void:
 	drag_preview.global_position = get_global_mouse_position()
 	print("DEBUG: Drag preview created.")
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	var drag_preview = get_node_or_null("DragPreview")
 	if drag_preview:
 		drag_preview.global_position = get_global_mouse_position()
 
 func get_slot_by_index(slot_index: int) -> TextureRect:
 	print("DEBUG: Getting slot by index:", slot_index)
-	var slots_container = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	if not slots_container:
+		# Try to refresh cache if not available
+		if hud_scene_instance:
+			slots_container = hud_scene_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		else:
+			slots_container = get_node_or_null("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	
 	if not slots_container:
 		print("ERROR: HBoxContainer not found.")
 		return null
@@ -154,7 +184,13 @@ func get_slot_by_index(slot_index: int) -> TextureRect:
 func get_slot_by_mouse_position() -> Node:
 	print("DEBUG: Getting slot by mouse position.")
 	var mouse_position = get_global_mouse_position()
-	var slots_container = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	if not slots_container:
+		# Try to refresh cache if not available
+		if hud_scene_instance:
+			slots_container = hud_scene_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		else:
+			slots_container = get_node_or_null("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	
 	if not slots_container:
 		print("ERROR: HBoxContainer not found.")
 		return null
@@ -217,7 +253,18 @@ func _clear_drag_preview() -> void:
 
 func _highlight_active_tool(slot_index: int, _item_texture: Texture, tool_name: String) -> void:
 	print("DEBUG: Highlighting active tool at slot:", slot_index, "with tool:", tool_name)
-	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
+	if not slots_container:
+		# Try to refresh cache if not available
+		if hud_scene_instance:
+			slots_container = hud_scene_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		else:
+			slots_container = get_node_or_null("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer")
+	
+	if not slots_container:
+		print("ERROR: Slots container not found. Cannot highlight tool.")
+		return
+	
+	var tool_buttons = slots_container.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			var highlight = tool_buttons[i].get_node_or_null("Highlight")
@@ -233,6 +280,20 @@ func set_farming_manager(farming_manager_instance: Node) -> void:
 		farming_manager = farming_manager_instance
 	else:
 		print("ERROR: FarmingManager instance is null. Cannot link.")
+
+func set_hud_scene_instance(hud_instance: Node) -> void:
+	"""Register the HUD scene instance and cache its container reference."""
+	print("DEBUG: Setting HUD scene instance.")
+	hud_scene_instance = hud_instance
+	if hud_instance:
+		# Cache the slots container reference to avoid repeated path lookups
+		slots_container = hud_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		if slots_container:
+			print("DEBUG: Cached slots container reference.")
+		else:
+			print("ERROR: Could not find slots container in HUD scene instance.")
+	else:
+		print("ERROR: HUD scene instance is null. Cannot cache container.")
 
 func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
 	print("DEBUG: Updating FarmingManager tool. Slot index:", slot_index)
