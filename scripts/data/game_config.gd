@@ -7,4 +7,5 @@ class_name GameConfig
 @export var max_item_stack: int = 99
 @export var interaction_distance: float = 1.5
 @export var player_speed: float = 200
+@export var pickup_radius: float = 48.0
 

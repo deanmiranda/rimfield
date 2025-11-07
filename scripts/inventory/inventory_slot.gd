@@ -59,7 +59,7 @@ func _stop_drag() -> void:
 	is_dragging_global = false
 	if drag_preview:
 		print("DEBUG: Drag stopped on slot", slot_index)
-		_handle_drop(get_global_mouse_position())
+		_handle_drop(MouseUtil.get_viewport_mouse_pos(self))
 		drag_preview.queue_free()
 		drag_preview = null
 
@@ -77,24 +77,24 @@ func _create_drag_preview(texture: Texture) -> TextureRect:
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	get_tree().root.add_child(preview)  # Add to scene tree root
-	preview.global_position = get_global_mouse_position()
+	preview.global_position = MouseUtil.get_viewport_mouse_pos(self)
 	drag_preview_instance = preview
 	return preview
 
 # Updates the drag preview's position to follow the mouse
 func _update_drag_preview_position() -> void:
 	if drag_preview:
-		drag_preview.global_position = get_global_mouse_position()
+		drag_preview.global_position = MouseUtil.get_viewport_mouse_pos(self)
 
 # Handles dropping logic when drag ends
-func _handle_drop(global_position: Vector2) -> void:
+func _handle_drop(drop_position: Vector2) -> void:
 	reset_drag_state()
-	print("DEBUG: Handling drop for slot", slot_index, "at position:", global_position)
+	print("DEBUG: Handling drop for slot", slot_index, "at position:", drop_position)
 
 	var parent_container = get_parent()
 	if parent_container and parent_container is GridContainer:
 		for child in parent_container.get_children():
-			if child is TextureButton and child.get_global_rect().has_point(global_position):
+			if child is TextureButton and child.get_global_rect().has_point(drop_position):
 				print("DEBUG: Drop detected on slot", child.slot_index)
 				if _swap_items_with(child):
 					print("DEBUG: Swap successful between slots", slot_index, "and", child.slot_index)

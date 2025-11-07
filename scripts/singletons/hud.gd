@@ -21,8 +21,8 @@ func _ready() -> void:
 	# Check current scene on startup
 	_on_scene_changed(get_tree().current_scene.name)
 
-func _on_scene_changed(new_scene_name: String) -> void:
-	#print("Scene changed to:", new_scene_name)
+func _on_scene_changed(_new_scene_name: String) -> void:
+	#print("Scene changed to:", _new_scene_name)
 	if UiManager._is_not_game_scene():
 		print("Not in a game scene")
 	else:

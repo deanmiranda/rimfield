@@ -9,4 +9,5 @@ inventory_slot_count = 12
 max_item_stack = 99
 interaction_distance = 1.5
 player_speed = 200
+pickup_radius = 48.0
 

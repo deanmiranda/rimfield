@@ -41,7 +41,7 @@ func _process(_delta: float) -> void:
 		return
 
 	# Restrict to viewport
-	var mouse_position = get_global_mouse_position()
+	var mouse_position = MouseUtil.get_world_mouse_pos_2d(self)
 	var viewport_rect = Rect2(Vector2.ZERO, get_viewport().size)
 	if not viewport_rect.has_point(get_viewport().get_mouse_position()):
 		highlight_sprite.visible = false

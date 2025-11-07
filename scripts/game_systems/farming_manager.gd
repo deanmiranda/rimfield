@@ -30,9 +30,9 @@ func _ready() -> void:
 		if not farmable_layer:
 			print("Error: Farmable layer not found!")
 	 
-func set_hud(hud_instance: Node) -> void:
-	hud_path = hud_instance
-	tool_switcher = hud_instance.get_node("ToolSwitcher")
+func set_hud(hud_scene_instance: Node) -> void:
+	hud_path = hud_scene_instance
+	tool_switcher = hud_scene_instance.get_node("ToolSwitcher")
 	
 	if tool_switcher:
 		# Connect the tool_changed signal
@@ -40,7 +40,7 @@ func set_hud(hud_instance: Node) -> void:
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
 		
 		# Ensure a valid tool is set on load
-		var first_slot_tool = tool_switcher.get("current_tool")
+		var _first_slot_tool = tool_switcher.get("current_tool")
 	else:
 		print("Error: ToolSwitcher not found as a child of HUD.")
 
@@ -52,7 +52,7 @@ var tool_config: Resource = null
 var game_config: Resource = null
 var interaction_distance: float = 1.5  # Default (will be overridden by GameConfig)
 
-func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
+func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
 	if item_texture:
 		# Use shared ToolConfig to map texture to tool name
 		if tool_config and tool_config.has_method("get_tool_name"):

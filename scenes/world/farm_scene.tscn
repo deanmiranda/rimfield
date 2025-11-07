@@ -14,7 +14,7 @@
 [ext_resource type="Texture2D" uid="uid://breduu05uy4ae" path="res://assets/particles/particle-dirt-1x1.png" id="6_t8wgt"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="7_lryf0"]
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="10_7peq5"]
-[ext_resource type="Script" uid="uid://duf11qa8f8kmx" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
+[ext_resource type="Script" uid="uid://ch30oq22mw118" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
