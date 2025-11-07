@@ -57,6 +57,7 @@ func _ready() -> void:
 		if farming_manager and hud_instance:
 			if HUD:
 				HUD.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
+				HUD.set_hud_scene_instance(hud_instance)  # Inject HUD scene instance to cache references (replaces /root/... paths)
 				farming_manager.set_hud(hud_instance)  # Link HUD to FarmingManager
 			else:
 				print("Error: hud_instance is not an instance of HUD script.")

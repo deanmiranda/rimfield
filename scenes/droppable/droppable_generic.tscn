@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://deeqn24en0ol1"]
 
-[ext_resource type="Script" path="res://scripts/droppable/droppable_generic.gd" id="1_bonwn"]
+[ext_resource type="Script" uid="uid://c4go8w8gynmew" path="res://scripts/droppable/droppable_generic.gd" id="1_bonwn"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_acbck"]
 
