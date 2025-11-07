@@ -77,7 +77,7 @@ func setup_hud() -> void:
 func set_farming_manager(farming_manager_instance: Node) -> void:
 	if farming_manager_instance:
 		farming_manager = farming_manager_instance  # Save the reference
-	else:
+	else: 
 		print("Error: FarmingManager instance is null. Cannot link.")
 
 func set_hud_scene_instance(hud_instance: Node) -> void:
