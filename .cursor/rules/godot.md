@@ -236,3 +236,7 @@ When replacing absolute paths:
 - [ ] Add null checks for injected references
 - [ ] Test that references are set before use
 - [ ] Verify no `/root/` paths remain (grep for `/root/`)
+
+After generating or editing code, run: `pwsh -File scripts/verify_rules.ps1`
+- If it fails, fix violations before proposing a PR.
+- Include the PASS line and a brief profiler note in the PR body.

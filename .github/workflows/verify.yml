@@ -1,0 +1,14 @@
+name: Verify Rules
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run rule checks
+        shell: pwsh
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+          ./scripts/verify_rules.ps1
