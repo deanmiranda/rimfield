@@ -6,14 +6,14 @@ func _ready() -> void:
 	self.visible = false
 	
 	# Make sure the feedback label is hidden initially
-	var feedback_label = $MarginContainer/VBoxContainer/SaveFeedbackLabel
+	var feedback_label = $CenterContainer/VBoxContainer/SaveFeedbackLabel
 	if feedback_label:
 		feedback_label.visible = false
 
 
 func _focus_on_resume() -> void:
 	# This is just to make sure the resume button gets focus
-	var resume_button = $MarginContainer/VBoxContainer/ResumeButton
+	var resume_button = $CenterContainer/VBoxContainer/ResumeButton
 	if resume_button:
 		resume_button.grab_focus()
 	else:
@@ -40,7 +40,7 @@ func _on_save_game_pressed() -> void:
 	GameState.save_game(save_file_path)  # Save the game
 
 	# Provide feedback for saving
-	var feedback_label = $MarginContainer/VBoxContainer/SaveFeedbackLabel
+	var feedback_label = $CenterContainer/VBoxContainer/SaveFeedbackLabel
 	if feedback_label:
 		feedback_label.visible = true
 		feedback_label.text = "Game Saving..."

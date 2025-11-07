@@ -6,6 +6,7 @@
 
 [node name="Node2D" type="Node2D"]
 z_index = 10
+scale = Vector2(0.5, 0.5)
 script = ExtResource("1_bonwn")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]

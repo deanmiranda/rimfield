@@ -331,5 +331,6 @@ shape = SubResource("CapsuleShape2D_jppql")
 debug_color = Color(0.907394, 0.199351, 0.568449, 0.42)
 
 [node name="PlayerCamera" type="Camera2D" parent="Player"]
+zoom = Vector2(4.5, 4.5)
 limit_smoothed = true
 position_smoothing_enabled = true

@@ -42,8 +42,10 @@ func _ready() -> void:
 	# Pause menu setup
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
 	if pause_menu_scene is PackedScene:
-		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)
+		var pause_menu_layer = pause_menu_scene.instantiate()
+		add_child(pause_menu_layer)
+		# Get the Control child from the CanvasLayer
+		pause_menu = pause_menu_layer.get_node("Control")
 		pause_menu.visible = false
 	else:
 		print("Error: Failed to load PauseMenu scene.")
