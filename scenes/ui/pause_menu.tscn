@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://6iqkhdg8xtxy"]
 
-[ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="1_qdxnx"]
+[ext_resource type="Script" uid="uid://b7rf4bdmw47wa" path="res://scripts/ui/pause_menu.gd" id="1_qdxnx"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_p544r"]
 
 [node name="PauseMenu" type="CanvasLayer"]

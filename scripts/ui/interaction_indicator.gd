@@ -3,14 +3,22 @@
 extends CanvasLayer
 
 var plus_icon: TextureRect = null
+var tooltip_label: Label = null
 var hide_timer: Timer = null
 var current_pickable: Node = null
 var last_check_time: float = 0.0
+var tooltip_tween: Tween = null
+var was_nearby_last_frame: bool = false  # Track if item was nearby last frame
 const CHECK_INTERVAL: float = 0.05  # Check every 50ms in _process
 
+# Interaction radius for enabling the icon (default 64px, can be overridden)
+@export var interaction_radius: float = 64.0
+
+# Color settings for enabled/disabled states
+var disabled_modulate := Color(0.5, 0.5, 0.5, 0.7)  # Grayed out
+var enabled_modulate := Color(1.0, 1.0, 1.0, 1.0)   # Normal white
+
 func _ready() -> void:
-	print("DEBUG: InteractionIndicator _ready() called")
-	
 	# Set layer to be on top
 	layer = 100
 	
@@ -20,7 +28,6 @@ func _ready() -> void:
 	control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	control.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(control)
-	print("DEBUG: Control container created and added, layer: ", layer)
 	
 	# Create the plus icon TextureRect
 	plus_icon = TextureRect.new()
@@ -28,23 +35,35 @@ func _ready() -> void:
 	plus_icon.visible = false
 	plus_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Don't block mouse input
 	
-	# Try to load a plus icon texture, or create a simple colored rect
+	# Load plus icon texture
 	var plus_texture = load("res://assets/ui/plus_icon.png")
-	if not plus_texture:
-		print("DEBUG: Plus icon texture not found, using fallback")
-		# Create a simple colored rect as fallback
-		plus_icon.modulate = Color(1, 1, 1, 0.8)
-		plus_icon.custom_minimum_size = Vector2(32, 32)
-		plus_icon.size = Vector2(32, 32)  # Explicit size
-	else:
-		print("DEBUG: Plus icon texture loaded successfully")
+	if plus_texture:
 		plus_icon.texture = plus_texture
 		plus_icon.custom_minimum_size = Vector2(32, 32)
-		plus_icon.size = Vector2(32, 32)  # Explicit size
+		plus_icon.size = Vector2(32, 32)
 		plus_icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	else:
+		# Fallback if texture not found
+		plus_icon.custom_minimum_size = Vector2(32, 32)
+		plus_icon.size = Vector2(32, 32)
+	
+	# Start with disabled (grayed out) state
+	plus_icon.modulate = disabled_modulate
 	
 	control.add_child(plus_icon)
-	print("DEBUG: Plus icon created and added to control, size: ", plus_icon.size)
+	
+	# Create tooltip label
+	tooltip_label = Label.new()
+	tooltip_label.name = "TooltipLabel"
+	tooltip_label.text = "Press E to collect"
+	tooltip_label.visible = false
+	tooltip_label.modulate = Color(1, 1, 1, 0)  # Start invisible
+	tooltip_label.add_theme_font_size_override("font_size", 14)
+	tooltip_label.add_theme_color_override("font_color", Color.WHITE)
+	tooltip_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	tooltip_label.add_theme_constant_override("outline_size", 2)
+	tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	control.add_child(tooltip_label)
 	
 	# Create a timer to hide the indicator after mouse stops moving
 	hide_timer = Timer.new()
@@ -60,9 +79,6 @@ func _input(event: InputEvent) -> void:
 		if viewport:
 			var mouse_pos = viewport.get_mouse_position()
 			var world_pos = MouseUtil.get_world_mouse_pos_2d(self)
-			# Debug: occasionally print that we're checking
-			if randf() < 0.1:  # 10% chance
-				print("DEBUG: _input mouse motion detected, mouse_pos: ", mouse_pos, " world_pos: ", world_pos)
 			_check_pickable_under_cursor(world_pos, mouse_pos)
 		# Reset hide timer
 		if hide_timer:
@@ -70,6 +86,17 @@ func _input(event: InputEvent) -> void:
 			hide_timer.start()
 
 func _process(delta: float) -> void:
+	# Continuously update indicator state if icon is visible
+	# This ensures the icon updates in real-time as player moves
+	if plus_icon and plus_icon.visible and current_pickable:
+		_update_indicator_state()
+		
+		# Check if item was collected (was nearby but no longer valid)
+		if was_nearby_last_frame:
+			if not is_instance_valid(current_pickable):
+				# Item was collected and freed
+				_on_item_collected()
+	
 	# Also check periodically as a fallback (in case mouse motion events are consumed)
 	last_check_time += delta
 	if last_check_time >= CHECK_INTERVAL:
@@ -82,14 +109,10 @@ func _process(delta: float) -> void:
 			if mouse_pos != Vector2.ZERO:
 				_check_pickable_under_cursor(world_pos, mouse_pos)
 
-func _check_pickable_under_cursor(world_pos: Vector2, screen_pos: Vector2) -> void:
+func _check_pickable_under_cursor(_world_pos: Vector2, screen_pos: Vector2) -> void:
 	# Check if mouse cursor is over any pickable item
 	# This should work regardless of player distance - it's a hover indicator
 	var pickables = get_tree().get_nodes_in_group("pickable")
-	
-	# Debug: occasionally print that we're checking
-	if randf() < 0.05:  # 5% chance
-		print("DEBUG: _check_pickable_under_cursor called, pickables: ", pickables.size(), " mouse_screen: ", screen_pos)
 	
 	if pickables.size() == 0:
 		_hide_indicator()
@@ -99,8 +122,6 @@ func _check_pickable_under_cursor(world_pos: Vector2, screen_pos: Vector2) -> vo
 	var closest_distance = INF
 	var viewport = get_viewport()
 	var viewport_size = viewport.size if viewport else Vector2.ZERO
-	var checked_count = 0
-	var skipped_off_screen = 0
 	
 	# Check each pickable to see if mouse is over it
 	for pickable in pickables:
@@ -114,27 +135,16 @@ func _check_pickable_under_cursor(world_pos: Vector2, screen_pos: Vector2) -> vo
 		var pickable_world_pos = (pickable as Node2D).global_position
 		var pickable_screen_pos = _world_to_screen_position(pickable_world_pos)
 		
-		checked_count += 1
-		
 		# Check if pickable is actually visible on screen first
-		# Use a very large margin to avoid filtering out pickables that are just slightly off-screen
 		if viewport:
 			var margin = 500.0  # Large margin to catch pickables near screen edges
 			if pickable_screen_pos.x < -margin or pickable_screen_pos.x > viewport_size.x + margin or \
 			   pickable_screen_pos.y < -margin or pickable_screen_pos.y > viewport_size.y + margin:
-				skipped_off_screen += 1
-				# Debug: occasionally print why we're skipping
-				if randf() < 0.02:  # 2% chance
-					print("DEBUG: Skipping pickable ", pickable.name, " - way off screen. screen_pos: ", pickable_screen_pos, " viewport: ", viewport_size)
 				continue
 		
 		# Check if mouse is over the pickable's visual representation
 		var is_over = false
 		var distance_to_mouse = screen_pos.distance_to(pickable_screen_pos)
-		
-		# Debug: print info about on-screen pickables occasionally
-		if randf() < 0.01:  # 1% chance per pickable
-			print("DEBUG: Checking pickable ", pickable.name, " world: ", pickable_world_pos, " screen: ", pickable_screen_pos, " mouse: ", screen_pos, " distance: ", distance_to_mouse)
 		
 		# Try to find a Sprite2D to get visual size
 		var sprite = pickable.get_node_or_null("Sprite2D")
@@ -159,32 +169,27 @@ func _check_pickable_under_cursor(world_pos: Vector2, screen_pos: Vector2) -> vo
 					if distance_to_mouse < closest_distance:
 						closest_distance = distance_to_mouse
 						found_pickable = pickable
-						# Debug: always print when sprite detection works
-						print("DEBUG: ✓ Sprite detection! ", pickable.name, " mouse_offset: ", mouse_offset, " half_size: ", half_size, " padding: ", padding)
 		
 		# Fallback: use distance check if no sprite found or sprite check failed
 		if not is_over:
-			var hover_radius = 25.0  # Small hover radius for items without sprites (reduced from 100)
+			var hover_radius = 25.0  # Small hover radius for items without sprites
 			if distance_to_mouse <= hover_radius:
 				if distance_to_mouse < closest_distance:
 					closest_distance = distance_to_mouse
 					found_pickable = pickable
 					is_over = true
-					# Debug: always print when distance detection works
-					print("DEBUG: ✓ Distance detection! ", pickable.name, " distance: ", distance_to_mouse, " radius: ", hover_radius)
 	
 	# Show indicator at mouse cursor if we found a pickable
 	if found_pickable:
+		# If switching to a different pickable, reset state tracking
+		var is_new_pickable = (current_pickable != found_pickable)
+		if is_new_pickable:
+			was_nearby_last_frame = false  # Reset to force state update
 		current_pickable = found_pickable
 		_show_indicator(screen_pos)
-		# Always print when we find one (for debugging)
-		var pickable_world_pos = (found_pickable as Node2D).global_position
-		var pickable_screen_pos = _world_to_screen_position(pickable_world_pos)
-		print("DEBUG: ✓ HOVER DETECTED! Pickable: ", found_pickable.name, " mouse_screen: ", screen_pos, " pickable_screen: ", pickable_screen_pos, " distance: ", screen_pos.distance_to(pickable_screen_pos))
+		# Immediately update state for new item
+		_update_indicator_state()
 	else:
-		# Debug: occasionally print why we didn't find anything
-		if randf() < 0.05:  # 5% chance
-			print("DEBUG: No pickable found. Checked: ", checked_count, " skipped_off_screen: ", skipped_off_screen, " viewport_size: ", viewport_size)
 		_hide_indicator()
 
 func _world_to_screen_position(world_pos: Vector2) -> Vector2:
@@ -198,64 +203,189 @@ func _world_to_screen_position(world_pos: Vector2) -> Vector2:
 		return Vector2.ZERO
 	
 	# Use the camera's canvas transform which properly converts world to screen
-	# This is the transform that the camera uses to render sprites
 	var canvas_transform = camera.get_canvas_transform()
-	
-	# Transform the world position to screen coordinates
 	var screen_pos = canvas_transform * world_pos
-	
-	# Debug occasionally to verify
-	if randf() < 0.01:  # 1% chance
-		print("DEBUG: World to screen - world: ", world_pos, " screen: ", screen_pos, " camera_pos: ", camera.global_position)
 	
 	return screen_pos
 
 func _show_indicator(screen_pos: Vector2) -> void:
-	if not plus_icon:
-		print("DEBUG: ERROR - plus_icon is null!")
+	if not plus_icon or not tooltip_label:
 		return
 	
 	# Ensure parent control exists and is visible
 	var parent_control = plus_icon.get_parent()
 	if not parent_control:
-		print("DEBUG: ERROR - parent control is null!")
 		return
 	
-	# Make sure parent is visible
 	parent_control.visible = true
 	
-	# Position near mouse cursor with offset (relative to parent Control)
-	# Use screen_pos directly since we're in a CanvasLayer
-	plus_icon.position = screen_pos + Vector2(20, 20)  # Offset from cursor
+	# Position icon near mouse cursor with offset
+	plus_icon.position = screen_pos + Vector2(20, 20)
 	
 	# Ensure the icon is actually on screen
 	var viewport = get_viewport()
 	if viewport:
 		var viewport_size = viewport.size
-		# Clamp position to viewport bounds
 		plus_icon.position.x = clamp(plus_icon.position.x, 0, viewport_size.x - plus_icon.size.x)
 		plus_icon.position.y = clamp(plus_icon.position.y, 0, viewport_size.y - plus_icon.size.y)
+	
+	# Position tooltip below icon
+	tooltip_label.position = plus_icon.position + Vector2(0, plus_icon.size.y + 5)
+	if viewport:
+		var viewport_size = viewport.size
+		tooltip_label.position.x = clamp(tooltip_label.position.x, 0, viewport_size.x - tooltip_label.size.x)
 	
 	# Set z-index to ensure it's on top
 	plus_icon.z_index = 1000
 	plus_icon.z_as_relative = true
+	tooltip_label.z_index = 1001
+	tooltip_label.z_as_relative = true
 	
-	# Make sure icon is visible
+	# Make icon visible (starts disabled/grayed out)
 	plus_icon.visible = true
-	plus_icon.modulate = Color.WHITE  # Ensure full opacity
+	plus_icon.modulate = disabled_modulate  # Start disabled
+	
+	# Update state based on player proximity
+	_update_indicator_state()
 	
 	# Force update
 	plus_icon.queue_redraw()
 	parent_control.queue_redraw()
+
+func _update_indicator_state() -> void:
+	# Check if player is close enough to interact with current_pickable
+	if not current_pickable or not is_instance_valid(current_pickable):
+		return
 	
-	# Always print when showing (for debugging)
-	print("DEBUG: ✓ SHOWING INDICATOR at screen pos: ", screen_pos, " icon pos: ", plus_icon.position, " visible: ", plus_icon.visible, " size: ", plus_icon.size, " texture: ", plus_icon.texture != null)
+	if not plus_icon:
+		return
+	
+	# Try multiple methods to find the player
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		player = get_tree().current_scene.get_node_or_null("Player")
+		if not player:
+			var scene = get_tree().current_scene
+			if scene:
+				for child in scene.get_children():
+					if child is CharacterBody2D and "nearby_pickables" in child:
+						player = child
+						break
+	
+	if not player or not (player is Node2D):
+		# No player found - keep disabled state
+		plus_icon.modulate = disabled_modulate
+		_hide_tooltip()
+		was_nearby_last_frame = false
+		return
+	
+	var is_nearby = false
+	
+	# Primary method: Direct distance check (most reliable)
+	if current_pickable is Node2D:
+		var player_pos = (player as Node2D).global_position
+		var pickable_pos = (current_pickable as Node2D).global_position
+		var distance = player_pos.distance_to(pickable_pos)
+		
+		# Use player's pickup_radius if available, otherwise use interaction_radius
+		var radius = interaction_radius
+		if "pickup_radius" in player:
+			radius = player.pickup_radius
+		
+		# Debug output (remove after testing)
+		if randf() < 0.05:  # 5% chance to reduce spam
+			print("DEBUG: Distance check - pickable: ", current_pickable.name, " distance: ", distance, " radius: ", radius, " is_nearby: ", distance <= radius)
+		
+		if distance <= radius:
+			is_nearby = true
+	
+	# Secondary method: Verify with nearby_pickables array (if distance check didn't find it)
+	# This helps catch edge cases where distance might be slightly off
+	if not is_nearby and "nearby_pickables" in player and current_pickable:
+		# Try multiple comparison methods since node references might differ
+		for nearby_item in player.nearby_pickables:
+			if not is_instance_valid(nearby_item):
+				continue
+			# Check by reference first
+			if nearby_item == current_pickable:
+				is_nearby = true
+				break
+			# Check by instance ID as fallback
+			if nearby_item.get_instance_id() == current_pickable.get_instance_id():
+				is_nearby = true
+				break
+			# Check by scene path as another fallback
+			if nearby_item.get_path() == current_pickable.get_path():
+				is_nearby = true
+				break
+	
+	# Update icon appearance based on proximity
+	var state_changed = (is_nearby != was_nearby_last_frame)
+	
+	# Debug output (remove after testing)
+	if randf() < 0.05:  # 5% chance to reduce spam
+		print("DEBUG: State update - pickable: ", current_pickable.name if current_pickable else "null", " is_nearby: ", is_nearby, " state_changed: ", state_changed, " was_nearby_last_frame: ", was_nearby_last_frame)
+	
+	if is_nearby:
+		# Player is close - show enabled icon and tooltip
+		plus_icon.modulate = enabled_modulate
+		# Only show tooltip if state changed (wasn't nearby before)
+		if state_changed:
+			_show_tooltip()
+		was_nearby_last_frame = true
+	else:
+		# Player is far - show disabled icon, hide tooltip
+		plus_icon.modulate = disabled_modulate
+		# Only hide tooltip if state changed (was nearby before)
+		if state_changed:
+			_hide_tooltip()
+		was_nearby_last_frame = false
 
 func _hide_indicator() -> void:
 	if plus_icon:
 		plus_icon.visible = false
+	_hide_tooltip()
 	current_pickable = null
+	was_nearby_last_frame = false
+
+func _show_tooltip() -> void:
+	if not tooltip_label:
+		return
+	
+	tooltip_label.visible = true
+	
+	# Stop any existing tween
+	if tooltip_tween:
+		tooltip_tween.kill()
+	
+	# Fade in tooltip
+	tooltip_tween = create_tween()
+	tooltip_tween.tween_property(tooltip_label, "modulate:a", 1.0, 0.2)
+
+func _hide_tooltip() -> void:
+	if not tooltip_label:
+		return
+	
+	# Stop any existing tween
+	if tooltip_tween:
+		tooltip_tween.kill()
+	
+	# Fade out tooltip
+	tooltip_tween = create_tween()
+	tooltip_tween.tween_property(tooltip_label, "modulate:a", 0.0, 0.2)
+	tooltip_tween.tween_callback(func(): tooltip_label.visible = false)
 
 func _on_hide_timer_timeout() -> void:
 	# Hide indicator after mouse stops moving
 	_hide_indicator()
+
+func _on_item_collected() -> void:
+	# Called when an item is collected - fade out tooltip
+	if current_pickable:
+		_hide_tooltip()
+		# Hide icon after a brief delay
+		if tooltip_tween:
+			tooltip_tween.kill()
+		tooltip_tween = create_tween()
+		tooltip_tween.tween_delay(0.5)
+		tooltip_tween.tween_callback(_hide_indicator)

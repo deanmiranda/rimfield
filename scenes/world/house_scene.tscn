@@ -1,6 +1,6 @@
 [gd_scene load_steps=71 format=4 uid="uid://cbji7jshgmul4"]
 
-[ext_resource type="Script" path="res://scripts/scenes/house_scene.gd" id="1_aquta"]
+[ext_resource type="Script" uid="uid://culjkg6rx4qg5" path="res://scripts/scenes/house_scene.gd" id="1_aquta"]
 [ext_resource type="TileSet" uid="uid://dgf7c584pje4q" path="res://assets/tilesheets/HouseInterior.tres" id="1_fvgnd"]
 [ext_resource type="Texture2D" uid="uid://cx3irxm03fk7v" path="res://assets/tiles/interior full/furniture/kitchens_assembled.png" id="2_4bq14"]
 [ext_resource type="Texture2D" uid="uid://dw2s3u1se64tp" path="res://assets/tiles/interior full/furniture/couches_shadow.png" id="3_uygbg"]
@@ -11,8 +11,8 @@
 [ext_resource type="Texture2D" uid="uid://cpnsnjul1g3hr" path="res://assets/tiles/interior full/furniture/decorations.png" id="8_s5bjc"]
 [ext_resource type="Texture2D" uid="uid://dgy6ybr2iabml" path="res://assets/tiles/interior full/furniture/tables_shadow.png" id="9_bp774"]
 [ext_resource type="Texture2D" uid="uid://xrxcq6861o1n" path="res://assets/tiles/interior full/basics/wallpapers.png" id="10_f6xk0"]
-[ext_resource type="Script" path="res://scripts/game_systems/exit_zone.gd" id="11_dnpcd"]
-[ext_resource type="Script" path="res://scripts/characters/player.gd" id="12_ht2rx"]
+[ext_resource type="Script" uid="uid://fnsfbmbg5a2x" path="res://scripts/game_systems/exit_zone.gd" id="11_dnpcd"]
+[ext_resource type="Script" uid="uid://bae4lmxkqqrq4" path="res://scripts/characters/player.gd" id="12_ht2rx"]
 [ext_resource type="Texture2D" uid="uid://bdjljg632omq6" path="res://assets/sprites/char1.png" id="13_qrejd"]
 [ext_resource type="Texture2D" uid="uid://bc44curybdckq" path="res://assets/sprites/heart.png" id="14_rct0y"]
 

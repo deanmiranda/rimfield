@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="DroppableItem" load_steps=3 format=3 uid="uid://kts4cw7l77av"]
 
-[ext_resource type="Script" uid="uid://b0mke41epfx7c" path="res://scripts/droppable/droppable_item.gd" id="1_15tlw"]
+[ext_resource type="Script" uid="uid://bn2tvoux0j22v" path="res://scripts/droppable/droppable_item.gd" id="1_15tlw"]
 [ext_resource type="Texture2D" uid="uid://bbaorujrho1pg" path="res://resources/droppable_items/strawberry.png" id="2_oy6c1"]
 
 [resource]

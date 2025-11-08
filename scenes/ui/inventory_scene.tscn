@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3 uid="uid://dv7un6g17mq68"]
 
-[ext_resource type="Script" path="res://scripts/inventory/inventory_scene.gd" id="1_40btc"]
-[ext_resource type="Script" path="res://scripts/inventory/inventory_slot.gd" id="2_nmjyy"]
+[ext_resource type="Script" uid="uid://dxxyfn5ef7g04" path="res://scripts/inventory/inventory_scene.gd" id="1_40btc"]
+[ext_resource type="Script" uid="uid://c6hnees4lukov" path="res://scripts/inventory/inventory_slot.gd" id="2_nmjyy"]
 [ext_resource type="Texture2D" uid="uid://c64aaduodhpm0" path="res://assets/ui/inventory_border.png" id="2_tj6s3"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_i254s"]
 [ext_resource type="Texture2D" uid="uid://chyfuhy7xfxnl" path="res://assets/ui/inventory_empty_slot.png" id="4_evcc6"]

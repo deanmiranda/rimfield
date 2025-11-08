@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="GameConfig" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="GameConfig" load_steps=2 format=3 uid="uid://rtn7rxbbvce5"]
 
-[ext_resource type="Script" path="res://scripts/data/game_config.gd" id="1"]
+[ext_resource type="Script" uid="uid://c5ldyr1pmdols" path="res://scripts/data/game_config.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
@@ -8,6 +8,5 @@ hud_slot_count = 10
 inventory_slot_count = 12
 max_item_stack = 99
 interaction_distance = 1.5
-player_speed = 200
+player_speed = 200.0
 pickup_radius = 48.0
-
