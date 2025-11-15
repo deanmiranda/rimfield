@@ -292,10 +292,6 @@ func _update_indicator_state() -> void:
 		if "pickup_radius" in player:
 			radius = player.pickup_radius
 		
-		# Debug output (remove after testing)
-		if randf() < 0.05:  # 5% chance to reduce spam
-			print("DEBUG: Distance check - pickable: ", current_pickable.name, " distance: ", distance, " radius: ", radius, " is_nearby: ", distance <= radius)
-		
 		if distance <= radius:
 			is_nearby = true
 	
@@ -321,10 +317,6 @@ func _update_indicator_state() -> void:
 	
 	# Update icon appearance based on proximity
 	var state_changed = (is_nearby != was_nearby_last_frame)
-	
-	# Debug output (remove after testing)
-	if randf() < 0.05:  # 5% chance to reduce spam
-		print("DEBUG: State update - pickable: ", current_pickable.name if current_pickable else "null", " is_nearby: ", is_nearby, " state_changed: ", state_changed, " was_nearby_last_frame: ", was_nearby_last_frame)
 	
 	if is_nearby:
 		# Player is close - show enabled icon and tooltip

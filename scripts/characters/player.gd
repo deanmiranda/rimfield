@@ -20,17 +20,6 @@ var pickup_radius: float = 48.0  # Default (will be overridden by GameConfig)
 @onready var interaction_area: Area2D = null  # Will be created in _ready
 
 func _ready() -> void:
-	# ============================================
-	# CONFIRMATION: CURSOR AI IS EDITING THIS FILE
-	# This is a test change to verify we're in the right project
-	# ============================================
-	var timestamp = Time.get_datetime_string_from_system()
-	print("============================================")
-	print("CURSOR AI CONFIRMATION: Player script loaded!")
-	print("Last edited: ", timestamp)
-	print("If you see this message, we're editing the RIGHT project!")
-	print("============================================")
-	
 	# Load GameConfig Resource
 	game_config = load("res://resources/data/game_config.tres")
 	if game_config:
@@ -111,38 +100,27 @@ func _process(_delta: float) -> void:
 			farming_manager.interact_with_tile(mouse_pos, global_position)
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Handle tool keyboard shortcuts (1, 2, 3, 4) - directly use tool at mouse position
+	# Handle tool keyboard shortcuts (1, 2, 3, 4) - only switch tool, don't fire it
+	# Tool will fire on left mouse click in _process()
 	if farming_manager:
-		var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
 		if event.is_action_pressed("ui_tool_hoe"):
-			print("DEBUG: Hoe tool pressed")
 			farming_manager.current_tool = "hoe"
-			farming_manager.interact_with_tile(mouse_pos, global_position)
 		elif event.is_action_pressed("ui_tool_till"):
-			print("DEBUG: Till tool pressed")
 			farming_manager.current_tool = "till"
-			farming_manager.interact_with_tile(mouse_pos, global_position)
 		elif event.is_action_pressed("ui_tool_pickaxe"):
-			print("DEBUG: Pickaxe tool pressed")
 			farming_manager.current_tool = "pickaxe"
-			farming_manager.interact_with_tile(mouse_pos, global_position)
 		elif event.is_action_pressed("ui_tool_seed"):
-			print("DEBUG: Seed tool pressed")
 			farming_manager.current_tool = "seed"
-			farming_manager.interact_with_tile(mouse_pos, global_position)
 	
 	# Handle E key for contextual interaction
 	if event.is_action_pressed("ui_interact"):
 		# Prioritize pickables over doors
 		if nearby_pickables.size() > 0:
-			print("DEBUG: E pressed, attempting to pick up from ", nearby_pickables.size(), " nearby items")
 			_pickup_nearest_item()
 		elif current_interaction == "house":
 			# Door interaction is handled by house_interaction.gd
 			# This is just a fallback - door should handle its own input
 			pass
-		else:
-			print("DEBUG: E pressed but no nearby pickables (count: ", nearby_pickables.size(), ")")
 
 func _on_interaction_area_body_entered(body: Node2D) -> void:
 	# Track pickable items in the interaction area
@@ -163,7 +141,6 @@ func _on_interaction_area_area_entered(area: Area2D) -> void:
 	if parent and parent.is_in_group("pickable"):
 		if not nearby_pickables.has(parent):
 			nearby_pickables.append(parent)
-			print("DEBUG: Pickable item entered interaction area: ", parent.name)
 
 func _on_interaction_area_area_exited(area: Area2D) -> void:
 	# Remove pickable items when they leave
@@ -199,16 +176,11 @@ func _pickup_nearest_item() -> void:
 				elif HUD and HUD.hud_scene_instance:
 					nearest_item.hud = HUD.hud_scene_instance
 			
-			print("DEBUG: Calling pickup_item() on ", nearest_item.name)
 			nearest_item.pickup_item()
 			# Remove from nearby set
 			var index = nearby_pickables.find(nearest_item)
 			if index >= 0:
 				nearby_pickables.remove_at(index)
-		else:
-			print("DEBUG: Item ", nearest_item.name, " does not have pickup_item() method")
-	else:
-		print("DEBUG: No valid nearest item found")
 
 func start_interaction(interaction_type: String):
 	current_interaction = interaction_type

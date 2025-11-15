@@ -63,15 +63,7 @@ func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
 		print("Error: Tool texture is null. Cannot update tool.")
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
-	# ============================================
-	# CURSOR AI CONFIRMATION: This function is being called
-	# ============================================
-	var timestamp = Time.get_datetime_string_from_system()
-	print("DEBUG: interact_with_tile called - tool:", current_tool, " target_pos:", target_pos, " player_pos:", player_pos)
-	print(">>> CURSOR AI: Farming manager is working! Last edit: ", timestamp, " <<<")
-	
 	if not farmable_layer:
-		print("DEBUG: Farmable layer is null!")
 		return
 
 	# Convert world position to cell coordinates
@@ -80,12 +72,6 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	# Convert world position to TileMapLayer's local coordinates, then to cell coordinates
 	var target_local_pos = farmable_layer.to_local(target_pos)
 	var target_cell = farmable_layer.local_to_map(target_local_pos)
-	
-	# Debug: Check TileMapLayer's transform
-	var layer_global_pos = farmable_layer.global_position
-	var layer_local_pos = farmable_layer.position
-	print("DEBUG: Coordinate conversion - target_pos (world):", target_pos, " target_local (TileMapLayer):", target_local_pos, " target_cell:", target_cell)
-	print("DEBUG: TileMapLayer transform - global_position:", layer_global_pos, " position:", layer_local_pos)
 
 	# Calculate distance in world coordinates (not cell coordinates)
 	# Get the center of the target tile in TileMapLayer's local coordinates, then convert to global
@@ -98,13 +84,10 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	
 	# interaction_distance is in world units (pixels), not cells
 	# For 16x16 tiles, 250px allows interaction with tiles up to ~15 cells away
-	print("DEBUG: Distance check - target_global:", target_global_pos, " player_pos:", player_pos, " distance:", distance, " max:", interaction_distance)
 	if distance > interaction_distance:
-		print("DEBUG: Target too far from player (distance: ", distance, " > max: ", interaction_distance, ")")
 		return
 
 	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
-	print("DEBUG: Tile data found:", tile_data != null)
 	#if tile_data:
 		#print("Tile data found for cell:", target_cell)
 		##print("Custom data:", tile_data.get_custom_data())
@@ -122,45 +105,28 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		# Check if tile is planted by checking the source_id instead of custom_data
 		var source_id = farmable_layer.get_cell_source_id(target_cell)
 		var is_planted = (source_id == TILE_ID_PLANTED)
-		print("DEBUG: Tile states - Grass:", is_grass, "Dirt:", is_dirt, "Tilled:", is_tilled, "Planted:", is_planted, "source_id:", source_id)
 		
 		match current_tool:
 			"hoe":
 				if is_grass:
-					print("DEBUG: Hoe on grass - converting to dirt")
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
-				else:
-					print("DEBUG: Hoe can only be used on grass (current state doesn't match)")
 			"till":
 				if is_dirt:
-					print("DEBUG: Till on dirt - converting to tilled")
 					_set_tile_custom_state(target_cell, TILE_ID_TILLED, "tilled")
-				else:
-					print("DEBUG: Till can only be used on dirt (current state doesn't match)")
 			"pickaxe":
 				if is_planted:
 					# Pickaxe on planted seed returns to dirt
-					print("DEBUG: Pickaxe on planted - converting to dirt")
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
 				elif is_tilled:
 					# Pickaxe on tilled soil (no seed) returns to dirt
-					print("DEBUG: Pickaxe on tilled - converting to dirt")
 					_set_tile_custom_state(target_cell, TILE_ID_DIRT, "dirt")
 				elif is_dirt:
 					# Pickaxe on dirt returns to grass
-					print("DEBUG: Pickaxe on dirt - converting to grass")
 					_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
-				else:
-					print("DEBUG: Pickaxe can only be used on planted/tilled/dirt")
 			"seed":
 				if is_tilled:  # Only allow planting on tilled soil
-					print("DEBUG: Seed on tilled - planting")
 					_set_tile_custom_state(target_cell, TILE_ID_PLANTED, "planted")
 					#_start_growth_cycle(target_cell)
-				else:
-					print("DEBUG: Seed can only be planted on tilled soil")
-	else:
-		print("DEBUG: No tile data found for cell:", target_cell)
 
 func _get_emitter_scene(state: String) -> Resource:
 	# Fetch the correct emitter based on the state
@@ -181,11 +147,6 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 		farm_scene.trigger_dust(cell, emitter_scene)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
-	print("DEBUG: _set_tile_custom_state - Setting cell:", cell, "to tile_id:", tile_id, "state:", _state)
-	
-	# Verify the cell coordinate before setting
-	var cell_before = farmable_layer.get_cell_source_id(cell)
-	print("DEBUG: Cell before change - cell:", cell, "source_id:", cell_before)
 
 	# Update the visual state
 	# In Godot 4, set_cell() automatically uses the custom_data from the TileSet source
@@ -202,76 +163,7 @@ func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> voi
 		print("ERROR: Source ID ", tile_id, " does not exist in TileSet! Available sources:", tile_set.get_source_count())
 		return
 	
-	print("DEBUG: Setting cell with source_id:", tile_id, " (source exists:", source_exists, ")")
-	
-	# Get TileMapLayer configuration for debugging
-	var tile_set_source = tile_set.get_source(tile_id)
-	if tile_set_source:
-		print("DEBUG: TileSet source found - ID:", tile_id, " type:", tile_set_source.get_class())
-	
-	# Check TileMapLayer's tile size (should be 16x16 based on the scene)
-	var tile_size = Vector2i(16, 16)  # Default, but we should verify
-	if tile_set:
-		# Try to get tile size from the first source
-		var first_source = tile_set.get_source(0)
-		if first_source and first_source.has_method("get_texture"):
-			var texture = first_source.get_texture()
-			if texture:
-				# For TileSetAtlasSource, tiles are typically the texture size divided by atlas grid
-				# But we'll use the default 16x16 for now
-				pass
-	
-	print("DEBUG: TileMapLayer info - name:", farmable_layer.name, " parent:", farmable_layer.get_parent().name if farmable_layer.get_parent() else "null")
-	
-	# CRITICAL: Check for multiple TileMapLayers
-	var parent = farmable_layer.get_parent()
-	if parent:
-		var all_layers = []
-		for child in parent.get_children():
-			if child is TileMapLayer:
-				all_layers.append(child.name)
-		print("DEBUG: *** ALL TileMapLayers found:", all_layers, "***")
-	
-	print("DEBUG: *** ABOUT TO SET CELL:", cell, "with source_id:", tile_id, "***")
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0), 0)
-	print("DEBUG: *** CELL SET - checking what's at (0,0):", farmable_layer.get_cell_source_id(Vector2i(0, 0)), "***")
-	
-	# Verify the cell was set correctly
-	var cell_after = farmable_layer.get_cell_source_id(cell)
-	var cell_atlas = farmable_layer.get_cell_atlas_coords(cell)
-	var cell_alt = farmable_layer.get_cell_alternative_tile(cell)
-	print("DEBUG: Cell after change - cell:", cell, "source_id:", cell_after, "atlas_coords:", cell_atlas, "alt:", cell_alt)
-	
-	# Verify the cell position in world coordinates
-	var cell_local_pos = farmable_layer.map_to_local(cell)
-	var cell_world_pos = farmable_layer.to_global(cell_local_pos)
-	print("DEBUG: Cell position - cell:", cell, "local:", cell_local_pos, "world:", cell_world_pos)
-	
-	# Double-check: Get the cell at the actual world position to see if it matches
-	var check_cell = farmable_layer.local_to_map(farmable_layer.to_local(cell_world_pos))
-	print("DEBUG: Verification - world_pos:", cell_world_pos, " converts back to cell:", check_cell, " (should be:", cell, ")")
-	
-	# Check if the cell actually exists in the TileMapLayer
-	var cell_exists = (farmable_layer.get_cell_source_id(cell) != -1)
-	print("DEBUG: Cell exists in layer:", cell_exists)
-	
-	# Check what cell is at (0,0) to see if that's where the tile is actually appearing
-	var cell_at_origin = farmable_layer.get_cell_source_id(Vector2i(0, 0))
-	print("DEBUG: Cell at origin (0,0) has source_id:", cell_at_origin)
-	
-	# CRITICAL: Check if the "Grass" layer might be interfering
-	# Reuse parent variable from above (already declared at line 227)
-	if parent:
-		var grass_layer = parent.get_node_or_null("Grass")
-		if grass_layer and grass_layer is TileMapLayer:
-			var grass_cell_at_origin = grass_layer.get_cell_source_id(Vector2i(0, 0))
-			var grass_cell_at_target = grass_layer.get_cell_source_id(cell)
-			print("DEBUG: *** Grass layer - cell at (0,0):", grass_cell_at_origin, " cell at target", cell, ":", grass_cell_at_target, "***")
-	
-	# Verify the cell we just set is actually visible/accessible
-	var verify_source = farmable_layer.get_cell_source_id(cell)
-	var verify_atlas = farmable_layer.get_cell_atlas_coords(cell)
-	print("DEBUG: *** FINAL VERIFICATION - Cell", cell, "has source_id:", verify_source, "atlas:", verify_atlas, "***")
 
 	# Update the GameState for persistence
 	if GameState:

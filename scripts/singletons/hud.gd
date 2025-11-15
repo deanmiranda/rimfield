@@ -22,11 +22,9 @@ func _ready() -> void:
 	_on_scene_changed(get_tree().current_scene.name)
 
 func _on_scene_changed(_new_scene_name: String) -> void:
-	#print("Scene changed to:", _new_scene_name)
 	if UiManager._is_not_game_scene():
-		print("Not in a game scene")
+		pass  # Not in a game scene, HUD will be hidden
 	else:
-		#print("In a game scene, setting up HUD")
 		setup_hud()
 		
 func setup_hud() -> void:

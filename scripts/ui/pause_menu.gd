@@ -73,18 +73,6 @@ func _ready() -> void:
 		if player_info:
 			player_info.visible = true
 			player_info.custom_minimum_size = Vector2(0, 200)  # Force minimum size
-			print("Player info container - visible:", player_info.visible, " size:", player_info.size, " position:", player_info.position)
-			
-			# Check child elements
-			var sprite = player_info.get_node_or_null("PlayerSpriteContainer/PlayerSprite")
-			if sprite:
-				sprite.visible = true
-				print("Player sprite - visible:", sprite.visible, " texture:", sprite.texture != null)
-			
-			var date_label = player_info.get_node_or_null("StatsContainer/DateLabel")
-			if date_label:
-				date_label.visible = true
-				print("Date label - visible:", date_label.visible, " text:", date_label.text)
 	
 	# Update all UI elements
 	_update_ui()
@@ -105,7 +93,6 @@ func _ready() -> void:
 func _setup_inventory_slots() -> void:
 	"""Create and configure all inventory slots (30 total, bottom 6 locked)"""
 	if not inventory_grid:
-		print("Error: Inventory grid not found!")
 		return
 	
 	# Make sure grid is visible
@@ -116,7 +103,6 @@ func _setup_inventory_slots() -> void:
 	var slot_script = load("res://scripts/ui/inventory_menu_slot.gd")
 	
 	if not slot_script:
-		print("Error: Could not load inventory_menu_slot.gd script!")
 		return
 	
 	# Load border texture for slot outlines (like existing inventory)
@@ -181,40 +167,12 @@ func _setup_inventory_slots() -> void:
 		border_rect.visible = true
 		slot.add_child(border_rect)
 		
-		# Debug: Check slot after adding
-		if i == 0:
-			print("First slot - visible:", slot.visible, " size:", slot.size, " texture:", slot.texture_normal != null, " children:", slot.get_child_count())
-	
 	# Force grid to update layout
 	inventory_grid.queue_sort()
 	
 	# Wait for layout to update
 	await get_tree().process_frame
 	await get_tree().process_frame
-	
-	# Debug: Check grid and first slot
-	print("Created ", slots.size(), " inventory slots")
-	print("Grid visible:", inventory_grid.visible, " Grid size:", inventory_grid.size, " Grid position:", inventory_grid.position)
-	print("Grid children count:", inventory_grid.get_child_count())
-	print("Grid global position:", inventory_grid.global_position)
-	print("Grid rect:", inventory_grid.get_rect())
-	
-	# Check parent containers
-	var vbox = inventory_grid.get_parent()
-	if vbox:
-		print("VBoxContainer - visible:", vbox.visible, " size:", vbox.size, " position:", vbox.position, " global:", vbox.global_position)
-	var scroll = inventory_grid.get_parent().get_parent() if inventory_grid.get_parent() else null
-	if scroll:
-		print("ScrollContainer - visible:", scroll.visible, " size:", scroll.size, " position:", scroll.position, " global:", scroll.global_position)
-	
-	if slots.size() > 0:
-		var first_slot = slots[0].slot
-		print("First slot - visible:", first_slot.visible, " size:", first_slot.size, " position:", first_slot.position, " global:", first_slot.global_position)
-		var border = first_slot.get_node_or_null("Border")
-		if border:
-			print("Border found - visible:", border.visible, " texture:", border.texture != null, " size:", border.size, " position:", border.position)
-		else:
-			print("Border NOT found!")
 	
 	# Connect slot signals after all slots are added to tree
 	await get_tree().process_frame
@@ -239,9 +197,6 @@ func _setup_player_sprite() -> void:
 		player_sprite.texture = atlas_texture
 		player_sprite.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		player_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	else:
-		# Fallback: use placeholder or leave empty
-		print("Warning: Could not load player sprite texture")
 
 func _update_ui() -> void:
 	"""Update all UI elements with current game state"""
@@ -296,7 +251,7 @@ func _on_tab_changed(tab_index: int) -> void:
 		1:  # MainMenu tab
 			_focus_on_resume()
 		_:  # Future tabs
-			print("Tab changed to index:", tab_index)
+			pass
 
 func _connect_main_menu_signals() -> void:
 	"""Connect MainMenu tab button signals"""
@@ -317,8 +272,6 @@ func _focus_on_resume() -> void:
 	"""Focus on resume button when MainMenu tab is opened"""
 	if resume_button:
 		resume_button.grab_focus()
-	else:
-		print("ResumeButton not found!")
 
 func _notification(what: int) -> void:
 	"""Handle visibility changes to set correct tab"""
@@ -413,8 +366,6 @@ func _on_save_game_pressed() -> void:
 			# Shorter delay for the regular message
 			await get_tree().create_timer(1.5).timeout
 			save_feedback_label.visible = false
-	else:
-		print("Save file validation failed. File not found.")
 
 func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
@@ -430,8 +381,8 @@ func _on_back_to_main_menu_pressed() -> void:
 
 func _on_inventory_slot_clicked(slot_index: int) -> void:
 	"""Handle inventory slot clicks - prepare for future functionality"""
-	print("Inventory slot clicked:", slot_index)
-	# Future: Handle item selection, toolbelt swapping, etc.
+	# Future: Handle slot selection, item interaction, toolbelt swapping, etc.
+	pass
 
 # Public API for updating game state (to be called from GameState singleton)
 func update_date(day: int, season: String, year: int) -> void:
