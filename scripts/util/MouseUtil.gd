@@ -24,12 +24,11 @@ static func get_world_mouse_pos_2d(node: Node) -> Vector2:
 	if vp == null:
 		push_warning("MouseUtil: No viewport available.")
 		return Vector2.ZERO
-	var p: Vector2 = vp.get_mouse_position()
 	var cam: Camera2D = vp.get_camera_2d()
 	if cam != null:
-		# Convert screen coordinates to world coordinates using camera transform
-		# Formula: world_pos = camera.global_position + (screen_pos - viewport_center) / zoom
-		var viewport_center: Vector2 = vp.size / 2.0
-		var offset: Vector2 = (p - viewport_center) / cam.zoom
-		return cam.global_position + offset
+		# Use Godot's built-in method to convert screen coordinates to world coordinates
+		# This properly accounts for camera position, zoom, and transform
+		return cam.get_global_mouse_position()
+	# Fallback if no camera (shouldn't happen in normal gameplay)
+	var p: Vector2 = vp.get_mouse_position()
 	return p

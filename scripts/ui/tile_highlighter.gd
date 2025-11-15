@@ -25,7 +25,14 @@ func _ready() -> void:
 	# Create and configure the highlight sprite
 	highlight_sprite = Sprite2D.new()
 	add_child(highlight_sprite)
-	highlight_sprite.texture = highlight_texture
+	if highlight_texture:
+		highlight_sprite.texture = highlight_texture
+	else:
+		# Create a simple colored rectangle if no texture is provided
+		var image = Image.create(int(tile_size.x), int(tile_size.y), false, Image.FORMAT_RGBA8)
+		image.fill(Color(1, 1, 0, 0.5))  # Yellow semi-transparent
+		var texture = ImageTexture.create_from_image(image)
+		highlight_sprite.texture = texture
 	highlight_sprite.modulate = highlight_color
 	highlight_sprite.visible = false
 	highlight_sprite.z_index = 100
@@ -37,13 +44,21 @@ func _on_tool_changed(new_tool: String) -> void:
 
 func _process(_delta: float) -> void:
 	if not farmable_layer:
-		print("Farmable layer is not assigned. Cannot highlight tiles.")
+		highlight_sprite.visible = false
+		return
+
+	if not highlight_sprite:
 		return
 
 	# Restrict to viewport
+	var viewport = get_viewport()
+	if not viewport:
+		highlight_sprite.visible = false
+		return
+		
 	var mouse_position = MouseUtil.get_world_mouse_pos_2d(self)
-	var viewport_rect = Rect2(Vector2.ZERO, get_viewport().size)
-	if not viewport_rect.has_point(get_viewport().get_mouse_position()):
+	var viewport_rect = Rect2(Vector2.ZERO, viewport.size)
+	if not viewport_rect.has_point(viewport.get_mouse_position()):
 		highlight_sprite.visible = false
 		return
 
@@ -51,9 +66,13 @@ func _process(_delta: float) -> void:
 	var local_mouse_position = farmable_layer.to_local(mouse_position)
 	var tile_position = farmable_layer.local_to_map(local_mouse_position)
 	var tile_world_position = farmable_layer.map_to_local(tile_position)
+	
+	# Center the highlight on the tile
+	tile_world_position += tile_size / 2.0
 
 	# Check if tile is within farmable layer bounds
-	if farmable_layer.get_used_rect().has_point(tile_position):
+	var used_rect = farmable_layer.get_used_rect()
+	if used_rect.has_point(tile_position):
 		highlight_sprite.global_position = farmable_layer.to_global(tile_world_position)
 		highlight_sprite.visible = true
 	else:

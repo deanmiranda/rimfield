@@ -100,6 +100,26 @@ func _process(_delta: float) -> void:
 			farming_manager.interact_with_tile(mouse_pos, global_position)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Handle tool keyboard shortcuts (1, 2, 3, 4) - directly use tool at mouse position
+	if farming_manager:
+		var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
+		if event.is_action_pressed("ui_tool_hoe"):
+			print("DEBUG: Hoe tool pressed")
+			farming_manager.current_tool = "hoe"
+			farming_manager.interact_with_tile(mouse_pos, global_position)
+		elif event.is_action_pressed("ui_tool_till"):
+			print("DEBUG: Till tool pressed")
+			farming_manager.current_tool = "till"
+			farming_manager.interact_with_tile(mouse_pos, global_position)
+		elif event.is_action_pressed("ui_tool_pickaxe"):
+			print("DEBUG: Pickaxe tool pressed")
+			farming_manager.current_tool = "pickaxe"
+			farming_manager.interact_with_tile(mouse_pos, global_position)
+		elif event.is_action_pressed("ui_tool_seed"):
+			print("DEBUG: Seed tool pressed")
+			farming_manager.current_tool = "seed"
+			farming_manager.interact_with_tile(mouse_pos, global_position)
+	
 	# Handle E key for contextual interaction
 	if event.is_action_pressed("ui_interact"):
 		# Prioritize pickables over doors

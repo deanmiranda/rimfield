@@ -119,6 +119,15 @@ func pause_menu_setup() -> void:
 		print("Error: Loaded resource is not a PackedScene.")
 
 func _input(event: InputEvent) -> void:
+	# Don't process ESC or inventory on main menu - only during gameplay
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		# Check both scene name and scene file path to be safe
+		var scene_name = current_scene.name
+		var scene_file = current_scene.scene_file_path
+		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
+			return
+	
 	if event.is_action_pressed("ui_cancel"):
 		if inventory_instance and inventory_instance.visible:
 			toggle_inventory()  # Close inventory first

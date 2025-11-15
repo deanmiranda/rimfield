@@ -1,4 +1,4 @@
-[gd_scene load_steps=51 format=3 uid="uid://cr1037tdlg0nj"]
+[gd_scene load_steps=52 format=3 uid="uid://cr1037tdlg0nj"]
 
 [ext_resource type="Script" uid="uid://bae4lmxkqqrq4" path="res://scripts/characters/player.gd" id="1_3wfiv"]
 [ext_resource type="Texture2D" uid="uid://vfjebqall13i" path="res://assets/sprites/Idle-Sprite.png" id="2_686vu"]
@@ -142,6 +142,10 @@ region = Rect2(112, 0, 16, 32)
 [sub_resource type="AtlasTexture" id="AtlasTexture_omk8d"]
 atlas = ExtResource("6_6avc5")
 region = Rect2(128, 0, 16, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_kghjy"]
+atlas = ExtResource("6_6avc5")
+region = Rect2(144, 0, 16, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_tebod"]
 atlas = ExtResource("7_mk55u")
@@ -312,6 +316,9 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_omk8d")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kghjy")
 }],
 "loop": true,
 "name": &"walk_right",
@@ -364,8 +371,7 @@ metadata/_edit_lock_ = true
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player"]
 texture_repeat = 1
 sprite_frames = SubResource("SpriteFrames_srdkc")
-animation = &"walk_up"
-frame_progress = 0.508572
+animation = &"walk_right"
 speed_scale = 2.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
