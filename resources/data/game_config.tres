@@ -7,6 +7,6 @@ script = ExtResource("1")
 hud_slot_count = 10
 inventory_slot_count = 12
 max_item_stack = 99
-interaction_distance = 1.5
+interaction_distance = 250.0
 player_speed = 200.0
 pickup_radius = 48.0

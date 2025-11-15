@@ -20,6 +20,17 @@ var pickup_radius: float = 48.0  # Default (will be overridden by GameConfig)
 @onready var interaction_area: Area2D = null  # Will be created in _ready
 
 func _ready() -> void:
+	# ============================================
+	# CONFIRMATION: CURSOR AI IS EDITING THIS FILE
+	# This is a test change to verify we're in the right project
+	# ============================================
+	var timestamp = Time.get_datetime_string_from_system()
+	print("============================================")
+	print("CURSOR AI CONFIRMATION: Player script loaded!")
+	print("Last edited: ", timestamp)
+	print("If you see this message, we're editing the RIGHT project!")
+	print("============================================")
+	
 	# Load GameConfig Resource
 	game_config = load("res://resources/data/game_config.tres")
 	if game_config:

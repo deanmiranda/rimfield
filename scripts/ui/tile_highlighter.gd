@@ -9,7 +9,14 @@ var highlight_sprite: Sprite2D  # Visual feedback sprite
 @export var highlight_color: Color = Color(1, 1, 0, 0.5)  # Semi-transparent yellow
 @export var tile_size: Vector2 = Vector2(16, 16)  # Adjust to match your tile size
 
+# Use shared ToolConfig Resource to convert texture to tool name
+var tool_config: Resource = null
+var current_tool: String = "unknown"  # Track current tool for debugging
+
 func _ready() -> void:
+	# Load ToolConfig Resource
+	tool_config = load("res://resources/data/tool_config.tres")
+	
 	if farmable_layer_path:
 		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
 
@@ -37,10 +44,15 @@ func _ready() -> void:
 	highlight_sprite.visible = false
 	highlight_sprite.z_index = 100
 
-func _on_tool_changed(new_tool: String) -> void:
-	# This function will be called when the tool changes via keyboard input
-	# For now, we are only printing to verify if it's being called.
-	print("Tool changed to:", new_tool)
+func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
+	# Signal signature matches tool_changed(slot_index: int, item_texture: Texture)
+	# Convert texture to tool name using ToolConfig
+	if item_texture and tool_config and tool_config.has_method("get_tool_name"):
+		current_tool = tool_config.get_tool_name(item_texture)
+		print("Tool changed to:", current_tool, " (slot:", _slot_index, ")")
+	else:
+		current_tool = "unknown"
+		print("Tool changed but texture is null or ToolConfig unavailable")
 
 func _process(_delta: float) -> void:
 	if not farmable_layer:
