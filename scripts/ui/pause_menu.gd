@@ -220,9 +220,8 @@ func _setup_inventory_slots() -> void:
 	await get_tree().process_frame
 	for slot_data in slots:
 		var slot = slot_data.slot
-		var index = slot_data.index
 		if slot.has_signal("slot_clicked"):
-			slot.slot_clicked.connect(_on_inventory_slot_clicked.bind(index))
+			slot.slot_clicked.connect(_on_inventory_slot_clicked)
 
 func _setup_player_sprite() -> void:
 	"""Setup player sprite using first frame of idle animation"""
