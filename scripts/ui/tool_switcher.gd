@@ -2,21 +2,24 @@ extends Node
 
 signal tool_changed(slot_index: int, item_texture: Texture)  # Signal for tool changes
 
+# Use shared ToolConfig Resource instead of duplicated TOOL_MAP (follows .cursor/rules/godot.md)
+var tool_config: Resource = null
+# Use shared GameConfig Resource for magic numbers (follows .cursor/rules/godot.md)
+var game_config: Resource = null
+
 var current_hud_slot: int = 0  # Currently active tool slot index
 var current_tool_texture: Texture = null  # Texture of the currently active tool
 var current_tool: String = "unknown"  # Default to unknown
 
- #Tool mapping from texture to tool name
-const TOOL_MAP = {
-	preload("res://assets/tiles/tools/shovel.png"): "hoe",
-	preload("res://assets/tiles/tools/rototiller.png"): "till",
-	preload("res://assets/tiles/tools/pick-axe.png"): "pickaxe",
-	preload("res://assets/tilesets/full version/tiles/FartSnipSeeds.png"): "seed"
-}
+# Cached reference to avoid repeated get_node() calls (follows .cursor/rules/godot.md)
+@onready var hud: Node = get_node("../HUD")
 
 func _ready() -> void:
-	# Access HUD via sibling relationship
-	var hud = get_node("../HUD")
+	# Load shared Resources
+	tool_config = load("res://resources/data/tool_config.tres")
+	game_config = load("res://resources/data/game_config.tres")
+	
+	# Use cached HUD reference
 	if hud:
 		if not is_connected("tool_changed", Callable(hud, "_highlight_active_tool")):
 			connect("tool_changed", Callable(hud, "_highlight_active_tool"))
@@ -40,7 +43,7 @@ func _on_tool_selected(slot_index: int) -> void:
 
 
 func set_hud_by_slot(slot_index: int) -> void:
-	var hud = get_node("../HUD")
+	# Use cached HUD reference instead of repeated get_node() call
 	if not hud:
 		print("Error: HUD not found.")
 		return
@@ -54,13 +57,19 @@ func set_hud_by_slot(slot_index: int) -> void:
 		var hud_slot = hud.get_node_or_null(slot_path)
 
 		if hud_slot:
-			var item_texture = hud_slot.get_texture() if hud_slot.has_method("get_texture") else null
+			# Use explicit if/else instead of ternary operator (follows .cursor/rules/godot.md)
+			var item_texture: Texture = null
+			if hud_slot.has_method("get_texture"):
+				item_texture = hud_slot.get_texture()
 			
 			if item_texture:
 				current_hud_slot = slot_index
 				current_tool_texture = item_texture
-				# Map texture to tool name
-				current_tool = TOOL_MAP.get(item_texture, "unknown")
+				# Map texture to tool name using shared ToolConfig
+				if tool_config and tool_config.has_method("get_tool_name"):
+					current_tool = tool_config.get_tool_name(item_texture)
+				else:
+					current_tool = "unknown"
 				
 				emit_signal("tool_changed", slot_index, item_texture)
 			else:
@@ -73,7 +82,12 @@ func set_hud_by_slot(slot_index: int) -> void:
 		
 func _input(event: InputEvent) -> void:
 	# Handle key inputs to switch tools based on slot numbers (1-0)
-	for i in range(10):  # Keys 1-0 correspond to HUD slots 0-9
+	# Use GameConfig instead of magic number (follows .cursor/rules/godot.md)
+	var hud_slot_count: int = 10
+	if game_config:
+		hud_slot_count = game_config.hud_slot_count
+	
+	for i in range(hud_slot_count):  # Keys 1-0 correspond to HUD slots 0-9
 		var action = "ui_hud_" + str(i + 1)
 		if i == 9:  # Special case for "0" key (maps to slot 9)
 			action = "ui_hud_0"

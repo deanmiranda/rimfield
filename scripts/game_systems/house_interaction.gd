@@ -1,12 +1,14 @@
 extends Area2D
 
 const HOUSE_SCENE_PATH = "res://scenes/world/house_scene.tscn"
-var interaction_label: Label
+
 var player: Node = null  # Reference to the player
 var player_in_zone: bool = false  # Tracks if the player is in the zone
 
+# Use @onready instead of get_node() in _ready() (follows .cursor/rules/godot.md)
+@onready var interaction_label: Label = $Label
+
 func _ready() -> void:
-	interaction_label = get_node("Label")
 	interaction_label.visible = false
 
 func _on_body_entered(body: Node2D) -> void:
@@ -28,7 +30,11 @@ func _on_body_exited(body: Node2D) -> void:
 			player.stop_interaction()
 		player = null  # Clear the player reference
 
-func _process(_delta: float) -> void:
-	# Ensure player is in zone and input is pressed
-	if player_in_zone and Input.is_action_just_pressed("ui_interact"):
+func _input(event: InputEvent) -> void:
+	# Use _input() instead of _process() polling (follows .cursor/rules/godot.md)
+	if player_in_zone and event.is_action_pressed("ui_interact"):
 		SceneManager.change_scene(HOUSE_SCENE_PATH)
+		# Only handle input if viewport is available (may be null during scene transitions)
+		var viewport = get_viewport()
+		if viewport:
+			viewport.set_input_as_handled()  # Prevent further processing

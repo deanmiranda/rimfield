@@ -6,11 +6,19 @@ var inventory_slots: Dictionary = {}
 # Reference to the inventory UI scene and instance
 @export var inventory_scene: PackedScene
 var inventory_instance: Control = null
-var max_inventory_slots: int = 12  # Default inventory size
+
+# Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
+var game_config: Resource = null
+var max_inventory_slots: int = 12  # Default inventory size (will be overridden by GameConfig)
 
 func _ready() -> void:
-	# Initialize inventory_slots with 48 empty slots (or more if needed)
-	for i in range(max_inventory_slots):  # Replace 48 with the maximum number of slots you expect to support
+	# Load GameConfig Resource
+	game_config = load("res://resources/data/game_config.tres")
+	if game_config:
+		max_inventory_slots = game_config.inventory_slot_count
+	
+	# Initialize inventory_slots
+	for i in range(max_inventory_slots):
 		inventory_slots[i] = null
 		
 # Add an item to the inventory (returns true if successful, false if full)
@@ -128,8 +136,12 @@ func sync_inventory_ui() -> void:
 
 #	Functions for Hud 
 func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
-	# Iterate through HUD hud slots
-	for i in range(10):  # Assuming 10 hud slots
+	# Iterate through HUD slots using GameConfig (follows .cursor/rules/godot.md)
+	var hud_slot_count: int = 10
+	if game_config:
+		hud_slot_count = game_config.hud_slot_count
+	
+	for i in range(hud_slot_count):
 		var slot_path = "HUD/MarginContainer/HBoxContainer/TextureButton_" + str(i) + "/Hud_slot_" + str(i)
 		var slot = hud.get_node_or_null(slot_path)
 

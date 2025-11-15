@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Rimfield"
 run/main_scene="res://scenes/ui/main_menu.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
+config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -24,6 +24,7 @@ Player="*res://scripts/singletons/player.gd"
 UiManager="*res://scripts/singletons/ui_manager.gd"
 InventoryManager="*res://scripts/singletons/inventory_manager.gd"
 HUD="*res://scripts/singletons/hud.gd"
+InteractionIndicator="*res://scripts/ui/interaction_indicator.gd"
 
 [display]
 
@@ -173,3 +174,8 @@ ui_mouse_left={
 2d_physics/layer_7="Items"
 2d_physics/layer_8="Enemies"
 2d_physics/layer_9="EnvironmentBoundaries"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+textures/default_filters/use_nearest_mipmap_filter=true

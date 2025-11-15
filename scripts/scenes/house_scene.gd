@@ -12,8 +12,10 @@ func _ready():
 		return
 
 	if pause_menu_scene is PackedScene:
-		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)  # Add the pause menu to this scene
+		var pause_menu_layer = pause_menu_scene.instantiate()
+		add_child(pause_menu_layer)  # Add the CanvasLayer to this scene
+		# Get the Control child from the CanvasLayer
+		pause_menu = pause_menu_layer.get_node("Control")
 		pause_menu.visible = false
 	else:
 		print("Error: Loaded resource is not a PackedScene.")

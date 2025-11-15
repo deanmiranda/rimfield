@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="ToolConfig" load_steps=2 format=3 uid="uid://c3j2gppdv7lav"]
+
+[ext_resource type="Script" uid="uid://ca0als4ngws8l" path="res://scripts/data/tool_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")

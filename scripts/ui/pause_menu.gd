@@ -6,20 +6,29 @@ func _ready() -> void:
 	self.visible = false
 	
 	# Make sure the feedback label is hidden initially
-	var feedback_label = $MarginContainer/VBoxContainer/SaveFeedbackLabel
+	var feedback_label = $CenterContainer/VBoxContainer/SaveFeedbackLabel
 	if feedback_label:
 		feedback_label.visible = false
 
 
 func _focus_on_resume() -> void:
 	# This is just to make sure the resume button gets focus
-	var resume_button = $MarginContainer/VBoxContainer/ResumeButton
+	var resume_button = $CenterContainer/VBoxContainer/ResumeButton
 	if resume_button:
 		resume_button.grab_focus()
 	else:
 		print("ResumeButton not found!")
 
 func _input(event: InputEvent) -> void:
+	# Don't process ESC on main menu - only during gameplay
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		# Check both scene name and scene file path to be safe
+		var scene_name = current_scene.name
+		var scene_file = current_scene.scene_file_path
+		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
+			return
+	
 	# This makes ESC toggle the pause menu
 	if event.is_action_pressed("ui_cancel"):
 		if !self.visible:
@@ -40,7 +49,7 @@ func _on_save_game_pressed() -> void:
 	GameState.save_game(save_file_path)  # Save the game
 
 	# Provide feedback for saving
-	var feedback_label = $MarginContainer/VBoxContainer/SaveFeedbackLabel
+	var feedback_label = $CenterContainer/VBoxContainer/SaveFeedbackLabel
 	if feedback_label:
 		feedback_label.visible = true
 		feedback_label.text = "Game Saving..."

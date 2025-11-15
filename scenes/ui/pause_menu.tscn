@@ -1,60 +1,69 @@
 [gd_scene load_steps=3 format=3 uid="uid://6iqkhdg8xtxy"]
 
-[ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="1_qdxnx"]
+[ext_resource type="Script" uid="uid://b7rf4bdmw47wa" path="res://scripts/ui/pause_menu.gd" id="1_qdxnx"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_p544r"]
 
-[node name="PauseMenu" type="Control"]
+[node name="PauseMenu" type="CanvasLayer"]
+layer = 10
+
+[node name="Control" type="Control" parent="."]
 process_mode = 3
-z_index = 4096
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 tooltip_text = "This is a menu tooltip does it work its on the PauseMenu Root node."
 script = ExtResource("1_qdxnx")
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
-layout_mode = 2
-offset_left = -50.0
-offset_top = -63.5
-offset_right = 50.0
-offset_bottom = 63.5
+[node name="CenterContainer" type="CenterContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/CenterContainer"]
 z_index = 1000
 clip_contents = true
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 
-[node name="BackToMainMenu" type="Button" parent="MarginContainer/VBoxContainer"]
+[node name="BackToMainMenu" type="Button" parent="Control/CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "Main Menu"
 
-[node name="ResumeButton" type="Button" parent="MarginContainer/VBoxContainer"]
+[node name="ResumeButton" type="Button" parent="Control/CenterContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Lets get back to derpin'"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Resume"
 
-[node name="SaveGame" type="Button" parent="MarginContainer/VBoxContainer"]
+[node name="SaveGame" type="Button" parent="Control/CenterContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Lets get back to derpin'"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Save
 "
 
-[node name="ExitButton" type="Button" parent="MarginContainer/VBoxContainer"]
+[node name="ExitButton" type="Button" parent="Control/CenterContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Stop derpin' :-/"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Quit"
 
-[node name="SaveFeedbackLabel" type="Label" parent="MarginContainer/VBoxContainer"]
+[node name="SaveFeedbackLabel" type="Label" parent="Control/CenterContainer/VBoxContainer"]
 visible = false
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 autowrap_mode = 3
 
-[connection signal="pressed" from="MarginContainer/VBoxContainer/BackToMainMenu" to="." method="_on_back_to_main_menu_pressed"]
-[connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="_on_resume_button_pressed"]
-[connection signal="pressed" from="MarginContainer/VBoxContainer/SaveGame" to="." method="_on_save_game_pressed"]
-[connection signal="pressed" from="MarginContainer/VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/BackToMainMenu" to="Control" method="_on_back_to_main_menu_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/ResumeButton" to="Control" method="_on_resume_button_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/SaveGame" to="Control" method="_on_save_game_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/ExitButton" to="Control" method="_on_exit_button_pressed"]

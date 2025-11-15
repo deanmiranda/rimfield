@@ -104,12 +104,12 @@ func _on_load_button_pressed() -> void:
 		# Generate a pretty date and scene name for the confirmation panel
 		var timestamp = _extract_timestamp_from_filename(file_name)
 		var datetime = Time.get_datetime_dict_from_unix_time(timestamp)
-		var formatted_date = "%02d/%02d/%d" % [
+		var _formatted_date = "%02d/%02d/%d" % [
 			datetime.month,
 			datetime.day,
 			datetime.year
 		]
-		var scene_name = _get_scene_name_from_save(file_name)
+		var _scene_name = _get_scene_name_from_save(file_name)
 		var confirmation_text = "Are you sure?"
 
 		print("Setting confirmation panel text:", confirmation_text)
