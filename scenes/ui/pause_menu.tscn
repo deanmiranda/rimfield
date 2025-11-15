@@ -1,7 +1,18 @@
-[gd_scene load_steps=3 format=3 uid="uid://6iqkhdg8xtxy"]
+[gd_scene load_steps=5 format=3 uid="uid://6iqkhdg8xtxy"]
 
 [ext_resource type="Script" uid="uid://b7rf4bdmw47wa" path="res://scripts/ui/pause_menu.gd" id="1_qdxnx"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_p544r"]
+[ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_tile_outline"]
+[ext_resource type="Texture2D" uid="uid://c64aaduodhpm0" path="res://assets/ui/inventory_border.png" id="4_inv_border"]
+[ext_resource type="Texture2D" uid="uid://bdjljg632omq6" path="res://assets/sprites/char1.png" id="5_char1"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.2, 0.2, 0.25, 0.95)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.4, 0.4, 0.5, 1)
 
 [node name="PauseMenu" type="CanvasLayer"]
 layer = 10
@@ -19,51 +30,198 @@ script = ExtResource("1_qdxnx")
 
 [node name="CenterContainer" type="CenterContainer" parent="Control"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Control/CenterContainer"]
-z_index = 1000
-clip_contents = true
-custom_minimum_size = Vector2(100, 0)
+[node name="PanelContainer" type="PanelContainer" parent="Control/CenterContainer"]
+custom_minimum_size = Vector2(800, 600)
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+mouse_filter = 0
 
-[node name="BackToMainMenu" type="Button" parent="Control/CenterContainer/VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer"]
 layout_mode = 2
-text = "Main Menu"
+size_flags_horizontal = 3
+size_flags_vertical = 3
 
-[node name="ResumeButton" type="Button" parent="Control/CenterContainer/VBoxContainer"]
+[node name="TabContainer" type="TabContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer"]
+layout_mode = 2
+tab_alignment = 0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="InventoryTab" type="Control" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_tab_title = "Inventory"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="InventoryGrid" type="GridContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer"]
+layout_mode = 2
+columns = 10
+custom_minimum_size = Vector2(640, 192)
+size_flags_horizontal = 4
+size_flags_vertical = 0
+mouse_filter = 0
+
+[node name="PlayerInfoContainer" type="HBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+visible = true
+custom_minimum_size = Vector2(0, 200)
+size_flags_horizontal = 3
+
+[node name="PlayerSpriteContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer"]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="PlayerSprite" type="TextureRect" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlayerSpriteContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("5_char1")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StatsContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DateLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 18
+text = "Spring 1, Year 1"
+
+[node name="MoneyLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 16
+text = "Money: $0"
+
+[node name="HealthLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 16
+text = "Health: 100/100"
+
+[node name="EnergyLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 16
+text = "Energy: 100/100"
+
+[node name="WeatherLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 16
+text = "Weather: Sunny"
+
+[node name="PlaceholderStatsContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StatBoredomLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 14
+text = "Boredom: 50"
+
+[node name="StatLonelyLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 14
+text = "Lonely: 50"
+
+[node name="StatSocialLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 14
+text = "Social: 50"
+
+[node name="StatCreativityLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+theme_override_font_sizes/font_size = 14
+text = "Creativity: 50"
+
+[node name="MainMenuTab" type="Control" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+metadata/_tab_title = "Main Menu"
+
+[node name="MainMenuContent" type="Control" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="ResumeButton" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Lets get back to derpin'"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Resume"
 
-[node name="SaveGame" type="Button" parent="Control/CenterContainer/VBoxContainer"]
+[node name="SaveGame" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
 layout_mode = 2
-tooltip_text = "Lets get back to derpin'"
+tooltip_text = "Save your game"
 theme_override_fonts/font = ExtResource("2_p544r")
-text = "Save
-"
+text = "Save"
 
-[node name="ExitButton" type="Button" parent="Control/CenterContainer/VBoxContainer"]
+[node name="BackToMainMenu" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
+text = "Main Menu"
+
+[node name="ExitButton" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
 layout_mode = 2
 tooltip_text = "Stop derpin' :-/"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Quit"
 
-[node name="SaveFeedbackLabel" type="Label" parent="Control/CenterContainer/VBoxContainer"]
+[node name="SaveFeedbackLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
 visible = false
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
+theme_override_fonts/font = ExtResource("2_p544r")
 theme_override_font_sizes/font_size = 12
 autowrap_mode = 3
+text = "Game Saved!"
 
-[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/BackToMainMenu" to="Control" method="_on_back_to_main_menu_pressed"]
-[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/ResumeButton" to="Control" method="_on_resume_button_pressed"]
-[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/SaveGame" to="Control" method="_on_save_game_pressed"]
-[connection signal="pressed" from="Control/CenterContainer/VBoxContainer/ExitButton" to="Control" method="_on_exit_button_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ResumeButton" to="Control" method="_on_resume_button_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveGame" to="Control" method="_on_save_game_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/BackToMainMenu" to="Control" method="_on_back_to_main_menu_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ExitButton" to="Control" method="_on_exit_button_pressed"]

@@ -320,12 +320,28 @@ print("ERROR: Failed to load resource: ", resource_path)
   - Type mismatches
   - Script ordering violations
   - Missing null checks
+  - Invalid constant/enum usage
+  - Member access errors
 
 ### Linter Usage
 ```gdscript
 # After making changes, always run:
 read_lints(paths=['scripts/path/to/modified_file.gd'])
 # Fix any errors before completing the task
+```
+
+### Godot 4.x Constants and Enums
+- **NEVER** use non-existent constants or enum values
+- If a constant doesn't exist, use the integer value directly with a comment
+- Always verify constant names exist in Godot 4.x documentation
+- Common issue: `Control.LAYOUT_MODE_ANCHORS` doesn't exist - use integer `1` instead
+
+```gdscript
+# BAD - Non-existent constant
+border_rect.layout_mode = Control.LAYOUT_MODE_ANCHORS  # ERROR: Constant doesn't exist
+
+# GOOD - Use integer value with comment
+border_rect.layout_mode = 1  # LAYOUT_MODE_ANCHORS (Godot 4.x uses integer 1)
 ```
 
 ## Testing and Validation
