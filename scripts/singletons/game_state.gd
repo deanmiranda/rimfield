@@ -56,27 +56,33 @@ func save_game(file: String = "") -> void:
 	var inventory_items = []
 
 	if InventoryManager:
-		# Save toolkit slots with stack counts
+		# Save toolkit slots with stack counts and weight
 		for i in range(InventoryManager.max_toolkit_slots):
-			var slot_data = InventoryManager.toolkit_slots.get(i, {"texture": null, "count": 0})
+			var slot_data = InventoryManager.toolkit_slots.get(
+				i, {"texture": null, "count": 0, "weight": 0.0}
+			)
 			if slot_data["texture"] and slot_data["count"] > 0:
 				toolkit_items.append(
 					{
 						"slot_index": i,
 						"texture_path": slot_data["texture"].resource_path,
-						"count": slot_data["count"]
+						"count": slot_data["count"],
+						"weight": slot_data.get("weight", 0.0)  # Include weight in save
 					}
 				)
 
-		# Save inventory slots with stack counts
+		# Save inventory slots with stack counts and weight
 		for i in range(InventoryManager.max_inventory_slots):
-			var slot_data = InventoryManager.inventory_slots.get(i, {"texture": null, "count": 0})
+			var slot_data = InventoryManager.inventory_slots.get(
+				i, {"texture": null, "count": 0, "weight": 0.0}
+			)
 			if slot_data["texture"] and slot_data["count"] > 0:
 				inventory_items.append(
 					{
 						"slot_index": i,
 						"texture_path": slot_data["texture"].resource_path,
-						"count": slot_data["count"]
+						"count": slot_data["count"],
+						"weight": slot_data.get("weight", 0.0)  # Include weight in save
 					}
 				)
 
@@ -125,9 +131,9 @@ func load_game(file: String = "") -> bool:
 		if InventoryManager:
 			# Clear existing data
 			for i in range(InventoryManager.max_toolkit_slots):
-				InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0}
+				InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 			for i in range(InventoryManager.max_inventory_slots):
-				InventoryManager.inventory_slots[i] = {"texture": null, "count": 0}
+				InventoryManager.inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 
 			# Load toolkit items
 			if save_data.has("toolkit_items"):
@@ -135,12 +141,13 @@ func load_game(file: String = "") -> bool:
 					var slot_index = item_data.get("slot_index", -1)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
+					var weight = item_data.get("weight", 0.0)  # Load weight if present, default to 0.0
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
 						if texture:
 							InventoryManager.toolkit_slots[slot_index] = {
-								"texture": texture, "count": count
+								"texture": texture, "count": count, "weight": weight
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)
@@ -151,12 +158,13 @@ func load_game(file: String = "") -> bool:
 					var slot_index = item_data.get("slot_index", -1)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
+					var weight = item_data.get("weight", 0.0)  # Load weight if present, default to 0.0
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
 						if texture:
 							InventoryManager.inventory_slots[slot_index] = {
-								"texture": texture, "count": count
+								"texture": texture, "count": count, "weight": weight
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)

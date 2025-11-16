@@ -156,3 +156,8 @@ func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
 			var highlight = tool_buttons[i].get_node_or_null("Highlight")
 			if highlight:
 				highlight.visible = (i == slot_index)
+				# CRITICAL: Ensure highlight doesn't block mouse events for drag-and-drop
+				highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				# Ensure highlight is behind the button (lower z_index)
+				highlight.z_index = -1
+				highlight.z_as_relative = true
