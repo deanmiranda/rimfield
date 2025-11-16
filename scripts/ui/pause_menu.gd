@@ -123,6 +123,10 @@ func _setup_inventory_slots() -> void:
 		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		slot.flip_v = false
 		slot.flip_h = false
+		# CRITICAL: Ensure slot can receive mouse events for dragging
+		slot.mouse_filter = Control.MOUSE_FILTER_STOP
+		slot.focus_mode = Control.FOCUS_CLICK
+		slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		
 		# Add background style for slots (removed white test background)
 		var bg_style = StyleBoxFlat.new()
@@ -161,7 +165,9 @@ func _setup_inventory_slots() -> void:
 		border_rect.grow_vertical = Control.GROW_DIRECTION_BOTH
 		border_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		border_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# CRITICAL: Ignore mouse events so they pass through to parent TextureButton for drag
 		border_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		border_rect.focus_mode = Control.FOCUS_NONE
 		border_rect.z_index = 101
 		border_rect.z_as_relative = false
 		border_rect.visible = true
@@ -387,7 +393,7 @@ func _on_inventory_slot_clicked(slot_index: int) -> void:
 	pass
 
 func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void:
-	"""Handle inventory slot drop - notify InventoryManager"""
+	"""Handle inventory slot drop - notify InventoryManager and ToolSwitcher"""
 	if not InventoryManager:
 		print("Error: InventoryManager singleton not found.")
 		return
@@ -397,7 +403,7 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 		var item_texture: Texture = data["item_texture"]
 		InventoryManager.update_inventory_slots(slot_index, item_texture)
 		
-		# If item came from toolkit, update toolkit tracking
+		# If item came from toolkit, update toolkit tracking AND notify ToolSwitcher
 		if data.has("source") and data["source"] == "toolkit":
 			var toolkit_slot_index = data.get("slot_index", -1)
 			if toolkit_slot_index >= 0:
@@ -413,6 +419,29 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 						InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
 				# Also update toolkit_slots dictionary directly
 				InventoryManager.toolkit_slots[toolkit_slot_index] = swapped_item
+				
+				# CRITICAL: Notify ToolSwitcher about the toolkit slot change
+				# Find ToolSwitcher in the HUD
+				var hud = get_tree().root.get_node_or_null("HUD")
+				if hud:
+					var tool_switcher = _find_tool_switcher_in_node(hud)
+					if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
+						print("DEBUG: Notifying ToolSwitcher about toolkit slot ", toolkit_slot_index, " change to: ", swapped_item)
+						tool_switcher.update_toolkit_slot(toolkit_slot_index, swapped_item)
+					else:
+						print("DEBUG: Could not find ToolSwitcher to notify")
+
+func _find_tool_switcher_in_node(node: Node) -> Node:
+	"""Recursively search for ToolSwitcher node"""
+	if node.name == "ToolSwitcher":
+		return node
+	for child in node.get_children():
+		if child.name == "ToolSwitcher":
+			return child
+		var result = _find_tool_switcher_in_node(child)
+		if result:
+			return result
+	return null
 
 # Public API for updating game state (to be called from GameState singleton)
 func update_date(day: int, season: String, year: int) -> void:

@@ -163,9 +163,14 @@ func _stop_drag() -> void:
 	var drop_position = viewport.get_mouse_position()
 	var drop_success = _handle_drop(drop_position)
 	
-	# Clean up drag preview
+	# Clean up drag preview and its parent layer
 	if drag_preview:
-		drag_preview.queue_free()
+		# Find and remove the DragPreviewLayer
+		var drag_layer = drag_preview.get_parent()
+		if drag_layer and drag_layer.name == "DragPreviewLayer":
+			drag_layer.queue_free()  # This will also free the preview
+		else:
+			drag_preview.queue_free()
 		drag_preview = null
 	
 	# Restore slot visibility
@@ -188,23 +193,26 @@ func _create_drag_preview(texture: Texture) -> TextureRect:
 	preview.custom_minimum_size = Vector2(32, 32)  # 50% smaller (was 64x64)
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview.modulate = Color(1, 1, 1, 0.7)  # Semi-transparent ghost
-	preview.z_index = 1000
-	preview.z_as_relative = false  # Absolute z-index so it's on top
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
-	# Add to HUD CanvasLayer so it's visible above everything
-	var hud = get_tree().root.get_node_or_null("HUD")
-	if hud and hud is CanvasLayer:
-		hud.add_child(preview)
-		preview.global_position = Vector2.ZERO  # Will be updated by _update_drag_preview_position
-	else:
-		# Fallback: add to root
-		get_tree().root.add_child(preview)
+	# Create a dedicated CanvasLayer on top of everything for the drag preview
+	# This ensures it's always visible, even over the pause menu
+	var drag_layer = CanvasLayer.new()
+	drag_layer.name = "DragPreviewLayer"
+	drag_layer.layer = 100  # Very high layer to be above everything
+	get_tree().root.add_child(drag_layer)
+	
+	# Add preview to the dedicated layer
+	drag_layer.add_child(preview)
+	preview.z_index = 1000
+	preview.z_as_relative = false
 	
 	var viewport = get_viewport()
 	if viewport:
 		var mouse_pos = viewport.get_mouse_position()
 		preview.global_position = mouse_pos - Vector2(16, 16)  # Center on cursor (half of 32)
+	
+	print("DEBUG: Created drag preview on layer 100 at position: ", preview.global_position)
 	
 	return preview
 
@@ -218,14 +226,8 @@ func _update_drag_preview_position() -> void:
 			drag_preview.global_position = mouse_pos - Vector2(16, 16)  # Center on cursor (half of 32)
 
 func _handle_drop(drop_position: Vector2) -> bool:
-	"""Handle drop at position - toolkit-to-toolkit only"""
+	"""Handle drop at position - toolkit-to-toolkit or toolkit-to-inventory"""
 	print("DEBUG: Handling drop at viewport position ", drop_position)
-	
-	# Find toolkit slots (same parent container)
-	var parent_container = get_parent()
-	if not parent_container or not parent_container is HBoxContainer:
-		print("DEBUG: Parent is not HBoxContainer")
-		return false
 	
 	# Get mouse position in viewport/screen coordinates (UI space, not world space)
 	# UI elements use viewport coordinates, not world coordinates
@@ -233,74 +235,124 @@ func _handle_drop(drop_position: Vector2) -> bool:
 	var mouse_pos = viewport.get_mouse_position() if viewport else drop_position
 	print("DEBUG: Viewport mouse position: ", mouse_pos)
 	
-	print("DEBUG: Checking ", parent_container.get_child_count(), " toolkit slots")
-	# Check each toolkit slot in the same container
-	for i in range(parent_container.get_child_count()):
-		var texture_button = parent_container.get_child(i)
-		if texture_button and texture_button is TextureButton:
-			# Get the button's global rect (screen/viewport coordinates for UI elements)
-			# get_global_rect() returns screen coordinates for UI elements in CanvasLayer
-			var button_rect = texture_button.get_global_rect()
-			print("DEBUG: Toolkit slot ", i, " global rect: ", button_rect, " mouse: ", mouse_pos)
-			
-			# Check if mouse is over this button
-			# Both should be in viewport/screen coordinates
-			if button_rect.has_point(mouse_pos):
-				# Check if dropping on same slot (no-op)
-				if texture_button == self:
-					print("DEBUG: Dropping on same toolkit slot - no-op")
-					return true  # Return true but don't swap
+	# PRIORITY 1: Check toolkit slots first (same parent container)
+	var parent_container = get_parent()
+	if parent_container and parent_container is HBoxContainer:
+		print("DEBUG: Checking ", parent_container.get_child_count(), " toolkit slots")
+		# Check each toolkit slot in the same container
+		for i in range(parent_container.get_child_count()):
+			var texture_button = parent_container.get_child(i)
+			if texture_button and texture_button is TextureButton:
+				# Get the button's global rect (screen/viewport coordinates for UI elements)
+				# get_global_rect() returns screen coordinates for UI elements in CanvasLayer
+				var button_rect = texture_button.get_global_rect()
+				print("DEBUG: Toolkit slot ", i, " global rect: ", button_rect, " mouse: ", mouse_pos)
 				
-				# Found a different toolkit slot - swap items
-				print("DEBUG: Dropping on toolkit slot ", i)
-				if texture_button.has_method("_receive_drop"):
-					var success = texture_button._receive_drop(original_texture, slot_index, self)
-					# ToolSwitcher is notified in _receive_drop
-					return success
-				else:
-					# Fallback: directly swap items
-					var target_slot_rect = texture_button.get_node_or_null("Hud_slot_" + str(i))
-					var target_texture: Texture = null
-					if target_slot_rect and target_slot_rect is TextureRect:
-						target_texture = target_slot_rect.texture
+				# Check if mouse is over this button
+				# Both should be in viewport/screen coordinates
+				if button_rect.has_point(mouse_pos):
+					# Check if dropping on same slot (no-op)
+					if texture_button == self:
+						print("DEBUG: Dropping on same toolkit slot - no-op")
+						return true  # Return true but don't swap
 					
-					# Swap items
-					set_item(target_texture)
-					if texture_button.has_method("set_item"):
-						texture_button.set_item(original_texture)
-					
-					# Notify ToolSwitcher about the swap
-					var tool_switcher = _find_tool_switcher()
-					if tool_switcher:
-						tool_switcher.update_toolkit_slot(slot_index, target_texture)
-						tool_switcher.update_toolkit_slot(i, original_texture)
-					
-					return true
+					# Found a different toolkit slot - swap items
+					print("DEBUG: Dropping on toolkit slot ", i)
+					if texture_button.has_method("_receive_drop"):
+						var success = texture_button._receive_drop(original_texture, slot_index, self)
+						# ToolSwitcher is notified in _receive_drop
+						return success
+					else:
+						# Fallback: directly swap items
+						var target_slot_rect = texture_button.get_node_or_null("Hud_slot_" + str(i))
+						var target_texture: Texture = null
+						if target_slot_rect and target_slot_rect is TextureRect:
+							target_texture = target_slot_rect.texture
+						
+						# Swap items
+						set_item(target_texture)
+						if texture_button.has_method("set_item"):
+							texture_button.set_item(original_texture)
+						
+						# Notify ToolSwitcher about the swap
+						var tool_switcher = _find_tool_switcher()
+						if tool_switcher:
+							tool_switcher.update_toolkit_slot(slot_index, target_texture)
+							tool_switcher.update_toolkit_slot(i, original_texture)
+						
+						return true
 	
-	print("DEBUG: No valid toolkit drop target found - mouse not over any toolkit slot")
+	# PRIORITY 2: Check inventory slots in pause menu
+	print("DEBUG: Checking inventory slots in pause menu")
+	var pause_menu = _find_pause_menu()
+	if pause_menu:
+		# Get the inventory grid from the pause menu
+		var inventory_grid = pause_menu.get_node_or_null("CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid")
+		if inventory_grid:
+			print("DEBUG: Found inventory grid with ", inventory_grid.get_child_count(), " slots")
+			# Check each inventory slot
+			for i in range(inventory_grid.get_child_count()):
+				var inventory_slot = inventory_grid.get_child(i)
+				if inventory_slot and inventory_slot is TextureButton:
+					var slot_rect = inventory_slot.get_global_rect()
+					print("DEBUG: Inventory slot ", i, " global rect: ", slot_rect, " mouse: ", mouse_pos)
+					
+					# Check if mouse is over this inventory slot
+					if slot_rect.has_point(mouse_pos):
+						print("DEBUG: Dropping on inventory slot ", i)
+						
+						# Create drag data in the format expected by inventory slots
+						var drag_data = {
+							"slot_index": slot_index,
+							"item_texture": original_texture,
+							"source": "toolkit",
+							"source_node": self
+						}
+						
+						# Check if the inventory slot can accept this drop
+						if inventory_slot.has_method("can_drop_data"):
+							var can_drop = inventory_slot.can_drop_data(mouse_pos, drag_data)
+							print("DEBUG: Inventory slot ", i, " can_drop: ", can_drop)
+							if can_drop and inventory_slot.has_method("drop_data"):
+								# Perform the drop
+								inventory_slot.drop_data(mouse_pos, drag_data)
+								print("DEBUG: Successfully dropped on inventory slot ", i)
+								return true
+						else:
+							print("DEBUG: Inventory slot ", i, " doesn't have can_drop_data method")
+		else:
+			print("DEBUG: Could not find inventory grid in pause menu")
+	else:
+		print("DEBUG: Could not find pause menu")
+	
+	print("DEBUG: No valid drop target found - mouse not over any toolkit or inventory slot")
 	return false
 
 func _find_pause_menu() -> Node:
 	"""Find the pause menu in the scene tree"""
-	# Try to find via UiManager singleton
+	# Try to find via UiManager singleton first
 	if UiManager:
-		if UiManager.has("pause_menu"):
-			return UiManager.pause_menu
-		# Try accessing directly
-		var pause_menu_ref = UiManager.get("pause_menu")
+		# Check if UiManager has a pause_menu property using 'get' with a default value
+		var pause_menu_ref = UiManager.get("pause_menu") if "pause_menu" in UiManager else null
 		if pause_menu_ref:
 			return pause_menu_ref
 	
-	# Try to find in scene tree - UiManager is a singleton, so it's in autoload
-	# But pause_menu might be a child of the current scene
-	var current_scene = get_tree().current_scene
-	if current_scene:
-		# Look for CanvasLayer with pause menu
-		for child in current_scene.get_children():
-			if child is CanvasLayer:
-				var control = child.get_node_or_null("Control")
-				if control and control.has_method("_setup_inventory_slots"):
-					return control
+	# Search the entire scene tree for pause menu
+	# Look for a Control node with _setup_inventory_slots method (unique to pause_menu.gd)
+	var root = get_tree().root
+	return _search_for_pause_menu(root)
+
+func _search_for_pause_menu(node: Node) -> Node:
+	"""Recursively search for pause menu node"""
+	# Check if this node is the pause menu (has the characteristic method)
+	if node is Control and node.has_method("_setup_inventory_slots"):
+		return node
+	
+	# Recursively check children
+	for child in node.get_children():
+		var result = _search_for_pause_menu(child)
+		if result:
+			return result
 	
 	return null
 
@@ -359,103 +411,6 @@ func _receive_drop(dropped_texture: Texture, source_slot_index: int, source_node
 	
 	return true
 
-func can_drop_data(_position: Vector2, data: Variant) -> bool:
-	"""Check if data can be dropped here - toolkit-to-toolkit only"""
-	print("DEBUG: can_drop_data() called on toolkit slot ", slot_index, " with data: ", data)
-	
-	# Validate data structure
-	if not data is Dictionary:
-		print("DEBUG: Drop data is not a Dictionary")
-		_reset_highlight()
-		return false
-	
-	if not data.has("item_texture"):
-		print("DEBUG: Drop data missing item_texture")
-		_reset_highlight()
-		return false
-	
-	# Only accept drops from other toolkit slots
-	var can_drop: bool = false
-	if data.has("source"):
-		var source: String = data["source"]
-		if source == "toolkit":
-			# Don't allow dropping on the same slot
-			var source_slot_index = data.get("slot_index", -1)
-			if source_slot_index != slot_index:
-				can_drop = true
-				print("DEBUG: Can drop toolkit item from slot ", source_slot_index, " to slot ", slot_index)
-			else:
-				print("DEBUG: Cannot drop on same slot")
-	
-	# Visual feedback: highlight valid drop targets
-	if can_drop:
-		_highlight_valid_drop()
-	else:
-		_reset_highlight()
-	
-	print("DEBUG: can_drop_data() returning ", can_drop, " for toolkit slot ", slot_index)
-	return can_drop
-
-func drop_data(_position: Vector2, data: Variant) -> void:
-	"""Handle drop from toolkit slot to toolkit slot"""
-	print("DEBUG: drop_data() called on toolkit slot ", slot_index, " with data: ", data)
-	
-	# Reset highlight after drop
-	_reset_highlight()
-	
-	if not data is Dictionary or not data.has("item_texture"):
-		print("DEBUG: Invalid drop data in toolkit slot ", slot_index)
-		_show_invalid_drop_feedback()
-		return
-	
-	# Only handle toolkit-to-toolkit drops
-	if not data.has("source") or data["source"] != "toolkit":
-		print("DEBUG: Drop is not from toolkit - ignoring")
-		return
-	
-	# Edge case: Dragging to same slot (no-op)
-	var source_slot_index = data.get("slot_index", -1)
-	if source_slot_index == slot_index:
-		print("DEBUG: Dropping on same toolkit slot - no-op")
-		return
-	
-	var from_item_texture: Texture = data["item_texture"]
-	var source_node = data.get("source_node", null)
-	
-	print("DEBUG: Swapping items between toolkit slots ", source_slot_index, " and ", slot_index)
-	print("DEBUG: Source node: ", source_node)
-	
-	# Get current texture from child TextureRect before swapping
-	var hud_slot_rect = get_node_or_null("Hud_slot_" + str(slot_index))
-	var current_texture: Texture = null
-	if hud_slot_rect and hud_slot_rect is TextureRect:
-		current_texture = hud_slot_rect.texture
-	
-	print("DEBUG: Current item in slot ", slot_index, ": ", current_texture)
-	print("DEBUG: Dropping item from slot ", source_slot_index, ": ", from_item_texture)
-	
-	# Swap item textures
-	set_item(from_item_texture)
-	print("DEBUG: Set item in toolkit slot ", slot_index, " to: ", from_item_texture)
-	
-	# Update source slot with swapped item (or null if empty)
-	if source_node and source_node.has_method("set_item"):
-		print("DEBUG: Updating source slot ", source_slot_index, " with swapped item: ", current_texture)
-		source_node.set_item(current_texture)
-	else:
-		print("DEBUG: Source node is null or doesn't have set_item method")
-	
-	# Update ToolSwitcher if either slot is the active one
-	var tool_switcher = _find_tool_switcher()
-	if tool_switcher:
-		# Update the slot we dropped into
-		tool_switcher.update_toolkit_slot(slot_index, from_item_texture)
-		# Update the source slot if it's the active one
-		if source_slot_index == tool_switcher.current_hud_slot:
-			tool_switcher.update_toolkit_slot(source_slot_index, current_texture)
-	
-	print("DEBUG: drop_data() completed for toolkit slot ", slot_index)
-
 func _highlight_valid_drop() -> void:
 	"""Highlight slot as valid drop target"""
 	if not is_highlighted:
@@ -488,3 +443,110 @@ func _select_slot() -> void:
 		tool_switcher.set_hud_by_slot(slot_index)
 	else:
 		print("DEBUG: ToolSwitcher not found - cannot select slot")
+
+# Godot's built-in drag-and-drop methods for receiving drops from inventory
+func can_drop_data(_position: Vector2, data: Variant) -> bool:
+	"""Check if data can be dropped on this toolkit slot - handles toolkit and inventory sources"""
+	print("DEBUG: can_drop_data() called on toolkit slot ", slot_index, " with data: ", data)
+	
+	# Validate data structure
+	if not data is Dictionary:
+		print("DEBUG: Drop data is not a Dictionary")
+		_reset_highlight()
+		return false
+	
+	if not data.has("item_texture"):
+		print("DEBUG: Drop data missing item_texture")
+		_reset_highlight()
+		return false
+	
+	# Accept drops from both inventory and toolkit
+	var can_drop: bool = false
+	if data.has("source"):
+		var source: String = data["source"]
+		if source == "inventory":
+			can_drop = true
+			print("DEBUG: Can drop inventory item in toolkit slot ", slot_index)
+		elif source == "toolkit":
+			# Don't allow dropping on the same slot
+			var source_slot_index = data.get("slot_index", -1)
+			if source_slot_index != slot_index:
+				can_drop = true
+				print("DEBUG: Can drop toolkit item from slot ", source_slot_index, " to slot ", slot_index)
+			else:
+				print("DEBUG: Cannot drop on same slot")
+	
+	# Visual feedback
+	if can_drop:
+		_highlight_valid_drop()
+	else:
+		_reset_highlight()
+	
+	print("DEBUG: can_drop_data() returning ", can_drop, " for toolkit slot ", slot_index)
+	return can_drop
+
+func drop_data(_position: Vector2, data: Variant) -> void:
+	"""Handle drop operation - handles both toolkit-to-toolkit AND inventory-to-toolkit"""
+	print("DEBUG: drop_data() called on toolkit slot ", slot_index, " with data: ", data)
+	
+	# Reset highlight
+	_reset_highlight()
+	
+	if not data is Dictionary or not data.has("item_texture"):
+		print("DEBUG: Invalid drop data in toolkit slot ", slot_index)
+		_show_invalid_drop_feedback()
+		return
+	
+	var from_item_texture: Texture = data["item_texture"]
+	var source_node = data.get("source_node", null)
+	var source_slot_index = data.get("slot_index", -1)
+	var source: String = data.get("source", "unknown")
+	
+	# Edge case: Dropping on same slot
+	if source == "toolkit" and source_slot_index == slot_index:
+		print("DEBUG: Dropping on same toolkit slot - no-op")
+		return
+	
+	print("DEBUG: Dropping item in toolkit slot ", slot_index, " from ", source, " slot ", source_slot_index)
+	print("DEBUG: Current item in toolkit slot: ", item_texture)
+	print("DEBUG: Dropping item: ", from_item_texture)
+	
+	# Get current texture before swapping
+	var hud_slot_rect = get_node_or_null("Hud_slot_" + str(slot_index))
+	var current_texture: Texture = null
+	if hud_slot_rect and hud_slot_rect is TextureRect:
+		current_texture = hud_slot_rect.texture
+	
+	# Swap items
+	set_item(from_item_texture)
+	print("DEBUG: Set item in toolkit slot ", slot_index, " to: ", from_item_texture)
+	
+	# Update source slot with swapped item
+	if source_node and source_node.has_method("set_item"):
+		print("DEBUG: Updating source slot with swapped item: ", current_texture)
+		source_node.set_item(current_texture)
+	
+	# CRITICAL: Notify ToolSwitcher about the toolkit slot change
+	var tool_switcher = _find_tool_switcher()
+	if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
+		print("DEBUG: Notifying ToolSwitcher about toolkit slot ", slot_index, " change to: ", from_item_texture)
+		tool_switcher.update_toolkit_slot(slot_index, from_item_texture)
+		# If source was also toolkit, update that slot too
+		if source == "toolkit" and source_slot_index >= 0:
+			tool_switcher.update_toolkit_slot(source_slot_index, current_texture)
+	else:
+		print("DEBUG: Could not find ToolSwitcher to notify")
+	
+	# Update InventoryManager
+	if InventoryManager:
+		# Update toolkit tracking
+		if from_item_texture:
+			InventoryManager.add_item_to_toolkit(slot_index, from_item_texture)
+		else:
+			InventoryManager.remove_item_from_toolkit(slot_index)
+		
+		# If source was inventory, update inventory tracking
+		if source == "inventory" and source_slot_index >= 0:
+			InventoryManager.update_inventory_slots(source_slot_index, current_texture)
+	
+	print("DEBUG: drop_data() completed for toolkit slot ", slot_index)
