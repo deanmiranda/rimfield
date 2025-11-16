@@ -14,8 +14,8 @@ var inventory_instance: Control = null
 
 # Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
 var game_config: Resource = null
-var max_inventory_slots: int = 12  # Default inventory size (will be overridden by GameConfig)
-var max_toolkit_slots: int = 10  # Default toolkit size (will be overridden by GameConfig)
+var max_inventory_slots: int = 12 # Default inventory size (will be overridden by GameConfig)
+var max_toolkit_slots: int = 10 # Default toolkit size (will be overridden by GameConfig)
 
 # Stack limits
 const MAX_TOOLBELT_STACK = 9
@@ -84,7 +84,7 @@ func add_item_auto_stack(item_texture: Texture, count: int = 1) -> int:
 	# Update UI
 	sync_inventory_ui()
 
-	return remaining  # Return any overflow
+	return remaining # Return any overflow
 
 
 # Add item to toolkit with auto-stacking
@@ -122,7 +122,7 @@ func add_item_to_toolkit_auto_stack(item_texture: Texture, count: int = 1) -> in
 	# Update UI
 	sync_toolkit_ui()
 
-	return remaining  # Return any overflow
+	return remaining # Return any overflow
 
 
 func get_first_empty_slot() -> int:
@@ -161,17 +161,14 @@ func remove_item_from_inventory(slot_index: int) -> void:
 
 # Instantiate the inventory UI and add it to the current scene tree
 func instantiate_inventory_ui(parent_node: Node = null) -> void:
-	if inventory_instance:  # Prevent duplicates
-		print("Inventory instance already exists.")
+	if inventory_instance: # Prevent duplicates
 		return
 
 	if not inventory_scene:
-		print("Error: Inventory scene is not assigned in the inspector.")
 		return
 
 	inventory_instance = inventory_scene.instantiate() as Control
 	if not inventory_instance:
-		print("Error: Failed to instantiate inventory scene.")
 		return
 
 	# Adding inventory instance to the specified parent node or the root node
@@ -181,7 +178,6 @@ func instantiate_inventory_ui(parent_node: Node = null) -> void:
 		get_tree().root.add_child(inventory_instance)
 
 	inventory_instance.visible = false
-	print("Inventory UI successfully instantiated.")
 
 	# Set layout properties for proper anchoring and centering
 	inventory_instance.anchor_left = 0.5
@@ -201,52 +197,32 @@ func instantiate_inventory_ui(parent_node: Node = null) -> void:
 func set_inventory_instance(instance: Control) -> void:
 	if instance and instance is Control:
 		inventory_instance = instance
-	else:
-		print("Error: Provided instance is not a valid Control node.")
 
 
 func add_item_to_first_empty_slot(item_data: Resource) -> bool:
 	# Iterate over the slots in the inventory
 	for slot_index in inventory_slots.keys():
 		var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0})
-		if slot_data["texture"] == null or slot_data["count"] == 0:  # Check if the slot is empty
+		if slot_data["texture"] == null or slot_data["count"] == 0: # Check if the slot is empty
 			#print("Found empty slot: ", slot_index)
 			inventory_slots[slot_index] = {"texture": item_data.texture, "count": 1}
 			#print("Item added to slot: ", slot_index, " Item ID: ", item_data.item_id)
-			sync_inventory_ui()  # Trigger UI update
+			sync_inventory_ui() # Trigger UI update
 			return true
 	return false
 
 
 #	Functions for the inventory panel
 func update_inventory_slots(slot_index: int, item_texture: Texture, count: int = 1) -> void:
-	print("═══ InventoryManager.update_inventory_slots ═══")
-	print("  slot_index: ", slot_index)
-	print("  item_texture: ", item_texture.resource_path if item_texture else "NULL")
-	print("  count: ", count)
-
 	if slot_index < 0 or slot_index >= max_inventory_slots:
-		print("  ERROR: slot_index OUT OF BOUNDS!")
 		return
 
 	if inventory_slots.has(slot_index):
-		var old = inventory_slots[slot_index]
-		print(
-			"  OLD: texture=",
-			old["texture"].resource_path if old["texture"] else "NULL",
-			" count=",
-			old["count"]
-		)
 		inventory_slots[slot_index] = {"texture": item_texture, "count": count}
-		print("  NEW: Saved successfully")
-		print("═══════════════════════════════════════════════")
 
 
 func sync_inventory_ui() -> void:
-	print("InventoryManager: Syncing UI with inventory_slots dictionary...")
-
 	if not inventory_instance:
-		print("InventoryManager: inventory_instance is null, cannot sync")
 		return
 
 	# Try multiple possible paths for the GridContainer
@@ -262,26 +238,14 @@ func sync_inventory_ui() -> void:
 		grid_container = inventory_instance
 
 	if not grid_container:
-		print("InventoryManager: Could not find GridContainer in inventory_instance")
-		print("InventoryManager: inventory_instance type: ", inventory_instance.get_class())
-		print("InventoryManager: inventory_instance name: ", inventory_instance.name)
 		return
-
-	print(
-		"InventoryManager: Found grid_container: ",
-		grid_container.name,
-		" with ",
-		grid_container.get_child_count(),
-		" children"
-	)
 
 	# Sync slots with inventory dictionary
 	for i in range(inventory_slots.size()):
 		if i >= grid_container.get_child_count():
-			print("InventoryManager: Slot index ", i, " exceeds GridContainer child count.")
-			break  # Stop if we exceed the available slots in GridContainer
+			break # Stop if we exceed the available slots in GridContainer
 
-		var slot = grid_container.get_child(i)  # Get slot by index
+		var slot = grid_container.get_child(i) # Get slot by index
 		if slot and slot is TextureButton:
 			var slot_data = inventory_slots.get(i, {"texture": null, "count": 0})
 			var item_texture = slot_data["texture"]
@@ -289,33 +253,10 @@ func sync_inventory_ui() -> void:
 
 			# Update slot with texture and count
 			if slot.has_method("set_item"):
-				print(
-					"  → Calling set_item on slot ",
-					i,
-					" with texture: ",
-					item_texture.resource_path if item_texture else "NULL",
-					" count: ",
-					item_count
-				)
 				slot.set_item(item_texture, item_count)
 			else:
-				print(
-					"  → WARNING: Slot ",
-					i,
-					" does NOT have set_item method! Using direct assignment"
-				)
 				slot.texture_normal = item_texture if item_texture != null else null
-			print(
-				"InventoryManager: Updated slot ",
-				i,
-				" with texture: ",
-				item_texture,
-				" count: ",
-				item_count
-			)
-
-	print("InventoryManager: Inventory UI sync complete.")
-
+			
 
 # Toolkit tracking functions for drag/drop
 func add_item_from_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
@@ -349,27 +290,12 @@ func get_toolkit_item_count(slot_index: int) -> int:
 
 func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
 	"""Add item to toolkit slot (used when dragging from inventory)"""
-	print("═══ InventoryManager.add_item_to_toolkit ═══")
-	print("  slot_index: ", slot_index)
-	print("  texture: ", texture.resource_path if texture else "NULL")
-	print("  count: ", count)
+	
 
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
-		print("  ERROR: Toolkit slot index OUT OF BOUNDS!")
-		print("═══════════════════════════════════════════════")
 		return false
 
-	var old = toolkit_slots.get(slot_index, {"texture": null, "count": 0})
-	print(
-		"  OLD: texture=",
-		old["texture"].resource_path if old["texture"] else "NULL",
-		" count=",
-		old["count"]
-	)
 	toolkit_slots[slot_index] = {"texture": texture, "count": count}
-	print("  NEW: Saved successfully, syncing UI...")
-	sync_toolkit_ui()
-	print("═══════════════════════════════════════════════")
 	return true
 
 
@@ -435,18 +361,17 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 		var slot = hud.get_node_or_null(slot_path)
 
 		if slot:
-			if slot.texture != null:  # Skip if slot already has a item
+			if slot.texture != null: # Skip if slot already has a item
 				continue
 
 			# Directly assign the droppable's texture
 			if item_data and item_data.texture:
-				inventory_slots[i] = item_data.texture  # Update inventory slot for reference
-				slot.texture = item_data.texture  # Update HUD slot
+				inventory_slots[i] = item_data.texture # Update inventory slot for reference
+				slot.texture = item_data.texture # Update HUD slot
 				return true
 
 		else:
 			print("HUD slot ", i, " not found at path:", slot_path)
-	#print('Hud Full returning false and attempting inventory')
 	return false
 
 
@@ -462,7 +387,7 @@ func assign_textures_to_slots() -> void:
 	var slots = grid_container.get_children()
 	for slot in slots:
 		if slot is TextureButton:
-			var slot_index = 0  # Declare slot_index before use
+			var slot_index = 0 # Declare slot_index before use
 			if not slot.has_meta("slot_index"):
 				slot_index = slots.find(slot)
 				slot.set_meta("slot_index", slot_index)
@@ -476,8 +401,6 @@ func assign_textures_to_slots() -> void:
 				var empty_texture = slot.get("empty_texture")
 				if empty_texture:
 					slot.texture_normal = empty_texture
-				else:
-					print("Error: No empty texture assigned to slot index", slot_index)
 		else:
 			print(
 				"Warning: Unexpected node found in inventory slots. Expected 'TextureButton'. Node name:",

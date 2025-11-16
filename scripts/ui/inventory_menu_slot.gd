@@ -6,23 +6,23 @@ extends TextureButton
 
 @export var slot_index: int = 0
 @export var empty_texture: Texture
-@export var is_locked: bool = false  # For grayed-out upgrade slots
+@export var is_locked: bool = false # For grayed-out upgrade slots
 
 signal slot_clicked(slot_index: int)
 signal slot_drag_started(slot_index: int, item_texture: Texture)
 signal slot_drop_received(slot_index: int, data: Dictionary)
 
 var item_texture: Texture = null
-var stack_count: int = 0  # Stack count (0 = empty, max 99 for inventory)
+var stack_count: int = 0 # Stack count (0 = empty, max 99 for inventory)
 var default_modulate: Color = Color.WHITE
 var is_highlighted: bool = false
-var custom_drag_preview: Control = null  # For high-layer drag preview
+var custom_drag_preview: Control = null # For high-layer drag preview
 
 # Manual drag system (like toolkit)
 var is_dragging: bool = false
 var drag_preview: TextureRect = null
 var original_texture: Texture = null
-var original_stack_count: int = 0  # Store original stack count
+var original_stack_count: int = 0 # Store original stack count
 
 const MAX_INVENTORY_STACK = 99
 
@@ -39,7 +39,7 @@ func _ready() -> void:
 
 	# Apply locked state (grayed out for future upgrades)
 	if is_locked:
-		modulate = Color(0.5, 0.5, 0.5, 0.7)  # Grayed out
+		modulate = Color(0.5, 0.5, 0.5, 0.7) # Grayed out
 		disabled = true
 		default_modulate = Color(0.5, 0.5, 0.5, 0.7)
 	else:
@@ -88,27 +88,21 @@ func _process(_delta: float) -> void:
 
 func set_item(new_texture: Texture, count: int = 1) -> void:
 	"""Set the item texture for this slot"""
-	print("InventoryMenuSlot.set_item() called on slot ", slot_index)
-	print("  new_texture: ", new_texture.resource_path if new_texture else "NULL")
-	print("  count: ", count)
 
 	item_texture = new_texture
 
 	# Update stack count
 	if new_texture:
-		stack_count = maxi(count, 1)  # At least 1 if there's an item
+		stack_count = maxi(count, 1) # At least 1 if there's an item
 	else:
-		stack_count = 0  # No item = no stack
+		stack_count = 0 # No item = no stack
 
 	if item_texture == null:
 		texture_normal = empty_texture
-		print("  → Set to empty_texture")
 	else:
 		texture_normal = item_texture
-		print("  → Set texture_normal to item_texture")
 
 	_update_stack_label()
-	print("  → Stack label updated, final stack_count: ", stack_count)
 
 
 func get_item() -> Texture:
@@ -151,7 +145,7 @@ func _start_drag() -> void:
 
 	is_dragging = true
 	original_texture = item_texture
-	original_stack_count = stack_count  # Store the stack count
+	original_stack_count = stack_count # Store the stack count
 
 	# Create drag preview on high layer
 	drag_preview = _create_drag_preview(item_texture)
@@ -193,15 +187,15 @@ func _create_drag_preview(texture: Texture) -> TextureRect:
 	"""Create ghost icon that follows cursor - 50% smaller than original"""
 	var preview = TextureRect.new()
 	preview.texture = texture
-	preview.custom_minimum_size = Vector2(32, 32)  # 50% smaller
+	preview.custom_minimum_size = Vector2(32, 32) # 50% smaller
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview.modulate = Color(1, 1, 1, 0.7)  # Semi-transparent ghost
+	preview.modulate = Color(1, 1, 1, 0.7) # Semi-transparent ghost
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# Create a dedicated CanvasLayer on top of everything
 	var drag_layer = CanvasLayer.new()
 	drag_layer.name = "InventoryDragPreviewLayer"
-	drag_layer.layer = 100  # Very high layer
+	drag_layer.layer = 100 # Very high layer
 	get_tree().root.add_child(drag_layer)
 
 	# Add preview to the dedicated layer
@@ -231,67 +225,46 @@ func _handle_drop(drop_position: Vector2) -> bool:
 	var viewport = get_viewport()
 	var mouse_pos = viewport.get_mouse_position() if viewport else drop_position
 
-	print("InventoryMenuSlot: Handling drop at ", mouse_pos)
 
 	# PRIORITY 1: Check toolkit slots (in HUD)
 	var hud = _find_hud()
-	print("InventoryMenuSlot: Found HUD: ", hud)
 	if hud:
 		for i in range(hud.get_child_count()):
 			var child = hud.get_child(i)
 
 		# Navigate the known path: HUD/MarginContainer/HBoxContainer
 		var margin_container = hud.get_node_or_null("MarginContainer")
-		print("InventoryMenuSlot: Found MarginContainer: ", margin_container)
 		if margin_container:
 			var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
-			print("InventoryMenuSlot: Found HBoxContainer (toolkit): ", toolkit_container)
 			if toolkit_container:
-				print(
-					"InventoryMenuSlot: Checking ",
-					toolkit_container.get_child_count(),
-					" toolkit slots"
-				)
 				for i in range(toolkit_container.get_child_count()):
 					var toolkit_slot = toolkit_container.get_child(i)
 					if toolkit_slot and toolkit_slot is TextureButton:
 						var slot_rect = toolkit_slot.get_global_rect()
 
 						if slot_rect.has_point(mouse_pos):
-							print("InventoryMenuSlot: Mouse is over toolkit slot ", i)
 							# Create drag data in the format expected by toolkit slots
 							var drag_data = {
 								"slot_index": slot_index,
 								"item_texture": original_texture,
-								"stack_count": original_stack_count,  # Use original count, not current
+								"stack_count": original_stack_count, # Use original count, not current
 								"source": "inventory",
 								"source_node": self
 							}
 
 							# Check if toolkit slot can accept this drop
 							if toolkit_slot.has_method("can_drop_data"):
-								print("InventoryMenuSlot: Toolkit slot has can_drop_data method")
 								var can_drop = toolkit_slot.can_drop_data(mouse_pos, drag_data)
-								print("InventoryMenuSlot: can_drop result: ", can_drop)
 								if can_drop and toolkit_slot.has_method("drop_data"):
-									print("InventoryMenuSlot: Calling toolkit_slot.drop_data()")
 									toolkit_slot.drop_data(mouse_pos, drag_data)
 									return true
-								else:
-									print(
-										"InventoryMenuSlot: Cannot drop or drop_data method missing"
-									)
-							else:
-								print(
-									"InventoryMenuSlot: Toolkit slot does NOT have can_drop_data method"
-								)
 
 	# PRIORITY 2: Check other inventory slots (in pause menu)
 	var pause_menu = _find_pause_menu()
 	if pause_menu:
 		var inventory_grid = (
 			pause_menu
-			. get_node_or_null(
+			.get_node_or_null(
 				"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
 			)
 		)
@@ -409,20 +382,20 @@ func get_drag_data(_position: Vector2) -> Variant:
 		"slot_index": slot_index,
 		"item_texture": item_texture,
 		"stack_count": stack_count,
-		"source": "inventory",  # Standardized source identifier
-		"source_node": self  # Reference to source slot for swapping
+		"source": "inventory", # Standardized source identifier
+		"source_node": self # Reference to source slot for swapping
 	}
 
 	# Create custom drag preview on high layer (like toolkit does)
 	# This ensures it's visible above the pause menu (layer 10)
 	var drag_layer = CanvasLayer.new()
 	drag_layer.name = "InventoryDragPreviewLayer"
-	drag_layer.layer = 100  # Very high layer
+	drag_layer.layer = 100 # Very high layer
 	get_tree().root.add_child(drag_layer)
 
 	var drag_preview = TextureRect.new()
 	drag_preview.texture = item_texture
-	drag_preview.custom_minimum_size = Vector2(32, 32)  # 50% smaller
+	drag_preview.custom_minimum_size = Vector2(32, 32) # 50% smaller
 	drag_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	drag_preview.modulate = Color(1, 1, 1, 0.7)
 	drag_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -445,7 +418,7 @@ func get_drag_data(_position: Vector2) -> Variant:
 
 	# Still use set_drag_preview for Godot's drag system, but make it invisible
 	var invisible_preview = Control.new()
-	invisible_preview.modulate = Color(1, 1, 1, 0)  # Fully transparent
+	invisible_preview.modulate = Color(1, 1, 1, 0) # Fully transparent
 	set_drag_preview(invisible_preview)
 
 	emit_signal("slot_drag_started", slot_index, item_texture)
@@ -500,12 +473,12 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 
 	if is_locked:
 		_show_invalid_drop_feedback()
-		return  # Cannot drop on locked slots
+		return # Cannot drop on locked slots
 
 	# Edge case: Dragging to same slot (no-op)
 	var source_slot_index = data.get("slot_index", -1)
 	if data.has("source") and data["source"] == "inventory" and source_slot_index == slot_index:
-		return  # Same slot, no-op
+		return # Same slot, no-op
 
 	var from_item_texture: Texture = data["item_texture"]
 	var from_stack_count: int = data.get("stack_count", 1)
@@ -570,14 +543,6 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	# This ensures InventoryManager has correct data when sync runs
 	if InventoryManager:
 		# Update inventory slot with dropped item
-		print(
-			"InventoryMenuSlot.drop_data(): Updating inventory slot ",
-			slot_index,
-			" with ",
-			from_item_texture,
-			" count ",
-			from_stack_count
-		)
 		InventoryManager.update_inventory_slots(slot_index, from_item_texture, from_stack_count)
 
 		# If source is toolkit, update toolkit slot with swapped item
@@ -585,23 +550,10 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 			var toolkit_slot_index = data.get("slot_index", -1)
 			if toolkit_slot_index >= 0:
 				if temp_texture:
-					print(
-						"InventoryMenuSlot.drop_data(): Returning swapped item ",
-						temp_texture,
-						" to toolkit slot ",
-						toolkit_slot_index,
-						" count ",
-						temp_stack_count
-					)
 					InventoryManager.add_item_to_toolkit(
 						toolkit_slot_index, temp_texture, temp_stack_count
 					)
 				else:
-					print(
-						"InventoryMenuSlot.drop_data(): Clearing toolkit slot ",
-						toolkit_slot_index,
-						" (no swapped item)"
-					)
 					InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
 
 	# NOW swap items in UI
@@ -623,7 +575,7 @@ func _highlight_valid_drop() -> void:
 	"""Highlight slot as valid drop target"""
 	if not is_highlighted:
 		is_highlighted = true
-		modulate = Color(1.2, 1.2, 1.0, 1.0)  # Slight yellow tint
+		modulate = Color(1.2, 1.2, 1.0, 1.0) # Slight yellow tint
 
 
 func _reset_highlight() -> void:
@@ -685,14 +637,6 @@ func _receive_drop_from_toolkit(
 
 	# Notify InventoryManager
 	if InventoryManager:
-		print(
-			"InventoryMenuSlot._receive_drop_from_toolkit(): slot ",
-			slot_index,
-			" receiving ",
-			dropped_texture,
-			" count ",
-			dropped_stack_count
-		)
 		InventoryManager.update_inventory_slots(slot_index, dropped_texture, dropped_stack_count)
 		if current_texture:
 			InventoryManager.add_item_to_toolkit(
@@ -760,7 +704,7 @@ func add_to_stack(amount: int = 1) -> int:
 	var amount_to_add = mini(amount, space_available)
 	stack_count += amount_to_add
 	_update_stack_label()
-	return amount - amount_to_add  # Return overflow
+	return amount - amount_to_add # Return overflow
 
 
 func remove_from_stack(amount: int = 1) -> int:
@@ -769,7 +713,7 @@ func remove_from_stack(amount: int = 1) -> int:
 	stack_count -= amount_to_remove
 	if stack_count <= 0:
 		stack_count = 0
-		set_item(null)  # Clear item if stack is empty
+		set_item(null) # Clear item if stack is empty
 	_update_stack_label()
 	return amount_to_remove
 

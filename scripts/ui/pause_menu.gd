@@ -81,35 +81,17 @@ func _ready() -> void:
 	await get_tree().process_frame
 
 	# FIRST: Initialize inventory slots (create the 30 TextureButton children)
-	print("PauseMenu: Setting up inventory slots...")
 	_setup_inventory_slots()
-	print(
-		"PauseMenu: Inventory slots created, count: ",
-		inventory_grid.get_child_count() if inventory_grid else 0
-	)
+
 
 	# THEN: Register with InventoryManager and sync (now that slots exist!)
-	print("PauseMenu: Registering inventory grid with InventoryManager")
 	if InventoryManager and inventory_grid:
-		print("PauseMenu: inventory_grid found: ", inventory_grid)
-		print("PauseMenu: inventory_grid type: ", inventory_grid.get_class())
-		print("PauseMenu: inventory_grid child count: ", inventory_grid.get_child_count())
-
 		# Pass the inventory_grid directly to InventoryManager
 		# InventoryManager.sync_inventory_ui() will handle it
 		InventoryManager.set_inventory_instance(inventory_grid)
-		print("PauseMenu: Inventory instance set, syncing UI...")
 
 		# Sync UI with stored inventory data
 		InventoryManager.sync_inventory_ui()
-		print("PauseMenu: Inventory UI sync complete")
-	else:
-		print("ERROR: InventoryManager or inventory_grid is null!")
-		if not InventoryManager:
-			print("  - InventoryManager is null")
-		if not inventory_grid:
-			print("  - inventory_grid is null")
-
 	# Setup player sprite (use first frame of idle animation)
 	_setup_player_sprite()
 
@@ -166,7 +148,6 @@ func _setup_inventory_slots() -> void:
 			slot.call("set_slot_index", i)
 		else:
 			slot.slot_index = i
-		print("PauseMenu: Created inventory slot ", i, " slot.slot_index=", slot.slot_index)
 		slot.empty_texture = empty_texture
 		slot.visible = true # Ensure slot is visible
 		slot.texture_normal = empty_texture # Set initial texture

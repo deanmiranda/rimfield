@@ -29,9 +29,6 @@ func _ready() -> void:
 	# Ensure this layer is on top of everything
 	layer = 1000
 
-	print("TransitionManager initialized with fade_rect")
-
-
 func fade_to_black(duration: float = 0.3) -> void:
 	"""Fade screen to black"""
 	if not fade_rect:
@@ -42,14 +39,11 @@ func fade_to_black(duration: float = 0.3) -> void:
 	if current_tween and current_tween.is_valid():
 		current_tween.kill()
 
-	print("Fading to black...")
-	fade_rect.modulate.a = 0.0  # Start from transparent
+	fade_rect.modulate.a = 0.0 # Start from transparent
 	current_tween = create_tween()
 	current_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	current_tween.tween_property(fade_rect, "modulate:a", 1.0, duration)
 	await current_tween.finished
-	print("Fade to black complete")
-
 
 func fade_from_black(duration: float = 0.3) -> void:
 	"""Fade screen from black to clear"""
@@ -61,13 +55,11 @@ func fade_from_black(duration: float = 0.3) -> void:
 	if current_tween and current_tween.is_valid():
 		current_tween.kill()
 
-	print("Fading from black...")
-	fade_rect.modulate.a = 1.0  # Start from black
+	fade_rect.modulate.a = 1.0 # Start from black
 	current_tween = create_tween()
 	current_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	current_tween.tween_property(fade_rect, "modulate:a", 0.0, duration)
 	await current_tween.finished
-	print("Fade from black complete")
 
 
 func fade_transition(duration: float = 0.3) -> void:
