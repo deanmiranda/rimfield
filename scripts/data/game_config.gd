@@ -8,4 +8,3 @@ class_name GameConfig
 @export var interaction_distance: float = 250.0  # Allow interaction with tiles up to ~15 cells away (16px per cell)
 @export var player_speed: float = 200
 @export var pickup_radius: float = 48.0
-

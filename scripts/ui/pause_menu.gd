@@ -6,37 +6,55 @@ extends Control
 
 # Tab references for extensibility
 @onready var tab_container: TabContainer = $CenterContainer/PanelContainer/VBoxContainer/TabContainer
-@onready var inventory_tab: Control = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab
-@onready var main_menu_tab: Control = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab
+@onready
+var inventory_tab: Control = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab
+@onready
+var main_menu_tab: Control = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab
 
 # Inventory grid reference
-@onready var inventory_grid: GridContainer = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid
+@onready
+var inventory_grid: GridContainer = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid
 
 # Player info references
-@onready var player_sprite: TextureRect = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlayerSpriteContainer/PlayerSprite
-@onready var date_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel
-@onready var money_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/MoneyLabel
-@onready var health_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/HealthLabel
-@onready var energy_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/EnergyLabel
-@onready var weather_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/WeatherLabel
+@onready
+var player_sprite: TextureRect = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlayerSpriteContainer/PlayerSprite
+@onready
+var date_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel
+@onready
+var money_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/MoneyLabel
+@onready
+var health_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/HealthLabel
+@onready
+var energy_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/EnergyLabel
+@onready
+var weather_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/WeatherLabel
 
 # Placeholder stats (for future development)
-@onready var stat_boredom_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatBoredomLabel
-@onready var stat_lonely_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatLonelyLabel
-@onready var stat_social_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatSocialLabel
-@onready var stat_creativity_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatCreativityLabel
+@onready
+var stat_boredom_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatBoredomLabel
+@onready
+var stat_lonely_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatLonelyLabel
+@onready
+var stat_social_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatSocialLabel
+@onready
+var stat_creativity_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlaceholderStatsContainer/StatCreativityLabel
 
 # MainMenu tab button references
-@onready var resume_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ResumeButton
-@onready var save_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveGame
-@onready var back_to_main_menu_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/BackToMainMenu
-@onready var exit_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ExitButton
-@onready var save_feedback_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveFeedbackLabel
+@onready
+var resume_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ResumeButton
+@onready
+var save_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveGame
+@onready
+var back_to_main_menu_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/BackToMainMenu
+@onready
+var exit_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ExitButton
+@onready
+var save_feedback_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveFeedbackLabel
 
 # Constants
 const INVENTORY_SLOTS_TOTAL = 30  # 3x10 grid
 const INVENTORY_SLOTS_ACTIVE = 24  # Top 8 rows (24 slots)
-const INVENTORY_SLOTS_LOCKED = 6   # Bottom 2 rows (6 slots)
+const INVENTORY_SLOTS_LOCKED = 6  # Bottom 2 rows (6 slots)
 
 # Game state (to be connected to GameState singleton later)
 var current_day: int = 1
@@ -55,59 +73,61 @@ var stat_lonely: int = 50
 var stat_social: int = 50
 var stat_creativity: int = 50
 
+
 func _ready() -> void:
 	self.visible = false
-	
+
 	# Wait for nodes to be ready
 	await get_tree().process_frame
-	
+
 	# Initialize inventory slots
 	_setup_inventory_slots()
-	
+
 	# Setup player sprite (use first frame of idle animation)
 	_setup_player_sprite()
-	
+
 	# Ensure player info section is visible and properly sized
 	if inventory_tab:
 		var player_info = inventory_tab.get_node_or_null("VBoxContainer/PlayerInfoContainer")
 		if player_info:
 			player_info.visible = true
 			player_info.custom_minimum_size = Vector2(0, 200)  # Force minimum size
-	
+
 	# Update all UI elements
 	_update_ui()
-	
+
 	# Connect tab change signal for extensibility
 	if tab_container:
 		tab_container.tab_changed.connect(_on_tab_changed)
 		# Set default tab to Inventory (index 0)
 		tab_container.current_tab = 0
-	
+
 	# Connect MainMenu tab button signals
 	_connect_main_menu_signals()
-	
+
 	# Hide save feedback initially
 	if save_feedback_label:
 		save_feedback_label.visible = false
+
 
 func _setup_inventory_slots() -> void:
 	"""Create and configure all inventory slots (30 total, bottom 6 locked)"""
 	if not inventory_grid:
 		return
-	
+
 	# Make sure grid is visible
 	inventory_grid.visible = true
-	
+
 	# Load empty slot texture
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
 	var slot_script = load("res://scripts/ui/inventory_menu_slot.gd")
-	
+
 	if not slot_script:
 		return
-	
+
 	# Load border texture for slot outlines (like existing inventory)
 	var border_texture = preload("res://assets/ui/tile_outline.png")
-	
+
 	# Create 30 slots (3 columns x 10 rows)
 	var slots = []
 	for i in range(INVENTORY_SLOTS_TOTAL):
@@ -127,7 +147,7 @@ func _setup_inventory_slots() -> void:
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		slot.focus_mode = Control.FOCUS_CLICK
 		slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		
+
 		# Add background style for slots (removed white test background)
 		var bg_style = StyleBoxFlat.new()
 		bg_style.bg_color = Color(0.3, 0.3, 0.3, 1.0)  # Dark gray background
@@ -140,18 +160,18 @@ func _setup_inventory_slots() -> void:
 		slot.add_theme_stylebox_override("hover", bg_style.duplicate())
 		slot.add_theme_stylebox_override("pressed", bg_style.duplicate())
 		slot.add_theme_stylebox_override("disabled", bg_style.duplicate())
-		
+
 		# Add border TextureRect as child (exactly like existing inventory slots)
 		# Must add AFTER slot is in tree for proper layout
 		# We'll add it after adding to grid
-		
+
 		# Lock bottom 2 rows (slots 24-29)
 		if i >= INVENTORY_SLOTS_ACTIVE:
 			slot.is_locked = true
-		
+
 		inventory_grid.add_child(slot)
 		slots.append({"slot": slot, "index": i})
-		
+
 		# Add border TextureRect AFTER slot is in tree (like existing inventory)
 		var border_rect = TextureRect.new()
 		border_rect.name = "Border"
@@ -172,14 +192,14 @@ func _setup_inventory_slots() -> void:
 		border_rect.z_as_relative = false
 		border_rect.visible = true
 		slot.add_child(border_rect)
-		
+
 	# Force grid to update layout
 	inventory_grid.queue_sort()
-	
+
 	# Wait for layout to update
 	await get_tree().process_frame
 	await get_tree().process_frame
-	
+
 	# Connect slot signals after all slots are added to tree
 	await get_tree().process_frame
 	for slot_data in slots:
@@ -189,11 +209,12 @@ func _setup_inventory_slots() -> void:
 		if slot.has_signal("slot_drop_received"):
 			slot.slot_drop_received.connect(_on_inventory_slot_drop_received)
 
+
 func _setup_player_sprite() -> void:
 	"""Setup player sprite using first frame of idle animation"""
 	if not player_sprite:
 		return
-	
+
 	# Use the player sprite atlas - first frame of idle (stand_down)
 	# Region: Rect2(0, 0, 32, 32) from char1.png
 	var player_texture = preload("res://assets/sprites/char1.png")
@@ -206,6 +227,7 @@ func _setup_player_sprite() -> void:
 		player_sprite.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		player_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 
+
 func _update_ui() -> void:
 	"""Update all UI elements with current game state"""
 	_update_date_display()
@@ -215,30 +237,36 @@ func _update_ui() -> void:
 	_update_weather_display()
 	_update_placeholder_stats()
 
+
 func _update_date_display() -> void:
 	"""Update date display: 'Spring 1, Year 1' format"""
 	if date_label:
 		date_label.text = "%s %d, Year %d" % [current_season, current_day, current_year]
+
 
 func _update_money_display() -> void:
 	"""Update money display"""
 	if money_label:
 		money_label.text = "Money: $%d" % current_money
 
+
 func _update_health_display() -> void:
 	"""Update health display: 'Health: 0/100' format"""
 	if health_label:
 		health_label.text = "Health: %d/%d" % [current_health, max_health]
+
 
 func _update_energy_display() -> void:
 	"""Update energy display"""
 	if energy_label:
 		energy_label.text = "Energy: %d/%d" % [current_energy, max_energy]
 
+
 func _update_weather_display() -> void:
 	"""Update weather display"""
 	if weather_label:
 		weather_label.text = "Weather: %s" % current_weather
+
 
 func _update_placeholder_stats() -> void:
 	"""Update placeholder stats (for future development)"""
@@ -251,6 +279,7 @@ func _update_placeholder_stats() -> void:
 	if stat_creativity_label:
 		stat_creativity_label.text = "Creativity: %d" % stat_creativity
 
+
 func _on_tab_changed(tab_index: int) -> void:
 	"""Handle tab changes - extensible for future tabs"""
 	match tab_index:
@@ -261,6 +290,7 @@ func _on_tab_changed(tab_index: int) -> void:
 		_:  # Future tabs
 			pass
 
+
 func _connect_main_menu_signals() -> void:
 	"""Connect MainMenu tab button signals"""
 	if resume_button:
@@ -270,16 +300,20 @@ func _connect_main_menu_signals() -> void:
 		if not save_button.is_connected("pressed", Callable(self, "_on_save_game_pressed")):
 			save_button.pressed.connect(_on_save_game_pressed)
 	if back_to_main_menu_button:
-		if not back_to_main_menu_button.is_connected("pressed", Callable(self, "_on_back_to_main_menu_pressed")):
+		if not back_to_main_menu_button.is_connected(
+			"pressed", Callable(self, "_on_back_to_main_menu_pressed")
+		):
 			back_to_main_menu_button.pressed.connect(_on_back_to_main_menu_pressed)
 	if exit_button:
 		if not exit_button.is_connected("pressed", Callable(self, "_on_exit_button_pressed")):
 			exit_button.pressed.connect(_on_exit_button_pressed)
 
+
 func _focus_on_resume() -> void:
 	"""Focus on resume button when MainMenu tab is opened"""
 	if resume_button:
 		resume_button.grab_focus()
+
 
 func _notification(what: int) -> void:
 	"""Handle visibility changes to set correct tab"""
@@ -291,6 +325,7 @@ func _notification(what: int) -> void:
 			# Update UI with latest game state
 			_update_ui()
 
+
 func _input(event: InputEvent) -> void:
 	"""Handle ESC key - close menu if open"""
 	# Don't process ESC on main menu - only during gameplay
@@ -301,7 +336,7 @@ func _input(event: InputEvent) -> void:
 		var scene_file = current_scene.scene_file_path
 		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
 			return
-	
+
 	# Handle ESC to close menu (UiManager also handles this, but we ensure it works)
 	if event.is_action_pressed("ui_cancel"):
 		if self.visible:
@@ -314,14 +349,17 @@ func _input(event: InputEvent) -> void:
 			if tab_container:
 				tab_container.current_tab = 0  # Inventory tab
 
+
 func _on_resume_button_pressed() -> void:
 	"""Resume game"""
 	self.visible = false
 	get_tree().paused = false
 
+
 func _on_exit_button_pressed() -> void:
 	"""Exit game"""
 	get_tree().quit()
+
 
 func _on_save_game_pressed() -> void:
 	"""Save game"""
@@ -334,7 +372,7 @@ func _on_save_game_pressed() -> void:
 	# Provide feedback for saving
 	if not save_feedback_label:
 		return
-	
+
 	save_feedback_label.visible = true
 	save_feedback_label.text = "Game Saving..."
 
@@ -355,14 +393,14 @@ func _on_save_game_pressed() -> void:
 					save_count += 1
 				file_name = save_dir.get_next()
 			save_dir.list_dir_end()
-		
+
 		# Set feedback text based on the save count
 		if save_count > 4:
 			save_feedback_label.text = "Game Saved! If you save again, older saves will be overwritten."
-			
+
 			# Force an immediate UI update after changing the text
 			await get_tree().process_frame  # Allow one frame to process to update the label
-			
+
 			# Longer delay for the special warning message
 			await get_tree().create_timer(2.0).timeout  # 2-second delay for longer message
 			save_feedback_label.visible = false
@@ -375,11 +413,12 @@ func _on_save_game_pressed() -> void:
 			await get_tree().create_timer(1.5).timeout
 			save_feedback_label.visible = false
 
+
 func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
 	# Unpause the game before switching to the main menu
 	get_tree().paused = false
-	
+
 	# Assuming there's a SceneManager singleton that handles scene transitions
 	if SceneManager:
 		SceneManager.change_scene("res://scenes/ui/main_menu.tscn")
@@ -387,22 +426,25 @@ func _on_back_to_main_menu_pressed() -> void:
 		# If there's no SceneManager, just change scene directly
 		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
+
 func _on_inventory_slot_clicked(slot_index: int) -> void:
 	"""Handle inventory slot clicks - prepare for future functionality"""
 	# Future: Handle slot selection, item interaction, toolbelt swapping, etc.
 	pass
+
 
 func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void:
 	"""Handle inventory slot drop - notify InventoryManager and ToolSwitcher"""
 	if not InventoryManager:
 		print("Error: InventoryManager singleton not found.")
 		return
-	
+
 	# Update InventoryManager with the new item (already swapped visually in drop_data)
 	if data.has("item_texture"):
 		var item_texture: Texture = data["item_texture"]
-		InventoryManager.update_inventory_slots(slot_index, item_texture)
-		
+		var item_stack_count: int = data.get("stack_count", 1)
+		InventoryManager.update_inventory_slots(slot_index, item_texture, item_stack_count)
+
 		# If item came from toolkit, update toolkit tracking AND notify ToolSwitcher
 		if data.has("source") and data["source"] == "toolkit":
 			var toolkit_slot_index = data.get("slot_index", -1)
@@ -410,16 +452,20 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 				# Get the swapped item from the toolkit slot (after swap)
 				var source_node = data.get("source_node", null)
 				var swapped_item: Texture = null
+				var swapped_item_count: int = 0
 				if source_node and source_node.has_method("get_item"):
 					swapped_item = source_node.get_item()
-					# Update toolkit slot with swapped item (or null if empty)
-					if swapped_item:
-						InventoryManager.add_item_to_toolkit(toolkit_slot_index, swapped_item)
-					else:
-						InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
-				# Also update toolkit_slots dictionary directly
-				InventoryManager.toolkit_slots[toolkit_slot_index] = swapped_item
-				
+				if source_node and source_node.has_method("get_stack_count"):
+					swapped_item_count = source_node.get_stack_count()
+
+				# Update toolkit slot with swapped item (or null if empty)
+				if swapped_item:
+					InventoryManager.add_item_to_toolkit(
+						toolkit_slot_index, swapped_item, swapped_item_count
+					)
+				else:
+					InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
+
 				# CRITICAL: Notify ToolSwitcher about the toolkit slot change
 				# Find ToolSwitcher in the HUD
 				var hud = get_tree().root.get_node_or_null("HUD")
@@ -427,7 +473,8 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 					var tool_switcher = _find_tool_switcher_in_node(hud)
 					if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
 						tool_switcher.update_toolkit_slot(toolkit_slot_index, swapped_item)
-					
+
+
 func _find_tool_switcher_in_node(node: Node) -> Node:
 	"""Recursively search for ToolSwitcher node"""
 	if node.name == "ToolSwitcher":
@@ -440,6 +487,7 @@ func _find_tool_switcher_in_node(node: Node) -> Node:
 			return result
 	return null
 
+
 # Public API for updating game state (to be called from GameState singleton)
 func update_date(day: int, season: String, year: int) -> void:
 	"""Update date display (called when day advances)"""
@@ -448,10 +496,12 @@ func update_date(day: int, season: String, year: int) -> void:
 	current_year = year
 	_update_date_display()
 
+
 func update_money(amount: int) -> void:
 	"""Update money display"""
 	current_money = amount
 	_update_money_display()
+
 
 func update_health(current: int, maximum: int) -> void:
 	"""Update health display"""
@@ -459,16 +509,19 @@ func update_health(current: int, maximum: int) -> void:
 	max_health = maximum
 	_update_health_display()
 
+
 func update_energy(current: int, maximum: int) -> void:
 	"""Update energy display"""
 	current_energy = current
 	max_energy = maximum
 	_update_energy_display()
 
+
 func update_weather(weather: String) -> void:
 	"""Update weather display"""
 	current_weather = weather
 	_update_weather_display()
+
 
 func update_placeholder_stat(stat_name: String, value: int) -> void:
 	"""Update placeholder stats (for future development)"""

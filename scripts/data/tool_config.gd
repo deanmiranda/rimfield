@@ -10,6 +10,6 @@ var tool_map: Dictionary = {
 	preload("res://assets/tilesets/full version/tiles/FartSnipSeeds.png"): "seed"
 }
 
+
 func get_tool_name(item_texture: Texture) -> String:
 	return tool_map.get(item_texture, "unknown")
-
