@@ -52,14 +52,12 @@ func _start_drag() -> void:
 	is_dragging = true
 	is_dragging_global = true
 	drag_preview = _create_drag_preview(item_texture)
-	print("DEBUG: Drag started on slot", slot_index, "with texture:", item_texture)
 
 func _stop_drag() -> void:
 	is_dragging = false
 	is_dragging_global = false
 	if drag_preview:
-		print("DEBUG: Drag stopped on slot", slot_index)
-		_handle_drop(get_global_mouse_position())
+		_handle_drop(MouseUtil.get_viewport_mouse_pos(self))
 		drag_preview.queue_free()
 		drag_preview = null
 
@@ -77,42 +75,33 @@ func _create_drag_preview(texture: Texture) -> TextureRect:
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	get_tree().root.add_child(preview)  # Add to scene tree root
-	preview.global_position = get_global_mouse_position()
+	preview.global_position = MouseUtil.get_viewport_mouse_pos(self)
 	drag_preview_instance = preview
 	return preview
 
 # Updates the drag preview's position to follow the mouse
 func _update_drag_preview_position() -> void:
 	if drag_preview:
-		drag_preview.global_position = get_global_mouse_position()
+		drag_preview.global_position = MouseUtil.get_viewport_mouse_pos(self)
 
 # Handles dropping logic when drag ends
-func _handle_drop(global_position: Vector2) -> void:
+func _handle_drop(drop_position: Vector2) -> void:
 	reset_drag_state()
-	print("DEBUG: Handling drop for slot", slot_index, "at position:", global_position)
 
 	var parent_container = get_parent()
 	if parent_container and parent_container is GridContainer:
 		for child in parent_container.get_children():
-			if child is TextureButton and child.get_global_rect().has_point(global_position):
+			if child is TextureButton and child.get_global_rect().has_point(drop_position):
 				print("DEBUG: Drop detected on slot", child.slot_index)
 				if _swap_items_with(child):
-					print("DEBUG: Swap successful between slots", slot_index, "and", child.slot_index)
 					return
-				else:
-					print("DEBUG: Swap failed between slots", slot_index, "and", child.slot_index)
-
-	print("DEBUG: No valid slot found for drop.")
 
 func _swap_items_with(target_slot: TextureButton) -> bool:
-	print("DEBUG: Attempting swap between slot", slot_index, "and slot", target_slot.slot_index)
 	if target_slot.has_method("set_item"):
 		var temp_texture = target_slot.item_texture
-		print("DEBUG: Swapping textures. This slot:", item_texture, "Target slot:", temp_texture)
 		target_slot.set_item(item_texture)
 		set_item(temp_texture)
 		return true
-	print("DEBUG: Target slot does not support swapping.")
 	return false
 
 # Resets the drag state
@@ -120,24 +109,20 @@ func reset_drag_state() -> void:
 	if drag_preview_instance:
 		drag_preview_instance.queue_free()
 		drag_preview_instance = null
-	else:
-		print("DEBUG: No drag preview instance to clear in reset_drag_state.")
 
 	is_dragging = false
 	is_dragging_global = false
 
-# Debugging utility for inventory state
-func debug_inventory_state() -> void:
-	var parent_container = get_parent()
-	if parent_container and parent_container is GridContainer:
-		for child in parent_container.get_children():
-			if child is TextureButton:
-				print("Slot:", child.slot_index, "| Item:", child.item_texture)
+# # Debugging utility for inventory state
+# func debug_inventory_state() -> void:
+# 	var parent_container = get_parent()
+# 	if parent_container and parent_container is GridContainer:
+# 		for child in parent_container.get_children():
+# 			if child is TextureButton:
+# 				print("Slot:", child.slot_index, "| Item:", child.item_texture)
 
 # Debugging utility for z-index information
 func debug_z_indexes() -> void:
 	var inventory_scene = get_parent().get_parent()
 	if inventory_scene and inventory_scene.has_method("append_debug_message"):
 		inventory_scene.debug_z_indexes_on_screen()
-	else:
-		print("Debugging unavailable. Ensure the parent inventory scene implements debug methods.")

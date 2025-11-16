@@ -42,8 +42,10 @@ func _ready() -> void:
 	# Pause menu setup
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
 	if pause_menu_scene is PackedScene:
-		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)
+		var pause_menu_layer = pause_menu_scene.instantiate()
+		add_child(pause_menu_layer)
+		# Get the Control child from the CanvasLayer
+		pause_menu = pause_menu_layer.get_node("Control")
 		pause_menu.visible = false
 	else:
 		print("Error: Failed to load PauseMenu scene.")
@@ -57,6 +59,7 @@ func _ready() -> void:
 		if farming_manager and hud_instance:
 			if HUD:
 				HUD.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
+				HUD.set_hud_scene_instance(hud_instance)  # Inject HUD scene instance to cache references (replaces /root/... paths)
 				farming_manager.set_hud(hud_instance)  # Link HUD to FarmingManager
 			else:
 				print("Error: hud_instance is not an instance of HUD script.")

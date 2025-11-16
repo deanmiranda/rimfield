@@ -15,20 +15,33 @@ signal scene_changed(new_scene_name: String)
 @onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn")  # Path to the inventory scene
 var inventory_instance: Control = null  # Reference to the inventory instance
 
+var last_scene_name: String = ""
+
 func _ready() -> void:
 	update_input_processing()
-	set_process(true) 
+	# Use timer instead of per-frame polling (more efficient than _process())
+	# Check scene changes every 0.1 seconds instead of every frame
+	var timer = Timer.new()
+	timer.wait_time = 0.1
+	timer.timeout.connect(_check_scene_change)
+	timer.autostart = true
+	add_child(timer)
+	set_process(false)  # Disable per-frame polling
 	
 	instantiate_inventory()  # Call inventory instantiation
 	pause_menu_setup()
 	set_process_input(true)  # Ensure UiManager can process global inputs
 	
+	# Check initial scene
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		last_scene_name = current_scene.name
+	
 	# Validation check for paths and resources
 	#validate_paths_and_resources()
 
-var last_scene_name: String = ""
-
-func _process(delta: float) -> void:
+func _check_scene_change() -> void:
+	# Timer-based scene change detection (replaces per-frame _process() polling)
 	var current_scene = get_tree().current_scene
 	if current_scene:
 		var current_scene_name = current_scene.name
@@ -97,13 +110,24 @@ func pause_menu_setup() -> void:
 		return
 
 	if pause_menu_scene is PackedScene:
-		pause_menu = pause_menu_scene.instantiate()
-		add_child(pause_menu)  # Add the pause menu to this scene
+		var pause_menu_layer = pause_menu_scene.instantiate()
+		add_child(pause_menu_layer)  # Add the CanvasLayer to this scene
+		# Get the Control child from the CanvasLayer
+		pause_menu = pause_menu_layer.get_node("Control")
 		pause_menu.visible = false
 	else:
 		print("Error: Loaded resource is not a PackedScene.")
 
 func _input(event: InputEvent) -> void:
+	# Don't process ESC or inventory on main menu - only during gameplay
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		# Check both scene name and scene file path to be safe
+		var scene_name = current_scene.name
+		var scene_file = current_scene.scene_file_path
+		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
+			return
+	
 	if event.is_action_pressed("ui_cancel"):
 		if inventory_instance and inventory_instance.visible:
 			toggle_inventory()  # Close inventory first
@@ -113,7 +137,9 @@ func _input(event: InputEvent) -> void:
 			toggle_pause_menu()  # Close pause menu
 
 	elif event.is_action_pressed("ui_inventory"):
-		toggle_inventory()
+		# Disabled - inventory is now accessed via ESC pause menu
+		# toggle_inventory()
+		pass
 
 # Function to toggle pause menu visibility
 func toggle_pause_menu() -> void:

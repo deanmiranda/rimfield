@@ -5,6 +5,11 @@ signal tool_changed(slot_index: int, item_texture: Texture)
 
 var farming_manager: Node = null  # Reference to FarmingManager
 
+# Cached references to avoid absolute path lookups (follows .cursor/rules/godot.md)
+var hud_scene_instance: Node = null  # Injected reference to instantiated HUD scene
+var slots_container: HBoxContainer = null  # Cached reference to tool slots container
+var tool_switcher: Node = null  # Cached reference to ToolSwitcher node
+
 func _ready() -> void:
 # Connect the signal to highlight the active tool
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
@@ -16,33 +21,33 @@ func _ready() -> void:
 	# Check current scene on startup
 	_on_scene_changed(get_tree().current_scene.name)
 
-func _on_scene_changed(new_scene_name: String) -> void:
-	#print("Scene changed to:", new_scene_name)
+func _on_scene_changed(_new_scene_name: String) -> void:
 	if UiManager._is_not_game_scene():
-		print("Not in a game scene")
+		pass  # Not in a game scene, HUD will be hidden
 	else:
-		#print("In a game scene, setting up HUD")
 		setup_hud()
 		
 func setup_hud() -> void:
-	var farm_node = get_node_or_null("/root/Farm")  # Adjust to your scene structure
-	if farm_node:
-		#print("Farm node found", farm_node)
-		farming_manager = get_node_or_null("/root/Farm/FarmingManager")
-	else:
-		print("Error: Farming Manager node not found.")
-		#print("Current Scene:", get_tree().current_scene)
-#
-	# Access ToolSwitcher via sibling relationship
-	var tool_switcher = get_node("/root/Farm/Hud/ToolSwitcher")
+	# Use cached references instead of absolute paths (follows .cursor/rules/godot.md)
+	# farming_manager should already be set via set_farming_manager() from farm_scene
+	if not farming_manager:
+		print("Error: FarmingManager not linked. Ensure set_farming_manager() is called.")
+	
+	# Connect to ToolSwitcher using cached reference
 	if tool_switcher:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
 			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
 	else:
-		print("Error: ToolSwitcher not found as sibling.")
+		print("Error: ToolSwitcher not cached. Ensure set_hud_scene_instance() is called.")
+		return
+
+	# Use cached slots container instead of absolute path
+	if not slots_container:
+		print("Error: Slots container not cached. Ensure set_hud_scene_instance() is called.")
+		return
 
 	# Dynamically connect signals for each TextureButton node
-	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
+	var tool_buttons = slots_container.get_children()
 	#for i in range(tool_buttons.size()):
 		#print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
 
@@ -70,8 +75,25 @@ func setup_hud() -> void:
 func set_farming_manager(farming_manager_instance: Node) -> void:
 	if farming_manager_instance:
 		farming_manager = farming_manager_instance  # Save the reference
-	else:
+	else: 
 		print("Error: FarmingManager instance is null. Cannot link.")
+
+func set_hud_scene_instance(hud_instance: Node) -> void:
+	"""Inject the HUD scene instance and cache its child references.
+	This replaces absolute /root/... paths with cached references (follows .cursor/rules/godot.md)."""
+	hud_scene_instance = hud_instance
+	if hud_instance:
+		# Cache the slots container reference
+		slots_container = hud_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+		if not slots_container:
+			print("Error: Could not find HBoxContainer in HUD scene instance.")
+		
+		# Cache the ToolSwitcher reference
+		tool_switcher = hud_instance.get_node_or_null("ToolSwitcher")
+		if not tool_switcher:
+			print("Error: Could not find ToolSwitcher in HUD scene instance.")
+	else:
+		print("Error: HUD scene instance is null. Cannot cache references.")
 		
 func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
 	#print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
@@ -92,10 +114,15 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 				print("Error: Parent is not a TextureButton for clicked slot:", index)
 
 func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
-	var tool_buttons = get_node("/root/Farm/Hud/HUD/MarginContainer/HBoxContainer").get_children()
+	# Use cached reference instead of absolute path (follows .cursor/rules/godot.md)
+	if not slots_container:
+		print("Error: Slots container not cached. Cannot highlight tool.")
+		return
+	
+	var tool_buttons = slots_container.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
-			var highlight = tool_buttons[i].get_node("Highlight")
+			var highlight = tool_buttons[i].get_node_or_null("Highlight")
 			if highlight:
 				highlight.visible = (i == slot_index)
 			

@@ -1,21 +1,21 @@
-[gd_scene load_steps=28 format=4 uid="uid://b4sckf0422b4q"]
+[gd_scene load_steps=21 format=4 uid="uid://b4sckf0422b4q"]
 
 [ext_resource type="Texture2D" uid="uid://dda3ipxsuomp8" path="res://assets/tilesets/full version/tiles/grass.png" id="1_e4p7b"]
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_we3j4"]
-[ext_resource type="Script" path="res://scripts/scenes/farm_scene.gd" id="1_y06tk"]
+[ext_resource type="Script" uid="uid://c33axxd1pdh6i" path="res://scripts/scenes/farm_scene.gd" id="1_y06tk"]
 [ext_resource type="Texture2D" uid="uid://bkjrx4kiu2bv" path="res://assets/tilesets/full version/tiles/dirt.png" id="2_h8upm"]
 [ext_resource type="PackedScene" uid="uid://dvh74vph5wjxq" path="res://scenes/effects/particles/grass_particle.tscn" id="3_2nqcv"]
 [ext_resource type="PackedScene" uid="uid://dg8pdmmnmv562" path="res://scenes/effects/particles/tilled_particle.tscn" id="4_elwg7"]
 [ext_resource type="Texture2D" uid="uid://ctheirr4486xj" path="res://assets/tilesets/full version/tiles/tilled.png" id="4_ibpjr"]
 [ext_resource type="PackedScene" uid="uid://7errgnnxpb4b" path="res://scenes/effects/particles/dirt_particle.tscn" id="4_jv71f"]
-[ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="5_lcrq0"]
-[ext_resource type="Script" path="res://scripts/game_systems/farming_manager.gd" id="6_kjwtr"]
-[ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="6_rig2i"]
+[ext_resource type="Script" uid="uid://csljakhdqm1bl" path="res://scripts/game_systems/farming_manager.gd" id="6_kjwtr"]
 [ext_resource type="Texture2D" uid="uid://breduu05uy4ae" path="res://assets/particles/particle-dirt-1x1.png" id="6_t8wgt"]
-[ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="7_lryf0"]
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="10_7peq5"]
-[ext_resource type="Script" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
+[ext_resource type="Script" uid="uid://ch30oq22mw118" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
+[ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="12_buildings"]
+[ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="13_house"]
+[ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="14_font"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_we3j4")
@@ -1735,8 +1735,12 @@ sources/1 = SubResource("TileSetAtlasSource_t38oi")
 sources/2 = SubResource("TileSetAtlasSource_nj2yl")
 sources/3 = SubResource("TileSetAtlasSource_id53q")
 
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_house"]
+size = Vector2(80, 40)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_7jjau"]
-atlas = ExtResource("5_lcrq0")
+atlas = ExtResource("12_buildings")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_km1jn"]
 size = Vector2(29, 18.5)
@@ -1765,8 +1769,8 @@ position = Vector2(0, -14)
 one_shot = false
 
 [node name="DirtEmitter" parent="." instance=ExtResource("3_2nqcv")]
-one_shot = false
 texture = ExtResource("6_t8wgt")
+one_shot = false
 
 [node name="TilledEmitter" parent="." instance=ExtResource("4_elwg7")]
 
@@ -1792,6 +1796,7 @@ script = ExtResource("10_w1f1x")
 farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")
 
+
 [node name="House" type="StaticBody2D" parent="."]
 position = Vector2(-1, -44)
 metadata/_edit_lock_ = true
@@ -1811,7 +1816,7 @@ shape = SubResource("RectangleShape2D_km1jn")
 
 [node name="Door" type="Area2D" parent="House"]
 collision_layer = 2
-script = ExtResource("6_rig2i")
+script = ExtResource("13_house")
 
 [node name="Label" type="Label" parent="House/Door"]
 z_index = 60
@@ -1824,15 +1829,10 @@ anchor_bottom = 0.5
 offset_left = -34.0
 offset_top = 6.0
 offset_right = 314.0
-offset_bottom = 45.0
-grow_horizontal = 2
-grow_vertical = 2
-scale = Vector2(0.2, 0.2)
-tooltip_text = "curious, are we?"
 mouse_filter = 1
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_colors/font_shadow_color = Color(0.00865855, 0, 0.376811, 0.631373)
-theme_override_fonts/font = ExtResource("7_lryf0")
+theme_override_fonts/font = ExtResource("14_font")
 theme_override_font_sizes/font_size = 32
 text = "Press E to Enter"
 horizontal_alignment = 1
@@ -1848,3 +1848,5 @@ shape = SubResource("RectangleShape2D_7nnll")
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
 [connection signal="input_event" from="House/Door" to="House/Door" method="_on_input_event"]
+
+
