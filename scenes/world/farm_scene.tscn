@@ -13,7 +13,9 @@
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="10_7peq5"]
 [ext_resource type="Script" uid="uid://ch30oq22mw118" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
-[ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="12_house"]
+[ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="12_buildings"]
+[ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="13_house"]
+[ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="14_font"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_we3j4")
@@ -1736,6 +1738,18 @@ sources/3 = SubResource("TileSetAtlasSource_id53q")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_house"]
 size = Vector2(80, 40)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7jjau"]
+atlas = ExtResource("12_buildings")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_km1jn"]
+size = Vector2(29, 18.5)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4pxu5"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_7nnll"]
+size = Vector2(20, 22)
+
 [node name="Farm" type="Node2D"]
 script = ExtResource("1_y06tk")
 tilemap_layer = NodePath("Farmable")
@@ -1783,21 +1797,56 @@ farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")
 
 
-[node name="HouseInteraction" type="Area2D" parent="."]
-position = Vector2(0, -100)
-script = ExtResource("12_house")
+[node name="House" type="StaticBody2D" parent="."]
+position = Vector2(-1, -44)
+metadata/_edit_lock_ = true
+metadata/_edit_group_ = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseInteraction"]
-shape = SubResource("RectangleShape2D_house")
+[node name="Sprite2D" type="Sprite2D" parent="House"]
+position = Vector2(0, -16)
+scale = Vector2(0.5, 0.5)
+texture = SubResource("AtlasTexture_7jjau")
+region_enabled = true
+region_rect = Rect2(289.741, 452, 76.259, 78.1365)
 
-[node name="Label" type="Label" parent="HouseInteraction"]
-offset_left = -80.0
-offset_top = -40.0
-offset_right = 80.0
-offset_bottom = -20.0
-text = "Press E to Enter House"
+[node name="CollisionShape2D" type="CollisionShape2D" parent="House"]
+z_index = 1
+position = Vector2(0, -6.75)
+shape = SubResource("RectangleShape2D_km1jn")
+
+[node name="Door" type="Area2D" parent="House"]
+collision_layer = 2
+script = ExtResource("13_house")
+
+[node name="Label" type="Label" parent="House/Door"]
+z_index = 60
+clip_contents = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -34.0
+offset_top = 6.0
+offset_right = 314.0
+mouse_filter = 1
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_shadow_color = Color(0.00865855, 0, 0.376811, 0.631373)
+theme_override_fonts/font = ExtResource("14_font")
+theme_override_font_sizes/font_size = 32
+text = "Press E to Enter"
 horizontal_alignment = 1
+autowrap_mode = 2
+uppercase = true
 
-[connection signal="body_entered" from="HouseInteraction" to="HouseInteraction" method="_on_body_entered"]
-[connection signal="body_exited" from="HouseInteraction" to="HouseInteraction" method="_on_body_exited"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="House/Door"]
+light_mask = 0
+material = SubResource("CanvasItemMaterial_4pxu5")
+position = Vector2(0, 1)
+shape = SubResource("RectangleShape2D_7nnll")
+
+[connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
+[connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
+[connection signal="input_event" from="House/Door" to="House/Door" method="_on_input_event"]
+
 
