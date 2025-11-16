@@ -137,7 +137,9 @@ func _input(event: InputEvent) -> void:
 			toggle_pause_menu()  # Close pause menu
 
 	elif event.is_action_pressed("ui_inventory"):
-		toggle_inventory()
+		# Disabled - inventory is now accessed via ESC pause menu
+		# toggle_inventory()
+		pass
 
 # Function to toggle pause menu visibility
 func toggle_pause_menu() -> void:

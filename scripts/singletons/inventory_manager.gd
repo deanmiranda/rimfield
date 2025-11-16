@@ -3,6 +3,9 @@ extends Node
 # Inventory data to store the item textures assigned to each slot
 var inventory_slots: Dictionary = {}
 
+# Toolkit data to store the item textures assigned to each toolkit slot (HUD slots 0-9)
+var toolkit_slots: Dictionary = {}
+
 # Reference to the inventory UI scene and instance
 @export var inventory_scene: PackedScene
 var inventory_instance: Control = null
@@ -10,16 +13,22 @@ var inventory_instance: Control = null
 # Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
 var game_config: Resource = null
 var max_inventory_slots: int = 12  # Default inventory size (will be overridden by GameConfig)
+var max_toolkit_slots: int = 10  # Default toolkit size (will be overridden by GameConfig)
 
 func _ready() -> void:
 	# Load GameConfig Resource
 	game_config = load("res://resources/data/game_config.tres")
 	if game_config:
 		max_inventory_slots = game_config.inventory_slot_count
+		max_toolkit_slots = game_config.hud_slot_count
 	
 	# Initialize inventory_slots
 	for i in range(max_inventory_slots):
 		inventory_slots[i] = null
+	
+	# Initialize toolkit_slots
+	for i in range(max_toolkit_slots):
+		toolkit_slots[i] = null
 		
 # Add an item to the inventory (returns true if successful, false if full)
 func add_item(slot_index: int, item_texture: Texture) -> bool:
@@ -35,11 +44,18 @@ func get_first_empty_slot() -> int:
 # Remove an item from the inventory
 func remove_item(slot_index: int) -> void:
 	if inventory_slots.has(slot_index):
-		inventory_slots.erase(slot_index)
+		inventory_slots[slot_index] = null
 
 # Get an item from the inventory
 func get_item(slot_index: int) -> Texture:
 	return inventory_slots.get(slot_index, null)
+
+# Remove an item from inventory (for drag/drop)
+func remove_item_from_inventory(slot_index: int) -> void:
+	"""Remove item from inventory slot (used when dragging to toolkit)"""
+	if inventory_slots.has(slot_index):
+		inventory_slots[slot_index] = null
+		sync_inventory_ui()
 
 # Instantiate the inventory UI and add it to the current scene tree
 func instantiate_inventory_ui(parent_node: Node = null) -> void:
@@ -133,6 +149,76 @@ func sync_inventory_ui() -> void:
 			print("Warning: Slot", i, "is not a TextureButton or not found.")
 
 	#print("Inventory UI sync complete.")
+
+# Toolkit tracking functions for drag/drop
+func add_item_from_toolkit(slot_index: int, texture: Texture) -> bool:
+	"""Add item to inventory from toolkit slot"""
+	if slot_index < 0 or slot_index >= max_inventory_slots:
+		print("Error: Inventory slot index ", slot_index, " is out of bounds.")
+		return false
+	
+	inventory_slots[slot_index] = texture
+	sync_inventory_ui()
+	return true
+
+func remove_item_from_toolkit(slot_index: int) -> void:
+	"""Remove item from toolkit slot (used when dragging to inventory)"""
+	if toolkit_slots.has(slot_index):
+		toolkit_slots[slot_index] = null
+		sync_toolkit_ui()
+
+func get_toolkit_item(slot_index: int) -> Texture:
+	"""Get item texture from toolkit slot"""
+	return toolkit_slots.get(slot_index, null)
+
+func add_item_to_toolkit(slot_index: int, texture: Texture) -> bool:
+	"""Add item to toolkit slot (used when dragging from inventory)"""
+	if slot_index < 0 or slot_index >= max_toolkit_slots:
+		print("Error: Toolkit slot index ", slot_index, " is out of bounds.")
+		return false
+	
+	toolkit_slots[slot_index] = texture
+	sync_toolkit_ui()
+	return true
+
+func sync_toolkit_ui(hud_instance: Node = null) -> void:
+	"""Sync toolkit UI with toolkit_slots dictionary"""
+	if not hud_instance:
+		# Try to find HUD in scene tree
+		var hud = get_tree().root.get_node_or_null("HUD")
+		if hud:
+			hud_instance = hud
+		else:
+			print("Error: HUD instance not provided and not found in scene tree.")
+			return
+	
+	# Use GameConfig for toolkit slot count
+	var hud_slot_count: int = max_toolkit_slots
+	if game_config:
+		hud_slot_count = game_config.hud_slot_count
+	
+	# Access the HBoxContainer for toolkit slots
+	var slots_container = hud_instance.get_node_or_null("MarginContainer/HBoxContainer")
+	if not slots_container:
+		print("Error: HBoxContainer not found in HUD instance.")
+		return
+	
+	# Sync toolkit slots with UI
+	for i in range(hud_slot_count):
+		if i >= slots_container.get_child_count():
+			break
+		
+		var texture_button = slots_container.get_child(i)
+		if texture_button and texture_button is TextureButton:
+			var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
+			if hud_slot:
+				var item_texture = toolkit_slots.get(i, null)
+				if hud_slot.has_method("set_item"):
+					hud_slot.set_item(item_texture)
+				else:
+					# Fallback for TextureRect nodes
+					if hud_slot is TextureRect:
+						hud_slot.texture = item_texture
 
 #	Functions for Hud 
 func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:

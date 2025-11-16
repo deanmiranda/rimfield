@@ -180,6 +180,8 @@ func _setup_inventory_slots() -> void:
 		var slot = slot_data.slot
 		if slot.has_signal("slot_clicked"):
 			slot.slot_clicked.connect(_on_inventory_slot_clicked)
+		if slot.has_signal("slot_drop_received"):
+			slot.slot_drop_received.connect(_on_inventory_slot_drop_received)
 
 func _setup_player_sprite() -> void:
 	"""Setup player sprite using first frame of idle animation"""
@@ -383,6 +385,34 @@ func _on_inventory_slot_clicked(slot_index: int) -> void:
 	"""Handle inventory slot clicks - prepare for future functionality"""
 	# Future: Handle slot selection, item interaction, toolbelt swapping, etc.
 	pass
+
+func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void:
+	"""Handle inventory slot drop - notify InventoryManager"""
+	if not InventoryManager:
+		print("Error: InventoryManager singleton not found.")
+		return
+	
+	# Update InventoryManager with the new item (already swapped visually in drop_data)
+	if data.has("item_texture"):
+		var item_texture: Texture = data["item_texture"]
+		InventoryManager.update_inventory_slots(slot_index, item_texture)
+		
+		# If item came from toolkit, update toolkit tracking
+		if data.has("source") and data["source"] == "toolkit":
+			var toolkit_slot_index = data.get("slot_index", -1)
+			if toolkit_slot_index >= 0:
+				# Get the swapped item from the toolkit slot (after swap)
+				var source_node = data.get("source_node", null)
+				var swapped_item: Texture = null
+				if source_node and source_node.has_method("get_item"):
+					swapped_item = source_node.get_item()
+					# Update toolkit slot with swapped item (or null if empty)
+					if swapped_item:
+						InventoryManager.add_item_to_toolkit(toolkit_slot_index, swapped_item)
+					else:
+						InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
+				# Also update toolkit_slots dictionary directly
+				InventoryManager.toolkit_slots[toolkit_slot_index] = swapped_item
 
 # Public API for updating game state (to be called from GameState singleton)
 func update_date(day: int, season: String, year: int) -> void:

@@ -100,17 +100,11 @@ func _process(_delta: float) -> void:
 			farming_manager.interact_with_tile(mouse_pos, global_position)
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Handle tool keyboard shortcuts (1, 2, 3, 4) - only switch tool, don't fire it
-	# Tool will fire on left mouse click in _process()
-	if farming_manager:
-		if event.is_action_pressed("ui_tool_hoe"):
-			farming_manager.current_tool = "hoe"
-		elif event.is_action_pressed("ui_tool_till"):
-			farming_manager.current_tool = "till"
-		elif event.is_action_pressed("ui_tool_pickaxe"):
-			farming_manager.current_tool = "pickaxe"
-		elif event.is_action_pressed("ui_tool_seed"):
-			farming_manager.current_tool = "seed"
+	# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
+	# Tools are now managed entirely by ToolSwitcher based on slot selection
+	# Keyboard shortcuts (1-0) select slots via ToolSwitcher, which then updates farming_manager
+	# This ensures tools are tied to tool textures, not slot positions
+	pass
 	
 	# Handle E key for contextual interaction
 	if event.is_action_pressed("ui_interact"):

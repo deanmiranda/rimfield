@@ -25,6 +25,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
 tooltip_text = "This is a menu tooltip does it work its on the PauseMenu Root node."
 script = ExtResource("1_qdxnx")
 
@@ -35,6 +36,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
 
 [node name="PanelContainer" type="PanelContainer" parent="Control/CenterContainer"]
 custom_minimum_size = Vector2(800, 600)

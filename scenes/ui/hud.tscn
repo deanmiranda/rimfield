@@ -11,6 +11,8 @@
 [node name="Hud" type="Node"]
 
 [node name="HUD" type="CanvasLayer" parent="."]
+layer = 11
+process_mode = 3
 
 [node name="Energy" type="VBoxContainer" parent="HUD"]
 anchors_preset = 3

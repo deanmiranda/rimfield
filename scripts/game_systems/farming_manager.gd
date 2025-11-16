@@ -53,14 +53,19 @@ var game_config: Resource = null
 var interaction_distance: float = 250.0  # Default (will be overridden by GameConfig) - allows up to ~15 cell interaction range
 
 func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
+	"""Update current_tool based on tool texture - tools are identified by texture, not slot"""
 	if item_texture:
 		# Use shared ToolConfig to map texture to tool name
 		if tool_config and tool_config.has_method("get_tool_name"):
 			current_tool = tool_config.get_tool_name(item_texture)
+			print("DEBUG: FarmingManager tool changed to: ", current_tool, " (texture-based, not slot-based)")
 		else:
 			print("Error: ToolConfig not loaded. Cannot map tool.")
+			current_tool = "unknown"
 	else:
-		print("Error: Tool texture is null. Cannot update tool.")
+		# Tool texture is null - clear the tool (no tool selected)
+		print("DEBUG: FarmingManager tool cleared - no tool in slot")
+		current_tool = "unknown"
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	if not farmable_layer:
@@ -72,19 +77,36 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	# Convert world position to TileMapLayer's local coordinates, then to cell coordinates
 	var target_local_pos = farmable_layer.to_local(target_pos)
 	var target_cell = farmable_layer.local_to_map(target_local_pos)
-
-	# Calculate distance in world coordinates (not cell coordinates)
-	# Get the center of the target tile in TileMapLayer's local coordinates, then convert to global
-	var target_tile_center_local = farmable_layer.map_to_local(target_cell)
-	# Convert to global coordinates using TileMapLayer's transform
-	var target_global_pos = farmable_layer.to_global(target_tile_center_local)
 	
-	# Calculate distance between player and target tile center (both in global coordinates)
-	var distance = player_pos.distance_to(target_global_pos)
+	# Calculate player's tile position
+	# IMPORTANT: player_pos is in global/world coordinates (from Camera2D via MouseUtil)
+	var player_local_pos = farmable_layer.to_local(player_pos)
+	var player_cell = farmable_layer.local_to_map(player_local_pos)
 	
-	# interaction_distance is in world units (pixels), not cells
-	# For 16x16 tiles, 250px allows interaction with tiles up to ~15 cells away
-	if distance > interaction_distance:
+	# Debug output to verify coordinates
+	print("DEBUG: Player cell: ", player_cell, " Target cell: ", target_cell)
+	print("DEBUG: Player world pos: ", player_pos, " Target world pos: ", target_pos)
+	
+	# Check if target is in the 3x3 grid around player (8 adjacent tiles ONLY, NOT center)
+	# Character CANNOT use tools on the tile they're standing on
+	# Character can only use tools on tiles directly adjacent (including diagonals)
+	# This is cell-based distance, which works correctly with Camera2D since we're using
+	# world coordinates converted to tilemap local coordinates
+	var cell_distance_x = abs(target_cell.x - player_cell.x)
+	var cell_distance_y = abs(target_cell.y - player_cell.y)
+	
+	print("DEBUG: Cell distance: (", cell_distance_x, ", ", cell_distance_y, ")")
+	
+	# Prevent interaction with the tile the player is standing on
+	if cell_distance_x == 0 and cell_distance_y == 0:
+		print("DEBUG: Cannot interact with tile player is standing on")
+		return
+	
+	# Only allow interaction if target is within 1 tile distance (adjacent tiles only)
+	# This means max distance of 1 cell in X and Y directions (including diagonals)
+	# But NOT the center tile (already checked above)
+	if cell_distance_x > 1 or cell_distance_y > 1:
+		print("DEBUG: Tile too far - cell distance exceeds 1 tile")
 		return
 
 	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
@@ -105,6 +127,11 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		# Check if tile is planted by checking the source_id instead of custom_data
 		var source_id = farmable_layer.get_cell_source_id(target_cell)
 		var is_planted = (source_id == TILE_ID_PLANTED)
+		
+		# Only perform tool actions if a valid tool is selected (not "unknown")
+		# This ensures empty slots don't perform tool actions
+		if current_tool == "unknown":
+			return  # No tool selected, don't perform any actions
 		
 		match current_tool:
 			"hoe":
