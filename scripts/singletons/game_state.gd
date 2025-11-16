@@ -12,18 +12,22 @@ var current_save_file: String = ""  # No default save file to prevent initial sa
 # Signal to notify when a game is loaded successfully
 signal game_loaded
 
+
 # Updates the state of a specific tile at a given position
 func update_tile_state(position: Vector2i, state: String) -> void:
 	farm_state[position] = state
+
 
 # Retrieves the state of a specific tile; defaults to "grass" if not set
 func get_tile_state(position: Vector2i) -> String:
 	return farm_state.get(position, "grass")
 
+
 # Changes the active scene in the game
 func change_scene(new_scene: String) -> void:
 	current_scene = new_scene
 	get_tree().change_scene_to_file("res://scenes/world/%s.tscn" % new_scene)
+
 
 # Sets the save file path to use for saving and loading
 func set_save_file(file: String) -> void:
@@ -31,7 +35,8 @@ func set_save_file(file: String) -> void:
 		current_save_file = file
 	else:
 		current_save_file = "user://%s" % file
-		
+
+
 # Saves the game state to a new save file with a timestamp-based name
 func save_game(file: String = "") -> void:
 	if file != "":
@@ -46,15 +51,40 @@ func save_game(file: String = "") -> void:
 		print("Error: No save file path provided.")
 		return
 
-	# Get inventory from ui_manager if available
+	# Get toolkit and inventory from InventoryManager
+	var toolkit_items = []
 	var inventory_items = []
-	if UiManager and UiManager.has_method("get_inventory_items"):
-		inventory_items = UiManager.get_inventory_items()
+
+	if InventoryManager:
+		# Save toolkit slots with stack counts
+		for i in range(InventoryManager.max_toolkit_slots):
+			var slot_data = InventoryManager.toolkit_slots.get(i, {"texture": null, "count": 0})
+			if slot_data["texture"] and slot_data["count"] > 0:
+				toolkit_items.append(
+					{
+						"slot_index": i,
+						"texture_path": slot_data["texture"].resource_path,
+						"count": slot_data["count"]
+					}
+				)
+
+		# Save inventory slots with stack counts
+		for i in range(InventoryManager.max_inventory_slots):
+			var slot_data = InventoryManager.inventory_slots.get(i, {"texture": null, "count": 0})
+			if slot_data["texture"] and slot_data["count"] > 0:
+				inventory_items.append(
+					{
+						"slot_index": i,
+						"texture_path": slot_data["texture"].resource_path,
+						"count": slot_data["count"]
+					}
+				)
 
 	var save_data = {
 		"farm_state": farm_state,
 		"current_scene": current_scene,
-		"inventory_items": inventory_items  # Add inventory items to the saved state
+		"toolkit_items": toolkit_items,
+		"inventory_items": inventory_items
 	}
 
 	var file_access = FileAccess.open(current_save_file, FileAccess.WRITE)
@@ -66,11 +96,12 @@ func save_game(file: String = "") -> void:
 	file_access.close()
 	print("Game saved to:", current_save_file)
 
+
 # Loads the game state from a specified save file
 func load_game(file: String = "") -> bool:
 	if file != "":
 		set_save_file(file)
-	
+
 	if not FileAccess.file_exists(current_save_file):
 		print("Error: Save file does not exist:", current_save_file)
 		return false
@@ -89,12 +120,54 @@ func load_game(file: String = "") -> bool:
 		farm_state = save_data.get("farm_state", {})
 		current_scene = save_data.get("current_scene", "farm_scene")
 		print("Game loaded successfully from:", current_save_file)
-		
-		# Ensure ui_manager is accessible
-		if UiManager and UiManager.has_method("add_item_to_inventory"):
+
+		# Restore toolkit and inventory to InventoryManager
+		if InventoryManager:
+			# Clear existing data
+			for i in range(InventoryManager.max_toolkit_slots):
+				InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0}
+			for i in range(InventoryManager.max_inventory_slots):
+				InventoryManager.inventory_slots[i] = {"texture": null, "count": 0}
+
+			# Load toolkit items
+			if save_data.has("toolkit_items"):
+				for item_data in save_data["toolkit_items"]:
+					var slot_index = item_data.get("slot_index", -1)
+					var texture_path = item_data.get("texture_path", "")
+					var count = item_data.get("count", 1)
+
+					if slot_index >= 0 and texture_path != "":
+						var texture = load(texture_path)
+						if texture:
+							InventoryManager.toolkit_slots[slot_index] = {
+								"texture": texture, "count": count
+							}
+						else:
+							print("Warning: Could not load texture:", texture_path)
+
+			# Load inventory items
 			if save_data.has("inventory_items"):
-				for item in save_data["inventory_items"]:
-					UiManager.add_item_to_inventory(item)
+				for item_data in save_data["inventory_items"]:
+					var slot_index = item_data.get("slot_index", -1)
+					var texture_path = item_data.get("texture_path", "")
+					var count = item_data.get("count", 1)
+
+					if slot_index >= 0 and texture_path != "":
+						var texture = load(texture_path)
+						if texture:
+							InventoryManager.inventory_slots[slot_index] = {
+								"texture": texture, "count": count
+							}
+						else:
+							print("Warning: Could not load texture:", texture_path)
+
+			print(
+				"Loaded ",
+				save_data.get("toolkit_items", []).size(),
+				" toolkit items and ",
+				save_data.get("inventory_items", []).size(),
+				" inventory items."
+			)
 
 		emit_signal("game_loaded")
 
@@ -106,6 +179,7 @@ func load_game(file: String = "") -> bool:
 	else:
 		print("Error parsing save file: Error Code", parse_status)
 		return false
+
 
 func manage_save_files() -> void:
 	var save_dir = DirAccess.open("user://")
@@ -124,10 +198,11 @@ func manage_save_files() -> void:
 	save_dir.list_dir_end()
 
 	# Sort save files by timestamp and keep only the 5 newest
-	save_files.sort_custom(func(a, b):
-		var timestamp_a = _extract_timestamp_from_filename(a)
-		var timestamp_b = _extract_timestamp_from_filename(b)
-		return int(timestamp_a - timestamp_b)
+	save_files.sort_custom(
+		func(a, b):
+			var timestamp_a = _extract_timestamp_from_filename(a)
+			var timestamp_b = _extract_timestamp_from_filename(b)
+			return int(timestamp_a - timestamp_b)
 	)
 
 	# Remove old saves, keeping only the 5 most recent
@@ -145,12 +220,14 @@ func manage_save_files() -> void:
 			else:
 				print("Error: Failed to delete old save file:", oldest_save)
 
+
 # Helper function to extract timestamp from save file name
 func _extract_timestamp_from_filename(file_name: String) -> float:
 	var components = file_name.split("_")
 	if components.size() > 1:
 		return components[-1].to_float()  # Extract the last part and convert to float
 	return 0.0
+
 
 # Clears the current game state and prepares a fresh start
 func new_game() -> void:

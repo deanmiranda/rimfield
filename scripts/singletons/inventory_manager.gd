@@ -220,26 +220,65 @@ func add_item_to_first_empty_slot(item_data: Resource) -> bool:
 
 #	Functions for the inventory panel
 func update_inventory_slots(slot_index: int, item_texture: Texture, count: int = 1) -> void:
+	print("═══ InventoryManager.update_inventory_slots ═══")
+	print("  slot_index: ", slot_index)
+	print("  item_texture: ", item_texture.resource_path if item_texture else "NULL")
+	print("  count: ", count)
+
+	if slot_index < 0 or slot_index >= max_inventory_slots:
+		print("  ERROR: slot_index OUT OF BOUNDS!")
+		return
+
 	if inventory_slots.has(slot_index):
+		var old = inventory_slots[slot_index]
+		print(
+			"  OLD: texture=",
+			old["texture"].resource_path if old["texture"] else "NULL",
+			" count=",
+			old["count"]
+		)
 		inventory_slots[slot_index] = {"texture": item_texture, "count": count}
-		#print("Inventory slot ", slot_index, " updated with texture: ", item_texture)
+		print("  NEW: Saved successfully")
+		print("═══════════════════════════════════════════════")
 
 
 func sync_inventory_ui() -> void:
-	#print("Syncing UI with inventory_slots dictionary...")
+	print("InventoryManager: Syncing UI with inventory_slots dictionary...")
 
 	if not inventory_instance:
+		print("InventoryManager: inventory_instance is null, cannot sync")
 		return
 
-	# Access the GridContainer for slots
+	# Try multiple possible paths for the GridContainer
+	# Path 1: Standalone inventory (old system)
 	var grid_container = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
+
+	# Path 2: Pause menu inventory (new system)
 	if not grid_container:
+		grid_container = inventory_instance.get_node_or_null("InventoryGrid")
+
+	# Path 3: Check if inventory_instance IS the GridContainer
+	if not grid_container and inventory_instance is GridContainer:
+		grid_container = inventory_instance
+
+	if not grid_container:
+		print("InventoryManager: Could not find GridContainer in inventory_instance")
+		print("InventoryManager: inventory_instance type: ", inventory_instance.get_class())
+		print("InventoryManager: inventory_instance name: ", inventory_instance.name)
 		return
+
+	print(
+		"InventoryManager: Found grid_container: ",
+		grid_container.name,
+		" with ",
+		grid_container.get_child_count(),
+		" children"
+	)
 
 	# Sync slots with inventory dictionary
 	for i in range(inventory_slots.size()):
 		if i >= grid_container.get_child_count():
-			#print("Warning: Slot index", i, "exceeds GridContainer child count.")
+			print("InventoryManager: Slot index ", i, " exceeds GridContainer child count.")
 			break  # Stop if we exceed the available slots in GridContainer
 
 		var slot = grid_container.get_child(i)  # Get slot by index
@@ -250,12 +289,32 @@ func sync_inventory_ui() -> void:
 
 			# Update slot with texture and count
 			if slot.has_method("set_item"):
+				print(
+					"  → Calling set_item on slot ",
+					i,
+					" with texture: ",
+					item_texture.resource_path if item_texture else "NULL",
+					" count: ",
+					item_count
+				)
 				slot.set_item(item_texture, item_count)
 			else:
+				print(
+					"  → WARNING: Slot ",
+					i,
+					" does NOT have set_item method! Using direct assignment"
+				)
 				slot.texture_normal = item_texture if item_texture != null else null
-			#print("Updated slot: ", i, " with texture: ", item_texture, " count: ", item_count)
+			print(
+				"InventoryManager: Updated slot ",
+				i,
+				" with texture: ",
+				item_texture,
+				" count: ",
+				item_count
+			)
 
-	#print("Inventory UI sync complete.")
+	print("InventoryManager: Inventory UI sync complete.")
 
 
 # Toolkit tracking functions for drag/drop
@@ -290,12 +349,27 @@ func get_toolkit_item_count(slot_index: int) -> int:
 
 func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
 	"""Add item to toolkit slot (used when dragging from inventory)"""
+	print("═══ InventoryManager.add_item_to_toolkit ═══")
+	print("  slot_index: ", slot_index)
+	print("  texture: ", texture.resource_path if texture else "NULL")
+	print("  count: ", count)
+
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
-		print("Error: Toolkit slot index ", slot_index, " is out of bounds.")
+		print("  ERROR: Toolkit slot index OUT OF BOUNDS!")
+		print("═══════════════════════════════════════════════")
 		return false
 
+	var old = toolkit_slots.get(slot_index, {"texture": null, "count": 0})
+	print(
+		"  OLD: texture=",
+		old["texture"].resource_path if old["texture"] else "NULL",
+		" count=",
+		old["count"]
+	)
 	toolkit_slots[slot_index] = {"texture": texture, "count": count}
+	print("  NEW: Saved successfully, syncing UI...")
 	sync_toolkit_ui()
+	print("═══════════════════════════════════════════════")
 	return true
 
 

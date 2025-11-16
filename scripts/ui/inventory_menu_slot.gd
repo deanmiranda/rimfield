@@ -65,6 +65,10 @@ func _ready() -> void:
 	call_deferred("_fix_children_mouse_filter")
 
 
+func set_slot_index(value: int) -> void:
+	slot_index = value
+
+
 func _fix_children_mouse_filter() -> void:
 	"""Ensure all child nodes ignore mouse events so they don't block dragging"""
 	for child in get_children():
@@ -84,6 +88,10 @@ func _process(_delta: float) -> void:
 
 func set_item(new_texture: Texture, count: int = 1) -> void:
 	"""Set the item texture for this slot"""
+	print("InventoryMenuSlot.set_item() called on slot ", slot_index)
+	print("  new_texture: ", new_texture.resource_path if new_texture else "NULL")
+	print("  count: ", count)
+
 	item_texture = new_texture
 
 	# Update stack count
@@ -94,10 +102,13 @@ func set_item(new_texture: Texture, count: int = 1) -> void:
 
 	if item_texture == null:
 		texture_normal = empty_texture
+		print("  → Set to empty_texture")
 	else:
 		texture_normal = item_texture
+		print("  → Set texture_normal to item_texture")
 
 	_update_stack_label()
+	print("  → Stack label updated, final stack_count: ", stack_count)
 
 
 func get_item() -> Texture:
@@ -220,23 +231,34 @@ func _handle_drop(drop_position: Vector2) -> bool:
 	var viewport = get_viewport()
 	var mouse_pos = viewport.get_mouse_position() if viewport else drop_position
 
+	print("InventoryMenuSlot: Handling drop at ", mouse_pos)
+
 	# PRIORITY 1: Check toolkit slots (in HUD)
 	var hud = _find_hud()
+	print("InventoryMenuSlot: Found HUD: ", hud)
 	if hud:
 		for i in range(hud.get_child_count()):
 			var child = hud.get_child(i)
 
 		# Navigate the known path: HUD/MarginContainer/HBoxContainer
 		var margin_container = hud.get_node_or_null("MarginContainer")
+		print("InventoryMenuSlot: Found MarginContainer: ", margin_container)
 		if margin_container:
 			var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
+			print("InventoryMenuSlot: Found HBoxContainer (toolkit): ", toolkit_container)
 			if toolkit_container:
+				print(
+					"InventoryMenuSlot: Checking ",
+					toolkit_container.get_child_count(),
+					" toolkit slots"
+				)
 				for i in range(toolkit_container.get_child_count()):
 					var toolkit_slot = toolkit_container.get_child(i)
 					if toolkit_slot and toolkit_slot is TextureButton:
 						var slot_rect = toolkit_slot.get_global_rect()
 
 						if slot_rect.has_point(mouse_pos):
+							print("InventoryMenuSlot: Mouse is over toolkit slot ", i)
 							# Create drag data in the format expected by toolkit slots
 							var drag_data = {
 								"slot_index": slot_index,
@@ -248,10 +270,21 @@ func _handle_drop(drop_position: Vector2) -> bool:
 
 							# Check if toolkit slot can accept this drop
 							if toolkit_slot.has_method("can_drop_data"):
+								print("InventoryMenuSlot: Toolkit slot has can_drop_data method")
 								var can_drop = toolkit_slot.can_drop_data(mouse_pos, drag_data)
+								print("InventoryMenuSlot: can_drop result: ", can_drop)
 								if can_drop and toolkit_slot.has_method("drop_data"):
+									print("InventoryMenuSlot: Calling toolkit_slot.drop_data()")
 									toolkit_slot.drop_data(mouse_pos, drag_data)
 									return true
+								else:
+									print(
+										"InventoryMenuSlot: Cannot drop or drop_data method missing"
+									)
+							else:
+								print(
+									"InventoryMenuSlot: Toolkit slot does NOT have can_drop_data method"
+								)
 
 	# PRIORITY 2: Check other inventory slots (in pause menu)
 	var pause_menu = _find_pause_menu()
@@ -477,17 +510,113 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	var from_item_texture: Texture = data["item_texture"]
 	var from_stack_count: int = data.get("stack_count", 1)
 	var source_node = data.get("source_node", null)
+	var source: String = data.get("source", "unknown")
 
-	# Swap items with stack counts
+	# Get current item BEFORE swapping (for InventoryManager update)
 	var temp_texture: Texture = item_texture
 	var temp_stack_count: int = stack_count
+
+	# Attempt stacking if same item and space available
+	if (
+		temp_texture
+		and from_item_texture
+		and temp_texture == from_item_texture
+		and from_stack_count > 0
+	):
+		var space_available = MAX_INVENTORY_STACK - temp_stack_count
+		if space_available > 0:
+			var amount_to_add = mini(from_stack_count, space_available)
+			var new_target_count = temp_stack_count + amount_to_add
+
+			# Update this slot visually and in InventoryManager
+			set_item(temp_texture, new_target_count)
+			if InventoryManager:
+				InventoryManager.update_inventory_slots(slot_index, temp_texture, new_target_count)
+
+			var remaining = from_stack_count - amount_to_add
+
+			if source == "inventory" and source_slot_index >= 0:
+				if InventoryManager:
+					if remaining > 0:
+						InventoryManager.update_inventory_slots(
+							source_slot_index, from_item_texture, remaining
+						)
+					else:
+						InventoryManager.update_inventory_slots(source_slot_index, null, 0)
+				if source_node and source_node.has_method("set_item"):
+					if remaining > 0:
+						source_node.set_item(from_item_texture, remaining)
+					else:
+						source_node.set_item(null)
+			elif source == "toolkit" and source_slot_index >= 0:
+				if remaining > 0:
+					InventoryManager.add_item_to_toolkit(
+						source_slot_index, from_item_texture, remaining
+					)
+					if source_node and source_node.has_method("set_item"):
+						source_node.set_item(from_item_texture, remaining)
+				else:
+					InventoryManager.remove_item_from_toolkit(source_slot_index)
+					if source_node and source_node.has_method("set_item"):
+						source_node.set_item(null)
+
+			if InventoryManager:
+				InventoryManager.sync_inventory_ui()
+
+			emit_signal("slot_drop_received", slot_index, data)
+			return
+
+	# CRITICAL: Update InventoryManager FIRST (before UI swap)
+	# This ensures InventoryManager has correct data when sync runs
+	if InventoryManager:
+		# Update inventory slot with dropped item
+		print(
+			"InventoryMenuSlot.drop_data(): Updating inventory slot ",
+			slot_index,
+			" with ",
+			from_item_texture,
+			" count ",
+			from_stack_count
+		)
+		InventoryManager.update_inventory_slots(slot_index, from_item_texture, from_stack_count)
+
+		# If source is toolkit, update toolkit slot with swapped item
+		if source == "toolkit":
+			var toolkit_slot_index = data.get("slot_index", -1)
+			if toolkit_slot_index >= 0:
+				if temp_texture:
+					print(
+						"InventoryMenuSlot.drop_data(): Returning swapped item ",
+						temp_texture,
+						" to toolkit slot ",
+						toolkit_slot_index,
+						" count ",
+						temp_stack_count
+					)
+					InventoryManager.add_item_to_toolkit(
+						toolkit_slot_index, temp_texture, temp_stack_count
+					)
+				else:
+					print(
+						"InventoryMenuSlot.drop_data(): Clearing toolkit slot ",
+						toolkit_slot_index,
+						" (no swapped item)"
+					)
+					InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
+
+	# NOW swap items in UI
 	set_item(from_item_texture, from_stack_count)
 
 	# Update source slot if it's a node reference (with swapped stack count)
 	if source_node and source_node.has_method("set_item"):
 		source_node.set_item(temp_texture, temp_stack_count)
-	# Emit signal to notify InventoryManager
+
+	# Emit signal to notify other systems (ToolSwitcher, etc.)
 	emit_signal("slot_drop_received", slot_index, data)
+
+	# Sync inventory UI to ensure consistency
+	if InventoryManager:
+		InventoryManager.sync_inventory_ui()
 
 
 func _highlight_valid_drop() -> void:
@@ -556,6 +685,14 @@ func _receive_drop_from_toolkit(
 
 	# Notify InventoryManager
 	if InventoryManager:
+		print(
+			"InventoryMenuSlot._receive_drop_from_toolkit(): slot ",
+			slot_index,
+			" receiving ",
+			dropped_texture,
+			" count ",
+			dropped_stack_count
+		)
 		InventoryManager.update_inventory_slots(slot_index, dropped_texture, dropped_stack_count)
 		if current_texture:
 			InventoryManager.add_item_to_toolkit(

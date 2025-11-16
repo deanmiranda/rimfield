@@ -65,10 +65,27 @@ func setup_hud() -> void:
 			else:
 				print("Error: hud_slot not found or invalid for tool button", i)
 
-	# IMPORTANT: Sync initial toolkit from UI to InventoryManager's toolkit_slots dictionary
-	# This preserves pre-loaded tools when items are picked up
-	if InventoryManager and InventoryManager.has_method("_sync_initial_toolkit_from_ui"):
-		InventoryManager._sync_initial_toolkit_from_ui()
+	# CRITICAL: Check if InventoryManager has existing data (from previous scene or save file)
+	# If yes, sync FROM InventoryManager TO UI (restore state)
+	# If no, sync FROM UI TO InventoryManager (first-time setup with pre-loaded tools)
+	if InventoryManager:
+		var has_existing_data = false
+		# Check if any toolkit slot has data
+		for i in range(InventoryManager.max_toolkit_slots):
+			var slot_data = InventoryManager.toolkit_slots.get(i, {"texture": null, "count": 0})
+			if slot_data["texture"] != null and slot_data["count"] > 0:
+				has_existing_data = true
+				break
+
+		if has_existing_data:
+			# Restore toolkit from InventoryManager (scene transition or load game)
+			InventoryManager.sync_toolkit_ui()
+			# Also sync inventory
+			InventoryManager.sync_inventory_ui()
+		else:
+			# First-time setup: Read pre-loaded tools from UI
+			if InventoryManager.has_method("_sync_initial_toolkit_from_ui"):
+				InventoryManager._sync_initial_toolkit_from_ui()
 
 	# Emit tool_changed for the first slot (slot 0)
 	if tool_buttons.size() > 0:

@@ -52,9 +52,9 @@ var exit_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabConta
 var save_feedback_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveFeedbackLabel
 
 # Constants
-const INVENTORY_SLOTS_TOTAL = 30  # 3x10 grid
-const INVENTORY_SLOTS_ACTIVE = 24  # Top 8 rows (24 slots)
-const INVENTORY_SLOTS_LOCKED = 6  # Bottom 2 rows (6 slots)
+const INVENTORY_SLOTS_TOTAL = 30 # 3x10 grid
+const INVENTORY_SLOTS_ACTIVE = 24 # Top 8 rows (24 slots)
+const INVENTORY_SLOTS_LOCKED = 6 # Bottom 2 rows (6 slots)
 
 # Game state (to be connected to GameState singleton later)
 var current_day: int = 1
@@ -77,11 +77,38 @@ var stat_creativity: int = 50
 func _ready() -> void:
 	self.visible = false
 
-	# Wait for nodes to be ready
+	# Wait for nodes to be fully ready
 	await get_tree().process_frame
 
-	# Initialize inventory slots
+	# FIRST: Initialize inventory slots (create the 30 TextureButton children)
+	print("PauseMenu: Setting up inventory slots...")
 	_setup_inventory_slots()
+	print(
+		"PauseMenu: Inventory slots created, count: ",
+		inventory_grid.get_child_count() if inventory_grid else 0
+	)
+
+	# THEN: Register with InventoryManager and sync (now that slots exist!)
+	print("PauseMenu: Registering inventory grid with InventoryManager")
+	if InventoryManager and inventory_grid:
+		print("PauseMenu: inventory_grid found: ", inventory_grid)
+		print("PauseMenu: inventory_grid type: ", inventory_grid.get_class())
+		print("PauseMenu: inventory_grid child count: ", inventory_grid.get_child_count())
+
+		# Pass the inventory_grid directly to InventoryManager
+		# InventoryManager.sync_inventory_ui() will handle it
+		InventoryManager.set_inventory_instance(inventory_grid)
+		print("PauseMenu: Inventory instance set, syncing UI...")
+
+		# Sync UI with stored inventory data
+		InventoryManager.sync_inventory_ui()
+		print("PauseMenu: Inventory UI sync complete")
+	else:
+		print("ERROR: InventoryManager or inventory_grid is null!")
+		if not InventoryManager:
+			print("  - InventoryManager is null")
+		if not inventory_grid:
+			print("  - inventory_grid is null")
 
 	# Setup player sprite (use first frame of idle animation)
 	_setup_player_sprite()
@@ -91,7 +118,7 @@ func _ready() -> void:
 		var player_info = inventory_tab.get_node_or_null("VBoxContainer/PlayerInfoContainer")
 		if player_info:
 			player_info.visible = true
-			player_info.custom_minimum_size = Vector2(0, 200)  # Force minimum size
+			player_info.custom_minimum_size = Vector2(0, 200) # Force minimum size
 
 	# Update all UI elements
 	_update_ui()
@@ -133,12 +160,16 @@ func _setup_inventory_slots() -> void:
 	for i in range(INVENTORY_SLOTS_TOTAL):
 		var slot = TextureButton.new()
 		slot.name = "InventorySlot_" + str(i)
-		slot.custom_minimum_size = Vector2(64, 64)  # Match toolkit size approximately
+		slot.custom_minimum_size = Vector2(64, 64) # Match toolkit size approximately
 		slot.set_script(slot_script)
-		slot.slot_index = i
+		if slot.has_method("set_slot_index"):
+			slot.call("set_slot_index", i)
+		else:
+			slot.slot_index = i
+		print("PauseMenu: Created inventory slot ", i, " slot.slot_index=", slot.slot_index)
 		slot.empty_texture = empty_texture
-		slot.visible = true  # Ensure slot is visible
-		slot.texture_normal = empty_texture  # Set initial texture
+		slot.visible = true # Ensure slot is visible
+		slot.texture_normal = empty_texture # Set initial texture
 		slot.ignore_texture_size = true
 		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		slot.flip_v = false
@@ -150,12 +181,12 @@ func _setup_inventory_slots() -> void:
 
 		# Add background style for slots (removed white test background)
 		var bg_style = StyleBoxFlat.new()
-		bg_style.bg_color = Color(0.3, 0.3, 0.3, 1.0)  # Dark gray background
+		bg_style.bg_color = Color(0.3, 0.3, 0.3, 1.0) # Dark gray background
 		bg_style.border_width_left = 2
 		bg_style.border_width_top = 2
 		bg_style.border_width_right = 2
 		bg_style.border_width_bottom = 2
-		bg_style.border_color = Color.BLACK  # Black border
+		bg_style.border_color = Color.BLACK # Black border
 		slot.add_theme_stylebox_override("normal", bg_style)
 		slot.add_theme_stylebox_override("hover", bg_style.duplicate())
 		slot.add_theme_stylebox_override("pressed", bg_style.duplicate())
@@ -177,7 +208,7 @@ func _setup_inventory_slots() -> void:
 		border_rect.name = "Border"
 		border_rect.texture = border_texture
 		border_rect.custom_minimum_size = Vector2(64, 64)
-		border_rect.layout_mode = 1  # Use integer 1 for LAYOUT_MODE_ANCHORS (Godot 4.x)
+		border_rect.layout_mode = 1 # Use integer 1 for LAYOUT_MODE_ANCHORS (Godot 4.x)
 		border_rect.anchors_preset = Control.PRESET_FULL_RECT
 		border_rect.anchor_right = 1.0
 		border_rect.anchor_bottom = 1.0
@@ -222,7 +253,7 @@ func _setup_player_sprite() -> void:
 		# Create an AtlasTexture for the first frame
 		var atlas_texture = AtlasTexture.new()
 		atlas_texture.atlas = player_texture
-		atlas_texture.region = Rect2(0, 0, 32, 32)  # First frame of idle
+		atlas_texture.region = Rect2(0, 0, 32, 32) # First frame of idle
 		player_sprite.texture = atlas_texture
 		player_sprite.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		player_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -283,11 +314,11 @@ func _update_placeholder_stats() -> void:
 func _on_tab_changed(tab_index: int) -> void:
 	"""Handle tab changes - extensible for future tabs"""
 	match tab_index:
-		0:  # Inventory tab
-			pass  # Inventory is default
-		1:  # MainMenu tab
+		0: # Inventory tab
+			pass # Inventory is default
+		1: # MainMenu tab
 			_focus_on_resume()
-		_:  # Future tabs
+		_: # Future tabs
 			pass
 
 
@@ -321,7 +352,7 @@ func _notification(what: int) -> void:
 		if visible:
 			# When menu becomes visible, ensure Inventory tab is selected
 			if tab_container:
-				tab_container.current_tab = 0  # Inventory tab
+				tab_container.current_tab = 0 # Inventory tab
 			# Update UI with latest game state
 			_update_ui()
 
@@ -343,11 +374,11 @@ func _input(event: InputEvent) -> void:
 			# Close the menu
 			self.visible = false
 			get_tree().paused = false
-			get_viewport().set_input_as_handled()  # Prevent further processing
+			get_viewport().set_input_as_handled() # Prevent further processing
 		elif not self.visible:
 			# When opening, set to Inventory tab by default
 			if tab_container:
-				tab_container.current_tab = 0  # Inventory tab
+				tab_container.current_tab = 0 # Inventory tab
 
 
 func _on_resume_button_pressed() -> void:
@@ -367,7 +398,7 @@ func _on_save_game_pressed() -> void:
 	var timestamp = Time.get_unix_time_from_system()
 	var save_file_path = "user://save_slot_%s.json" % timestamp
 
-	GameState.save_game(save_file_path)  # Save the game
+	GameState.save_game(save_file_path) # Save the game
 
 	# Provide feedback for saving
 	if not save_feedback_label:
@@ -377,10 +408,10 @@ func _on_save_game_pressed() -> void:
 	save_feedback_label.text = "Game Saving..."
 
 	# Force an immediate UI update
-	await get_tree().process_frame  # Allow one frame to process to update the label
+	await get_tree().process_frame # Allow one frame to process to update the label
 
 	# Validate save file and update feedback
-	await get_tree().create_timer(0.5).timeout  # Small delay to ensure save file is registered
+	await get_tree().create_timer(0.5).timeout # Small delay to ensure save file is registered
 	if FileAccess.file_exists(save_file_path):
 		# Check the number of save files
 		var save_dir = DirAccess.open("user://")
@@ -399,15 +430,15 @@ func _on_save_game_pressed() -> void:
 			save_feedback_label.text = "Game Saved! If you save again, older saves will be overwritten."
 
 			# Force an immediate UI update after changing the text
-			await get_tree().process_frame  # Allow one frame to process to update the label
+			await get_tree().process_frame # Allow one frame to process to update the label
 
 			# Longer delay for the special warning message
-			await get_tree().create_timer(2.0).timeout  # 2-second delay for longer message
+			await get_tree().create_timer(2.0).timeout # 2-second delay for longer message
 			save_feedback_label.visible = false
 		else:
 			save_feedback_label.text = "Game Saved!"
 			# Force an immediate UI update after changing the text
-			await get_tree().process_frame  # Allow one frame to process to update the label
+			await get_tree().process_frame # Allow one frame to process to update the label
 
 			# Shorter delay for the regular message
 			await get_tree().create_timer(1.5).timeout
@@ -434,45 +465,27 @@ func _on_inventory_slot_clicked(slot_index: int) -> void:
 
 
 func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void:
-	"""Handle inventory slot drop - notify InventoryManager and ToolSwitcher"""
-	if not InventoryManager:
-		print("Error: InventoryManager singleton not found.")
-		return
+	"""Handle inventory slot drop - notify ToolSwitcher (InventoryManager already updated in drop_data)"""
+	# NOTE: InventoryManager is now updated in inventory_menu_slot.drop_data() BEFORE UI swap
+	# This signal handler only needs to notify ToolSwitcher about toolkit changes
 
-	# Update InventoryManager with the new item (already swapped visually in drop_data)
-	if data.has("item_texture"):
-		var item_texture: Texture = data["item_texture"]
-		var item_stack_count: int = data.get("stack_count", 1)
-		InventoryManager.update_inventory_slots(slot_index, item_texture, item_stack_count)
+	# If item came from toolkit, notify ToolSwitcher about the toolkit slot change
+	if data.has("source") and data["source"] == "toolkit":
+		var toolkit_slot_index = data.get("slot_index", -1)
+		if toolkit_slot_index >= 0:
+			# Get the swapped item from the toolkit slot (after swap)
+			var source_node = data.get("source_node", null)
+			var swapped_item: Texture = null
+			if source_node and source_node.has_method("get_item"):
+				swapped_item = source_node.get_item()
 
-		# If item came from toolkit, update toolkit tracking AND notify ToolSwitcher
-		if data.has("source") and data["source"] == "toolkit":
-			var toolkit_slot_index = data.get("slot_index", -1)
-			if toolkit_slot_index >= 0:
-				# Get the swapped item from the toolkit slot (after swap)
-				var source_node = data.get("source_node", null)
-				var swapped_item: Texture = null
-				var swapped_item_count: int = 0
-				if source_node and source_node.has_method("get_item"):
-					swapped_item = source_node.get_item()
-				if source_node and source_node.has_method("get_stack_count"):
-					swapped_item_count = source_node.get_stack_count()
-
-				# Update toolkit slot with swapped item (or null if empty)
-				if swapped_item:
-					InventoryManager.add_item_to_toolkit(
-						toolkit_slot_index, swapped_item, swapped_item_count
-					)
-				else:
-					InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
-
-				# CRITICAL: Notify ToolSwitcher about the toolkit slot change
-				# Find ToolSwitcher in the HUD
-				var hud = get_tree().root.get_node_or_null("HUD")
-				if hud:
-					var tool_switcher = _find_tool_switcher_in_node(hud)
-					if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
-						tool_switcher.update_toolkit_slot(toolkit_slot_index, swapped_item)
+			# CRITICAL: Notify ToolSwitcher about the toolkit slot change
+			# Find ToolSwitcher in the HUD
+			var hud = get_tree().root.get_node_or_null("HUD")
+			if hud:
+				var tool_switcher = _find_tool_switcher_in_node(hud)
+				if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
+					tool_switcher.update_toolkit_slot(toolkit_slot_index, swapped_item)
 
 
 func _find_tool_switcher_in_node(node: Node) -> Node:

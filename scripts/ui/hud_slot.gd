@@ -525,6 +525,93 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	if hud_slot_rect and hud_slot_rect is TextureRect:
 		current_texture = hud_slot_rect.texture
 
+	# Attempt stacking if same item and space available (toolkit stack limit = 9)
+	if (
+		current_texture
+		and from_item_texture
+		and current_texture == from_item_texture
+		and from_stack_count > 0
+	):
+		var space_available = MAX_TOOLBELT_STACK - current_stack_count
+		if space_available > 0:
+			var amount_to_add = mini(from_stack_count, space_available)
+			var new_target_count = current_stack_count + amount_to_add
+			set_item(current_texture, new_target_count)
+			if InventoryManager:
+				InventoryManager.add_item_to_toolkit(slot_index, current_texture, new_target_count)
+
+			var remaining = from_stack_count - amount_to_add
+
+			if source == "toolkit" and source_slot_index >= 0:
+				if remaining > 0:
+					if source_node and source_node.has_method("set_item"):
+						source_node.set_item(from_item_texture, remaining)
+					InventoryManager.add_item_to_toolkit(
+						source_slot_index, from_item_texture, remaining
+					)
+				else:
+					if source_node and source_node.has_method("set_item"):
+						source_node.set_item(null)
+					InventoryManager.remove_item_from_toolkit(source_slot_index)
+			elif source == "inventory" and source_slot_index >= 0:
+				if source_node and source_node.has_method("set_item"):
+					if remaining > 0:
+						source_node.set_item(from_item_texture, remaining)
+					else:
+						source_node.set_item(null)
+				if InventoryManager:
+					if remaining > 0:
+						InventoryManager.update_inventory_slots(
+							source_slot_index, from_item_texture, remaining
+						)
+					else:
+						InventoryManager.update_inventory_slots(source_slot_index, null, 0)
+
+			var tool_switcher = _find_tool_switcher()
+			if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
+				tool_switcher.update_toolkit_slot(slot_index, current_texture)
+				if source == "toolkit" and source_slot_index >= 0:
+					var source_texture = null
+					if remaining > 0:
+						source_texture = from_item_texture
+					tool_switcher.update_toolkit_slot(source_slot_index, source_texture)
+
+			if source == "inventory" and InventoryManager:
+				InventoryManager.sync_inventory_ui()
+
+			return
+
+	# CRITICAL: Update InventoryManager FIRST (before clearing UI slots)
+	# This ensures InventoryManager has correct data when sync runs
+	if InventoryManager:
+		# Update toolkit tracking
+		if from_item_texture:
+			print(
+				"HUDSlot.drop_data(): Updating toolkit slot ",
+				slot_index,
+				" with ",
+				from_item_texture,
+				" count ",
+				from_stack_count
+			)
+			InventoryManager.add_item_to_toolkit(slot_index, from_item_texture, from_stack_count)
+		else:
+			InventoryManager.remove_item_from_toolkit(slot_index)
+
+		# If source was inventory, update inventory tracking BEFORE clearing UI
+		if source == "inventory" and source_slot_index >= 0:
+			print(
+				"HUDSlot.drop_data(): Returning swapped item ",
+				current_texture,
+				" to inventory slot ",
+				source_slot_index,
+				" count ",
+				current_stack_count
+			)
+			InventoryManager.update_inventory_slots(
+				source_slot_index, current_texture, current_stack_count
+			)
+
 	# Swap items with stack counts
 	set_item(from_item_texture, from_stack_count)
 
@@ -540,19 +627,9 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 		if source == "toolkit" and source_slot_index >= 0:
 			tool_switcher.update_toolkit_slot(source_slot_index, current_texture)
 
-	# Update InventoryManager
-	if InventoryManager:
-		# Update toolkit tracking
-		if from_item_texture:
-			InventoryManager.add_item_to_toolkit(slot_index, from_item_texture, from_stack_count)
-		else:
-			InventoryManager.remove_item_from_toolkit(slot_index)
-
-		# If source was inventory, update inventory tracking
-		if source == "inventory" and source_slot_index >= 0:
-			InventoryManager.update_inventory_slots(
-				source_slot_index, current_texture, current_stack_count
-			)
+	# Sync inventory UI AFTER all updates are complete
+	if InventoryManager and source == "inventory" and source_slot_index >= 0:
+		InventoryManager.sync_inventory_ui()
 
 
 ## Stack Management Functions

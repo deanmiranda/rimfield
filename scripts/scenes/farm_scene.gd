@@ -9,25 +9,36 @@ extends Node2D
 @export var farming_manager_path: NodePath  # farming_manager path
 
 var hud_instance: Node
-var pause_menu: Control
-var paused = false
 var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 
 # Reference to the inventory instance
 var inventory_instance: Control = null
 
-func _ready() -> void:
-	# Locate the PlayerSpawnPoint node
-	var spawn_point = $PlayerSpawnPoint
-	if not spawn_point:
-		print("Error: PlayerSpawnPoint node not found!")
-		return
 
+func _ready() -> void:
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()
 	add_child(player_instance)
-	player_instance.global_position = spawn_point.global_position  # Use spawn point position
+
+	# Use spawn position from SceneManager if set (e.g., exiting house)
+	if SceneManager and SceneManager.player_spawn_position != Vector2.ZERO:
+		player_instance.global_position = SceneManager.player_spawn_position
+		SceneManager.player_spawn_position = Vector2.ZERO  # Reset after use
+	else:
+		# Default: use PlayerSpawnPoint node
+		var spawn_point = $PlayerSpawnPoint
+		if not spawn_point:
+			print("Error: PlayerSpawnPoint node not found!")
+			return
+		player_instance.global_position = spawn_point.global_position
+
+	# Force camera to snap to player position immediately (no smooth transition)
+	var player_node = player_instance.get_node_or_null("Player")
+	if player_node:
+		var camera = player_node.get_node_or_null("PlayerCamera")
+		if camera and camera is Camera2D:
+			camera.reset_smoothing()
 
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
@@ -39,18 +50,7 @@ func _ready() -> void:
 	else:
 		print("Error: UiManager singleton not found.")
 
-	# Pause menu setup
-	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
-	if pause_menu_scene is PackedScene:
-		var pause_menu_layer = pause_menu_scene.instantiate()
-		add_child(pause_menu_layer)
-		# Get the Control child from the CanvasLayer
-		pause_menu = pause_menu_layer.get_node("Control")
-		pause_menu.visible = false
-	else:
-		print("Error: Failed to load PauseMenu scene.")
-
-	var farming_manager = $FarmingManager 
+	var farming_manager = $FarmingManager
 	# Instantiate and add the HUD
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
@@ -68,10 +68,36 @@ func _ready() -> void:
 	else:
 		print("Error: HUD scene not assigned!")
 
-	# Spawn a test droppable
-	spawn_random_droppables(40)  # Spawn 10 droppables
+	# Spawn droppables asynchronously to avoid scene load delay
+	spawn_random_droppables_async(40)
+
+
+func spawn_random_droppables_async(count: int) -> void:
+	"""Spawn droppables over multiple frames to avoid blocking scene load"""
+	if not hud_instance:
+		print("Error: HUD instance is null! Droppables cannot be spawned.")
+		return
+
+	# Spawn in smaller batches (5 per frame) to spread load and reduce stutter
+	var batch_size = 5
+	var batches = ceili(float(count) / float(batch_size))
+
+	for batch in range(batches):
+		# Calculate how many to spawn in this batch
+		var start_index = batch * batch_size
+		var end_index = mini(start_index + batch_size, count)
+
+		# Spawn this batch after waiting a frame
+		await get_tree().process_frame
+
+		for i in range(start_index, end_index):
+			var droppable_name = _get_random_droppable_name()
+			var random_position = _get_random_farm_position()
+			DroppableFactory.spawn_droppable(droppable_name, random_position, hud_instance)
+
 
 func spawn_random_droppables(count: int) -> void:
+	"""Legacy synchronous spawn - kept for compatibility"""
 	if not hud_instance:
 		print("Error: HUD instance is null! Droppables cannot be spawned.")
 		return
@@ -81,9 +107,11 @@ func spawn_random_droppables(count: int) -> void:
 		var random_position = _get_random_farm_position()
 		DroppableFactory.spawn_droppable(droppable_name, random_position, hud_instance)
 
+
 func _get_random_droppable_name() -> String:
 	var droppable_names = ["carrot", "strawberry", "tomato"]  # Add more droppable types
 	return droppable_names[randi() % droppable_names.size()]
+
 
 func _get_random_farm_position() -> Vector2:
 	var farm_area = Rect2(Vector2(0, 0), Vector2(-400, 400))  # Define the bounds of your farm
@@ -91,8 +119,10 @@ func _get_random_farm_position() -> Vector2:
 	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
 	return Vector2(random_x, random_y)
 
+
 func _on_game_loaded() -> void:
 	_load_farm_state()  # Apply loaded state when notified
+
 
 func _load_farm_state() -> void:
 	var farming_manager = get_node_or_null(farming_manager_path)

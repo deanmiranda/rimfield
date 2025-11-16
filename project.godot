@@ -25,6 +25,7 @@ UiManager="*res://scripts/singletons/ui_manager.gd"
 InventoryManager="*res://scripts/singletons/inventory_manager.gd"
 HUD="*res://scripts/singletons/hud.gd"
 InteractionIndicator="*res://scripts/ui/interaction_indicator.gd"
+TransitionManager="*res://scripts/singletons/transition_manager.gd"
 
 [display]
 

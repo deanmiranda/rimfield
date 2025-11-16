@@ -1,37 +1,40 @@
 extends Node2D  # Assuming the root of house_scene is Node2D
 
-# Pause Menu specific properties
-var pause_menu: Control
-var paused = false
+var hud_instance: Node
+var hud_scene_path = preload("res://scenes/ui/hud.tscn")
+
 
 func _ready():
-	# Pause menu setup
-	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
-	if not pause_menu_scene:
-		print("Error: Failed to load PauseMenu scene.")
-		return
+	# Instantiate the player IMMEDIATELY for quick scene display
+	var player_scene = preload("res://scenes/characters/player/player.tscn")
+	var player_instance = player_scene.instantiate()
+	add_child(player_instance)
 
-	if pause_menu_scene is PackedScene:
-		var pause_menu_layer = pause_menu_scene.instantiate()
-		add_child(pause_menu_layer)  # Add the CanvasLayer to this scene
-		# Get the Control child from the CanvasLayer
-		pause_menu = pause_menu_layer.get_node("Control")
-		pause_menu.visible = false
+	# Use spawn position from SceneManager if set, otherwise default to entrance (far from exit)
+	if SceneManager and SceneManager.player_spawn_position != Vector2.ZERO:
+		player_instance.global_position = SceneManager.player_spawn_position
+		SceneManager.player_spawn_position = Vector2.ZERO  # Reset after use
 	else:
-		print("Error: Loaded resource is not a PackedScene.")
+		# Default spawn: inside house, far from the exit doorway (exit is at y=86)
+		player_instance.global_position = Vector2(-8, 54)
 
-func _input(event: InputEvent) -> void:
-	# Handle ESC key input specifically in house_scene
-	if event.is_action_pressed("ui_cancel"):
-		toggle_pause_menu()
+	# Force camera to snap to player position immediately (no smooth transition)
+	var player_node = player_instance.get_node_or_null("Player")
+	if player_node:
+		var camera = player_node.get_node_or_null("PlayerCamera")
+		if camera and camera is Camera2D:
+			camera.reset_smoothing()
 
-func toggle_pause_menu():
-	# Toggle the pause menu visibility in the gameplay scene
-	if pause_menu.visible:
-		pause_menu.hide()
-		get_tree().paused = false  # Unpause the entire game
-		paused = false
+	# HUD setup - MUST load immediately for inventory/toolkit to work
+	print("HouseScene: Loading HUD...")
+	if hud_scene_path:
+		hud_instance = hud_scene_path.instantiate()
+		add_child(hud_instance)
+		# Link HUD singleton
+		if HUD:
+			HUD.set_hud_scene_instance(hud_instance)
+			print("HouseScene: HUD loaded and linked")
+		else:
+			print("Warning: HUD singleton not found in house_scene.")
 	else:
-		pause_menu.show()
-		get_tree().paused = true  # Pause the entire game, but leave UI active
-		paused = true
+		print("Error: HUD scene not assigned in house_scene!")

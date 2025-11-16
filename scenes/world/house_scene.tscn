@@ -25226,30 +25226,5 @@ metadata/_edit_lock_ = true
 position = Vector2(-8, 86)
 shape = SubResource("RectangleShape2D_yfpjs")
 
-[node name="PlayerSpawn" type="CharacterBody2D" parent="."]
-position = Vector2(-8, 54)
-script = ExtResource("12_ht2rx")
-metadata/_edit_group_ = true
-metadata/_edit_lock_ = true
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerSpawn"]
-position = Vector2(0, 6)
-shape = SubResource("CapsuleShape2D_owep3")
-debug_color = Color(0.907394, 0.199351, 0.568449, 0.42)
-
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="PlayerSpawn"]
-texture_repeat = 1
-sprite_frames = SubResource("SpriteFrames_uwr1f")
-animation = &"stand_up"
-speed_scale = 2.0
-
-[node name="Sprite2D" type="Sprite2D" parent="PlayerSpawn"]
-visible = false
-texture = ExtResource("14_rct0y")
-
-[node name="PlayerCamera" type="Camera2D" parent="PlayerSpawn"]
-zoom = Vector2(2, 2)
-limit_smoothed = true
-position_smoothing_enabled = true
-
 [connection signal="body_entered" from="ExitZone" to="ExitZone" method="_on_body_entered"]
+[connection signal="body_exited" from="ExitZone" to="ExitZone" method="_on_body_exited"]
