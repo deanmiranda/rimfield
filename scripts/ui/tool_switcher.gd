@@ -35,10 +35,6 @@ func _ready() -> void:
 					if not slot.is_connected("tool_selected", Callable(self, "_on_tool_selected")):
 						slot.connect("tool_selected", Callable(self, "_on_tool_selected"))
 				
-		else:
-			print("Error: Tool container not found in HUD.")
-	else:
-		print("Error: HUD not found as sibling.")
 		
 # Signal handler for tool_selected
 func _on_tool_selected(slot_index: int) -> void:

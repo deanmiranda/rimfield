@@ -1,18 +1,17 @@
 # droppable_generic.gd
 extends Node2D
 
-@export var item_data: Resource  # Reference to the DroppableItem resource
+@export var item_data: Resource # Reference to the DroppableItem resource
 
 # Signal removed - pickup is handled directly via pickup_item() method
 # signal picked_up(item_data: Resource)  # Signal to emit when picked up
 
-var player: Node = null  # Reference to the player
-var hud: Node = null  # Reference to the HUD
+var player: Node = null # Reference to the player
+var hud: Node = null # Reference to the HUD
 
 func _ready() -> void:
 	# Ensure item_data is set
 	if not item_data:
-		print("Error: item_data is not assigned!")
 		queue_free()
 		return
 	
@@ -46,9 +45,7 @@ func pickup_item() -> void:
 			var added_to_inventory = InventoryManager.add_item_to_first_empty_slot(item_data)
 			
 			if not added_to_inventory:
-				return  # Exit without removing the droppable
+				return # Exit without removing the droppable
 				
 		# If added successfully to HUD or inventory, remove from the map
 		queue_free()
-	else:
-		print("HUD reference or item data is null; cannot update.")

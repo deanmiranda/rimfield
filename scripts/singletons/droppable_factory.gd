@@ -13,18 +13,15 @@ var droppable_scene: PackedScene = preload("res://scenes/droppable/droppable_gen
 # Spawns a droppable into the world
 func spawn_droppable(item_id: String, spawn_position: Vector2, hud_instance: Node) -> Node2D:
 	if not droppable_item_resources.has(item_id):
-		print("Error: Item ID not found in droppable_item_resources:", item_id)
 		return null
 
 	# Instance the droppable scene
 	var droppable_instance = droppable_scene.instantiate()
 	if not droppable_instance:
-		print("Error: Failed to instantiate droppable scene!")
 		return null
 
 	# Ensure the instance is not already parented (edge case safeguard)
 	if droppable_instance.get_parent():
-		print("Warning: Droppable instance already has a parent. Removing from parent.")
 		droppable_instance.get_parent().remove_child(droppable_instance)
 
 	# Set the item_data dynamically

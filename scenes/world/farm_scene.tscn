@@ -13,6 +13,7 @@
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="10_7peq5"]
 [ext_resource type="Script" uid="uid://ch30oq22mw118" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
+[ext_resource type="Script" path="res://scripts/game_systems/house_interaction.gd" id="12_house"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_cb07x"]
 texture = ExtResource("1_we3j4")
@@ -1732,6 +1733,9 @@ sources/1 = SubResource("TileSetAtlasSource_t38oi")
 sources/2 = SubResource("TileSetAtlasSource_nj2yl")
 sources/3 = SubResource("TileSetAtlasSource_id53q")
 
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_house"]
+size = Vector2(80, 40)
 [node name="Farm" type="Node2D"]
 script = ExtResource("1_y06tk")
 tilemap_layer = NodePath("Farmable")
@@ -1777,3 +1781,23 @@ z_as_relative = false
 script = ExtResource("10_w1f1x")
 farmable_layer_path = NodePath("../Farmable")
 highlight_texture = ExtResource("11_c33k8")
+
+
+[node name="HouseInteraction" type="Area2D" parent="."]
+position = Vector2(0, -100)
+script = ExtResource("12_house")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseInteraction"]
+shape = SubResource("RectangleShape2D_house")
+
+[node name="Label" type="Label" parent="HouseInteraction"]
+offset_left = -80.0
+offset_top = -40.0
+offset_right = 80.0
+offset_bottom = -20.0
+text = "Press E to Enter House"
+horizontal_alignment = 1
+
+[connection signal="body_entered" from="HouseInteraction" to="HouseInteraction" method="_on_body_entered"]
+[connection signal="body_exited" from="HouseInteraction" to="HouseInteraction" method="_on_body_exited"]
+

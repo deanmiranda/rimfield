@@ -5,19 +5,19 @@ extends CharacterBody2D
 
 # Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
 var game_config: Resource = null
-var speed: float = 200  # Default (will be overridden by GameConfig)
-var direction: Vector2 = Vector2.ZERO  # Tracks input direction
-var interactable: Node = null          # Stores the interactable object the player is near
-var farming_manager: Node = null       # Reference to the farming system
-var current_interaction: String = ""  # Track the current interaction
+var speed: float = 200 # Default (will be overridden by GameConfig)
+var direction: Vector2 = Vector2.ZERO # Tracks input direction
+var interactable: Node = null # Stores the interactable object the player is near
+var farming_manager: Node = null # Reference to the farming system
+var current_interaction: String = "" # Track the current interaction
 
 # Interaction system - signal-based sets (no polling)
-var nearby_pickables: Array = []  # Array of nearby pickable items
-var pickup_radius: float = 48.0  # Default (will be overridden by GameConfig)
+var nearby_pickables: Array = [] # Array of nearby pickable items
+var pickup_radius: float = 48.0 # Default (will be overridden by GameConfig)
 
-@onready var inventory_manager = InventoryManager  # Singleton reference
-@onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
-@onready var interaction_area: Area2D = null  # Will be created in _ready
+@onready var inventory_manager = InventoryManager # Singleton reference
+@onready var sprite = $AnimatedSprite2D # Reference to AnimatedSprite2D node
+@onready var interaction_area: Area2D = null # Will be created in _ready
 
 func _ready() -> void:
 	# Load GameConfig Resource
@@ -29,9 +29,9 @@ func _ready() -> void:
 	# Create interaction Area2D for detecting nearby pickables
 	interaction_area = Area2D.new()
 	interaction_area.name = "InteractionArea"
-	interaction_area.monitorable = false  # This area detects, doesn't need to be detected
-	interaction_area.monitoring = true   # Enable monitoring
-	interaction_area.collision_mask = 2  # Detect items on collision layer 2
+	interaction_area.monitorable = false # This area detects, doesn't need to be detected
+	interaction_area.monitoring = true # Enable monitoring
+	interaction_area.collision_mask = 2 # Detect items on collision layer 2
 	add_child(interaction_area)
 	
 	# Create collision shape for interaction radius
@@ -160,7 +160,6 @@ func _pickup_nearest_item() -> void:
 	
 	# Pick up the nearest item
 	if nearest_item:
-		print("DEBUG: Nearest item found: ", nearest_item.name, " at distance: ", nearest_distance)
 		if nearest_item.has_method("pickup_item"):
 			# Set HUD reference if needed (get from current scene)
 			if not nearest_item.hud:
@@ -186,7 +185,3 @@ func stop_interaction():
 func interact_with_droppable(droppable_data: Resource) -> void:
 	if inventory_manager:
 		var success = inventory_manager.add_item_to_first_empty_slot(droppable_data)
-		if success:
-			print("Item added to inventory:", droppable_data.item_id)
-		else:
-			print("Inventory full! Could not pick up:", droppable_data.item_id)

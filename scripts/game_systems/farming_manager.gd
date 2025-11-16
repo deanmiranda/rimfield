@@ -41,8 +41,6 @@ func set_hud(hud_scene_instance: Node) -> void:
 		
 		# Ensure a valid tool is set on load
 		var _first_slot_tool = tool_switcher.get("current_tool")
-	else:
-		print("Error: ToolSwitcher not found as a child of HUD.")
 
 
 
@@ -58,13 +56,10 @@ func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
 		# Use shared ToolConfig to map texture to tool name
 		if tool_config and tool_config.has_method("get_tool_name"):
 			current_tool = tool_config.get_tool_name(item_texture)
-			print("DEBUG: FarmingManager tool changed to: ", current_tool, " (texture-based, not slot-based)")
 		else:
-			print("Error: ToolConfig not loaded. Cannot map tool.")
 			current_tool = "unknown"
 	else:
 		# Tool texture is null - clear the tool (no tool selected)
-		print("DEBUG: FarmingManager tool cleared - no tool in slot")
 		current_tool = "unknown"
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
@@ -83,10 +78,7 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	var player_local_pos = farmable_layer.to_local(player_pos)
 	var player_cell = farmable_layer.local_to_map(player_local_pos)
 	
-	# Debug output to verify coordinates
-	print("DEBUG: Player cell: ", player_cell, " Target cell: ", target_cell)
-	print("DEBUG: Player world pos: ", player_pos, " Target world pos: ", target_pos)
-	
+
 	# Check if target is in the 3x3 grid around player (8 adjacent tiles ONLY, NOT center)
 	# Character CANNOT use tools on the tile they're standing on
 	# Character can only use tools on tiles directly adjacent (including diagonals)
@@ -95,18 +87,15 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	var cell_distance_x = abs(target_cell.x - player_cell.x)
 	var cell_distance_y = abs(target_cell.y - player_cell.y)
 	
-	print("DEBUG: Cell distance: (", cell_distance_x, ", ", cell_distance_y, ")")
 	
 	# Prevent interaction with the tile the player is standing on
 	if cell_distance_x == 0 and cell_distance_y == 0:
-		print("DEBUG: Cannot interact with tile player is standing on")
 		return
 	
 	# Only allow interaction if target is within 1 tile distance (adjacent tiles only)
 	# This means max distance of 1 cell in X and Y directions (including diagonals)
 	# But NOT the center tile (already checked above)
 	if cell_distance_x > 1 or cell_distance_y > 1:
-		print("DEBUG: Tile too far - cell distance exceeds 1 tile")
 		return
 
 	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
@@ -181,13 +170,11 @@ func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> voi
 	# Verify the TileSet has the source_id before setting
 	var tile_set = farmable_layer.tile_set
 	if not tile_set:
-		print("ERROR: TileSet is null!")
 		return
 	
 	# Check if the source_id exists in the TileSet
 	var source_exists = tile_set.has_source(tile_id)
 	if not source_exists:
-		print("ERROR: Source ID ", tile_id, " does not exist in TileSet! Available sources:", tile_set.get_source_count())
 		return
 	
 	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0), 0)

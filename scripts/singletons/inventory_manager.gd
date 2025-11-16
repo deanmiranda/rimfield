@@ -118,20 +118,16 @@ func update_inventory_slots(slot_index: int, item_texture: Texture) -> void:
 	if inventory_slots.has(slot_index):
 		inventory_slots[slot_index] = item_texture
 		#print("Inventory slot ", slot_index, " updated with texture: ", item_texture)
-	else:
-		print("Error: Slot index ", slot_index, " is out of bounds.")
 
 func sync_inventory_ui() -> void:
 	#print("Syncing UI with inventory_slots dictionary...")
 
 	if not inventory_instance:
-		print("Error: Inventory instance is null. Cannot sync UI.")
 		return
 
 	# Access the GridContainer for slots
 	var grid_container = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
 	if not grid_container:
-		print("Error: GridContainer node not found in inventory instance.")
 		return
 
 	# Sync slots with inventory dictionary
@@ -145,16 +141,13 @@ func sync_inventory_ui() -> void:
 			var item_texture = inventory_slots[i]
 			slot.texture_normal = item_texture if item_texture != null else null  # Update texture
 			#print("Updated slot: ", i, " with texture: ", item_texture)
-		else:
-			print("Warning: Slot", i, "is not a TextureButton or not found.")
-
+		
 	#print("Inventory UI sync complete.")
 
 # Toolkit tracking functions for drag/drop
 func add_item_from_toolkit(slot_index: int, texture: Texture) -> bool:
 	"""Add item to inventory from toolkit slot"""
 	if slot_index < 0 or slot_index >= max_inventory_slots:
-		print("Error: Inventory slot index ", slot_index, " is out of bounds.")
 		return false
 	
 	inventory_slots[slot_index] = texture
@@ -189,7 +182,6 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 		if hud:
 			hud_instance = hud
 		else:
-			print("Error: HUD instance not provided and not found in scene tree.")
 			return
 	
 	# Use GameConfig for toolkit slot count
@@ -200,7 +192,6 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 	# Access the HBoxContainer for toolkit slots
 	var slots_container = hud_instance.get_node_or_null("MarginContainer/HBoxContainer")
 	if not slots_container:
-		print("Error: HBoxContainer not found in HUD instance.")
 		return
 	
 	# Sync toolkit slots with UI
@@ -250,12 +241,10 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 # Assign textures to the UI slots
 func assign_textures_to_slots() -> void:
 	if not inventory_instance:
-		print("Error: No inventory instance available for assigning textures.")
 		return
 
 	var grid_container = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
 	if not grid_container:
-		print("Error: GridContainer node not found in inventory instance.")
 		return
 
 	var slots = grid_container.get_children()

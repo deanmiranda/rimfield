@@ -62,7 +62,6 @@ func _fix_children_mouse_filter() -> void:
 		if child is Control:
 			child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			child.focus_mode = Control.FOCUS_NONE
-			print("DEBUG: Fixed mouse_filter for child: ", child.name, " in inventory slot ", slot_index)
 
 func _process(_delta: float) -> void:
 	"""Update custom drag preview position"""
@@ -88,7 +87,6 @@ func _gui_input(event: InputEvent) -> void:
 	"""Handle manual drag and drop for inventory slots"""
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			print("DEBUG: Left mouse pressed on inventory slot ", slot_index, " - has item: ", item_texture != null, " is_locked: ", is_locked)
 			# Start drag if slot has an item and isn't locked
 			if item_texture and not is_locked:
 				_start_drag()
@@ -113,8 +111,6 @@ func _start_drag() -> void:
 	if is_locked or item_texture == null:
 		return
 	
-	print("DEBUG: Starting manual drag from inventory slot ", slot_index)
-	
 	is_dragging = true
 	original_texture = item_texture
 	
@@ -126,7 +122,6 @@ func _start_drag() -> void:
 
 func _stop_drag() -> void:
 	"""Stop drag operation - cleanup"""
-	print("DEBUG: Stopping drag from inventory slot ", slot_index)
 	
 	# Get mouse position for drop detection
 	var viewport = get_viewport()
@@ -147,7 +142,6 @@ func _stop_drag() -> void:
 	
 	# If drop failed, restore original texture
 	if not drop_success:
-		print("DEBUG: Drop failed, restoring item to inventory slot ", slot_index)
 		set_item(original_texture)
 	
 	is_dragging = false
@@ -178,8 +172,6 @@ func _create_drag_preview(texture: Texture) -> TextureRect:
 		var mouse_pos = viewport.get_mouse_position()
 		preview.global_position = mouse_pos - Vector2(16, 16)
 	
-	print("DEBUG: Created inventory drag preview on layer 100 at position: ", preview.global_position)
-	
 	return preview
 
 func _update_drag_preview_position() -> void:
@@ -192,39 +184,27 @@ func _update_drag_preview_position() -> void:
 
 func _handle_drop(drop_position: Vector2) -> bool:
 	"""Handle drop at position - inventory-to-inventory or inventory-to-toolkit"""
-	print("DEBUG: Handling drop from inventory slot ", slot_index, " at viewport position ", drop_position)
-	
 	var viewport = get_viewport()
 	var mouse_pos = viewport.get_mouse_position() if viewport else drop_position
-	print("DEBUG: Viewport mouse position: ", mouse_pos)
 	
 	# PRIORITY 1: Check toolkit slots (in HUD)
-	print("DEBUG: Checking toolkit slots in HUD")
 	var hud = _find_hud()
 	if hud:
-		print("DEBUG: Found HUD node: ", hud.name, " (type: ", hud.get_class(), ")")
-		print("DEBUG: HUD has ", hud.get_child_count(), " children:")
 		for i in range(hud.get_child_count()):
 			var child = hud.get_child(i)
-			print("DEBUG:   Child ", i, ": ", child.name, " (type: ", child.get_class(), ")")
 		
 		# Navigate the known path: HUD/MarginContainer/HBoxContainer
 		var margin_container = hud.get_node_or_null("MarginContainer")
 		if margin_container:
-			print("DEBUG: Found MarginContainer")
 			var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
 			if toolkit_container:
-				print("DEBUG: Found HBoxContainer (toolkit container) with ", toolkit_container.get_child_count(), " slots")
 				
 				for i in range(toolkit_container.get_child_count()):
 					var toolkit_slot = toolkit_container.get_child(i)
 					if toolkit_slot and toolkit_slot is TextureButton:
 						var slot_rect = toolkit_slot.get_global_rect()
-						print("DEBUG: Toolkit slot ", i, " global rect: ", slot_rect, " mouse: ", mouse_pos)
 						
 						if slot_rect.has_point(mouse_pos):
-							print("DEBUG: Dropping on toolkit slot ", i)
-							
 							# Create drag data in the format expected by toolkit slots
 							var drag_data = {
 								"slot_index": slot_index,
@@ -236,36 +216,24 @@ func _handle_drop(drop_position: Vector2) -> bool:
 							# Check if toolkit slot can accept this drop
 							if toolkit_slot.has_method("can_drop_data"):
 								var can_drop = toolkit_slot.can_drop_data(mouse_pos, drag_data)
-								print("DEBUG: Toolkit slot ", i, " can_drop: ", can_drop)
 								if can_drop and toolkit_slot.has_method("drop_data"):
 									toolkit_slot.drop_data(mouse_pos, drag_data)
-									print("DEBUG: Successfully dropped on toolkit slot ", i)
 									return true
-			else:
-				print("DEBUG: Could not find HBoxContainer in MarginContainer")
-		else:
-			print("DEBUG: Could not find MarginContainer in HUD")
-	else:
-		print("DEBUG: Could not find HUD")
 	
 	# PRIORITY 2: Check other inventory slots (in pause menu)
-	print("DEBUG: Checking other inventory slots")
 	var pause_menu = _find_pause_menu()
 	if pause_menu:
 		var inventory_grid = pause_menu.get_node_or_null("CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid")
 		if inventory_grid:
-			print("DEBUG: Found inventory grid with ", inventory_grid.get_child_count(), " slots")
 			for i in range(inventory_grid.get_child_count()):
 				var inventory_slot = inventory_grid.get_child(i)
 				if inventory_slot and inventory_slot is TextureButton and inventory_slot != self:
 					var slot_rect = inventory_slot.get_global_rect()
 					
 					if slot_rect.has_point(mouse_pos):
-						print("DEBUG: Dropping on inventory slot ", i)
 						
 						# Check if it's locked
 						if inventory_slot.is_locked:
-							print("DEBUG: Inventory slot ", i, " is locked - cannot drop")
 							continue
 						
 						# Swap items
@@ -278,34 +246,21 @@ func _handle_drop(drop_position: Vector2) -> bool:
 							InventoryManager.update_inventory_slots(i, original_texture)
 							InventoryManager.update_inventory_slots(slot_index, target_texture)
 						
-						print("DEBUG: Successfully swapped with inventory slot ", i)
 						return true
 	
-	print("DEBUG: No valid drop target found")
 	return false
 
 func _find_toolkit_container(node: Node) -> Node:
-	"""Recursively search for toolkit HBoxContainer"""
-	print("DEBUG: _find_toolkit_container checking node: ", node.name, " (type: ", node.get_class(), ") with ", node.get_child_count(), " children")
-	
 	# Debug: show what we're searching
 	if node is HBoxContainer and node.get_child_count() > 0:
-		print("DEBUG: Checking HBoxContainer '", node.name, "' with ", node.get_child_count(), " children")
 		var first_child = node.get_child(0)
-		print("DEBUG:   First child type: ", first_child.get_class(), " name: ", first_child.name)
 		
 		# Check if it's a TextureButton (toolkit slots are TextureButtons)
 		if first_child and first_child is TextureButton:
-			print("DEBUG:   First child IS a TextureButton, checking for _start_drag method...")
 			# Check if it has the hud_slot.gd script methods
 			if first_child.has_method("_start_drag"):
-				print("DEBUG: ✓ Found toolkit container with ", node.get_child_count(), " toolkit slots!")
 				return node
-			else:
-				print("DEBUG:   First child does NOT have _start_drag method")
-		else:
-			print("DEBUG:   First child is NOT a TextureButton")
-	
+
 	# Recursively check children
 	for child in node.get_children():
 		var result = _find_toolkit_container(child)
@@ -320,6 +275,8 @@ func _find_pause_menu() -> Node:
 
 func _search_for_pause_menu(node: Node) -> Node:
 	"""Recursively search for pause menu node"""
+	if not node:
+		return null
 	if node is Control and node.has_method("_setup_inventory_slots"):
 		return node
 	for child in node.get_children():
@@ -336,27 +293,21 @@ func _find_hud() -> Node:
 	# Search for the "Hud" node (root of hud.tscn instance)
 	var hud_root = _search_for_hud_root(get_tree().root)
 	if hud_root:
-		print("DEBUG: Found Hud root: ", hud_root.name)
 		# Get the HUD CanvasLayer child
 		var hud_canvas = hud_root.get_node_or_null("HUD")
 		if hud_canvas:
-			print("DEBUG: Found HUD CanvasLayer inside Hud root")
 			return hud_canvas
-		else:
-			print("DEBUG: No HUD child found in Hud root")
-	else:
-		print("DEBUG: Could not find Hud root node")
-	
 	return null
 
 func _search_for_hud_root(node: Node) -> Node:
 	"""Recursively search for Hud Node (root of hud.tscn)"""
+	if not node:
+		return null
 	# Look for a Node named "Hud" that has a CanvasLayer child named "HUD"
 	if node.name == "Hud" and node is Node:
 		# Verify it has an "HUD" CanvasLayer child
 		var hud_child = node.get_node_or_null("HUD")
 		if hud_child and hud_child is CanvasLayer:
-			print("DEBUG: Found Hud node with HUD CanvasLayer child")
 			return node
 	
 	# Recursively check children
@@ -369,10 +320,8 @@ func _search_for_hud_root(node: Node) -> Node:
 # Drag/drop functionality
 func get_drag_data(_position: Vector2) -> Variant:
 	"""Prepare for drag operation from inventory slot"""
-	print("DEBUG: get_drag_data() called on inventory slot ", slot_index, " - item_texture: ", item_texture, " is_locked: ", is_locked)
 	
 	if item_texture == null or is_locked:
-		print("DEBUG: Drag rejected - no item or slot is locked")
 		return null
 	
 	var drag_data = {
@@ -412,8 +361,6 @@ func get_drag_data(_position: Vector2) -> Variant:
 	# Start updating preview position
 	set_process(true)
 	
-	print("DEBUG: Created inventory drag preview on layer 100")
-	
 	# Still use set_drag_preview for Godot's drag system, but make it invisible
 	var invisible_preview = Control.new()
 	invisible_preview.modulate = Color(1, 1, 1, 0)  # Fully transparent
@@ -424,24 +371,19 @@ func get_drag_data(_position: Vector2) -> Variant:
 
 func can_drop_data(_position: Vector2, data: Variant) -> bool:
 	"""Check if data can be dropped here - with visual feedback"""
-	print("DEBUG: can_drop_data() called on inventory slot ", slot_index, " with data: ", data)
-	
 	var can_drop: bool = false
 	
 	# Cannot drop on locked slots
 	if is_locked:
-		print("DEBUG: Inventory slot ", slot_index, " is locked - cannot drop")
 		_reset_highlight()
 		return false
 	
 	# Validate data structure
 	if not data is Dictionary:
-		print("DEBUG: Drop data is not a Dictionary")
 		_reset_highlight()
 		return false
 	
 	if not data.has("item_texture"):
-		print("DEBUG: Drop data missing item_texture")
 		_reset_highlight()
 		return false
 	
@@ -450,7 +392,6 @@ func can_drop_data(_position: Vector2, data: Variant) -> bool:
 		var source: String = data["source"]
 		if source == "toolkit" or source == "inventory":
 			can_drop = true
-			print("DEBUG: Can drop ", source, " item in inventory slot ", slot_index)
 	
 	# Visual feedback: highlight valid drop targets
 	if can_drop:
@@ -458,12 +399,10 @@ func can_drop_data(_position: Vector2, data: Variant) -> bool:
 	else:
 		_reset_highlight()
 	
-	print("DEBUG: can_drop_data() returning ", can_drop, " for inventory slot ", slot_index)
 	return can_drop
 
 func drop_data(_position: Vector2, data: Variant) -> void:
 	"""Handle drop operation - swap items if slot is occupied"""
-	print("DEBUG: drop_data() called on inventory slot ", slot_index, " with data: ", data)
 	
 	# Clean up custom drag preview if it exists
 	_cleanup_drag_preview()
@@ -472,44 +411,30 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	_reset_highlight()
 	
 	if not data is Dictionary or not data.has("item_texture"):
-		print("DEBUG: Invalid drop data in inventory slot ", slot_index)
 		_show_invalid_drop_feedback()
 		return
 	
 	if is_locked:
-		print("DEBUG: Cannot drop on locked inventory slot ", slot_index)
 		_show_invalid_drop_feedback()
 		return  # Cannot drop on locked slots
 	
 	# Edge case: Dragging to same slot (no-op)
 	var source_slot_index = data.get("slot_index", -1)
 	if data.has("source") and data["source"] == "inventory" and source_slot_index == slot_index:
-		print("DEBUG: Dropping on same inventory slot - no-op")
 		return  # Same slot, no-op
 	
 	var from_item_texture: Texture = data["item_texture"]
 	var source_node = data.get("source_node", null)
 	
-	print("DEBUG: Dropping item in inventory slot ", slot_index, " from ", data.get("source", "unknown"))
-	print("DEBUG: Source node: ", source_node)
-	print("DEBUG: Current item in slot: ", item_texture)
-	print("DEBUG: Dropping item: ", from_item_texture)
-	
 	# Swap items if slot is occupied
 	var temp_texture: Texture = item_texture
 	set_item(from_item_texture)
-	print("DEBUG: Set item in inventory slot ", slot_index, " to: ", from_item_texture)
 	
 	# Update source slot if it's a node reference
 	if source_node and source_node.has_method("set_item"):
-		print("DEBUG: Updating source slot with swapped item: ", temp_texture)
 		source_node.set_item(temp_texture)
-	else:
-		print("DEBUG: Source node is null or doesn't have set_item method")
-	
 	# Emit signal to notify InventoryManager
 	emit_signal("slot_drop_received", slot_index, data)
-	print("DEBUG: drop_data() completed for inventory slot ", slot_index)
 
 func _highlight_valid_drop() -> void:
 	"""Highlight slot as valid drop target"""
@@ -543,7 +468,6 @@ func _cleanup_drag_preview() -> void:
 			custom_drag_preview.queue_free()
 		custom_drag_preview = null
 		set_process(false)
-		print("DEBUG: Cleaned up inventory drag preview")
 
 func _notification(what: int) -> void:
 	"""Handle cleanup when slot is removed or drag is cancelled"""
@@ -556,10 +480,8 @@ func _notification(what: int) -> void:
 
 func _receive_drop_from_toolkit(dropped_texture: Texture, source_slot_index: int, source_node: Node) -> bool:
 	"""Receive a drop from toolkit slot - returns true if successful"""
-	print("DEBUG: Receiving toolkit drop in inventory slot ", slot_index, " from toolkit slot ", source_slot_index)
 	
 	if is_locked:
-		print("DEBUG: Cannot drop on locked inventory slot")
 		return false
 	
 	# Get current item in this slot

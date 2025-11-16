@@ -87,14 +87,12 @@ func _get_actual_tile_size() -> Vector2:
 					if tile_region.size.x > 0 and tile_region.size.y > 0:
 						cached_tile_size = tile_region.size
 						tile_size_initialized = true
-						print("DEBUG: Tile size from get_tile_texture_region: ", cached_tile_size)
 						return cached_tile_size
 				# Fallback: try texture_region_size if set
 				var atlas_size = atlas_source.texture_region_size
 				if atlas_size.x > 0 and atlas_size.y > 0:
 					cached_tile_size = atlas_size
 					tile_size_initialized = true
-					print("DEBUG: Tile size from texture_region_size: ", cached_tile_size)
 					return cached_tile_size
 				# Last resort for atlas: use full texture size
 				if atlas_source.texture:
@@ -102,7 +100,6 @@ func _get_actual_tile_size() -> Vector2:
 					if tex_size.x > 0 and tex_size.y > 0:
 						cached_tile_size = tex_size
 						tile_size_initialized = true
-						print("DEBUG: Tile size from full texture size: ", cached_tile_size)
 						return cached_tile_size
 	
 	# FALLBACK: Measure cell spacing from adjacent cells
@@ -117,13 +114,11 @@ func _get_actual_tile_size() -> Vector2:
 	if calculated_size_x > 0 and calculated_size_y > 0:
 		cached_tile_size = Vector2(calculated_size_x, calculated_size_y)
 		tile_size_initialized = true
-		print("DEBUG: Tile size from map_to_local spacing: ", cached_tile_size)
 		return cached_tile_size
 	
 	# Ultimate fallback: use the exported tile_size variable
 	cached_tile_size = tile_size
 	tile_size_initialized = true
-	print("DEBUG: Using exported tile_size as fallback: ", cached_tile_size)
 	return cached_tile_size
 
 func _process(_delta: float) -> void:
@@ -154,10 +149,6 @@ func _process(_delta: float) -> void:
 	# Get actual tile size from TileSet (should be visual size, e.g., 64x64)
 	var actual_tile_size = _get_actual_tile_size()
 	
-	# Debug: Print tile size occasionally (throttled to avoid spam)
-	if Engine.get_process_frames() % 60 == 0:  # Print once per second
-		print("DEBUG: Tile highlighter - detected tile size: ", actual_tile_size)
-	
 	# IMPORTANT: map_to_local returns the CENTER of the cell, not the top-left!
 	# According to Godot docs, this is the position of the center of the cell
 	var tile_center_local = farmable_layer.map_to_local(tile_position)
@@ -165,10 +156,6 @@ func _process(_delta: float) -> void:
 	# Convert to global position for the sprite
 	var tile_center_global = farmable_layer.to_global(tile_center_local)
 	
-	# Debug positioning occasionally
-	if Engine.get_process_frames() % 60 == 0:
-		print("DEBUG: Tile cell: ", tile_position, " Tile center (local): ", tile_center_local, " Tile center (global): ", tile_center_global, " Visual tile size: ", actual_tile_size)
-
 	# Check if tile is within farmable layer bounds
 	var used_rect = farmable_layer.get_used_rect()
 	if used_rect.has_point(tile_position):
@@ -181,10 +168,7 @@ func _process(_delta: float) -> void:
 			if texture_size.x > 0 and texture_size.y > 0:
 				# Use actual_tile_size which should match the rendered tile size
 				sprite_scale = actual_tile_size / texture_size
-				# Debug: Print scaling info occasionally
-				if Engine.get_process_frames() % 60 == 0:
-					print("DEBUG: Highlight texture size: ", texture_size, " Tile size: ", actual_tile_size, " Scale: ", sprite_scale, " Result size: ", texture_size * sprite_scale)
-		
+			
 		highlight_sprite.scale = sprite_scale
 		
 		# Position sprite at tile center (Sprite2D positions from center)

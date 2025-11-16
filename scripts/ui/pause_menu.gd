@@ -426,11 +426,8 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 				if hud:
 					var tool_switcher = _find_tool_switcher_in_node(hud)
 					if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
-						print("DEBUG: Notifying ToolSwitcher about toolkit slot ", toolkit_slot_index, " change to: ", swapped_item)
 						tool_switcher.update_toolkit_slot(toolkit_slot_index, swapped_item)
-					else:
-						print("DEBUG: Could not find ToolSwitcher to notify")
-
+					
 func _find_tool_switcher_in_node(node: Node) -> Node:
 	"""Recursively search for ToolSwitcher node"""
 	if node.name == "ToolSwitcher":
