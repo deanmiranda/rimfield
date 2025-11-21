@@ -52,12 +52,13 @@ func _input(event: InputEvent) -> void:
 	# Use _input() instead of _process() polling (follows .cursor/rules/godot.md)
 	if player_in_zone and event.is_action_pressed("ui_interact") and not is_transitioning:
 		is_transitioning = true
-		# CRITICAL: await the async change_scene to ensure fade transition completes
-		await SceneManager.change_scene(HOUSE_SCENE_PATH, HOUSE_SPAWN_POSITION)
-		# Only handle input if viewport is available (may be null during scene transitions)
+		# CRITICAL: Mark input as handled BEFORE scene change to prevent other handlers from processing it
+		# After the scene changes, this node no longer exists, so we must handle it now
 		var viewport = get_viewport()
 		if viewport:
 			viewport.set_input_as_handled() # Prevent further processing
+		# CRITICAL: await the async change_scene to ensure fade transition completes
+		await SceneManager.change_scene(HOUSE_SCENE_PATH, HOUSE_SPAWN_POSITION)
 
 
 func _setup_screen_space_tooltip() -> void:

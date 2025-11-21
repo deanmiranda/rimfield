@@ -1209,11 +1209,9 @@ func _receive_drop(
 					if is_right_click_drag:
 						# Right-click: source keeps its original texture (unless all items were moved)
 						# CRITICAL: Skip ToolSwitcher if texture didn't change (it won't update count)
-						if source_remaining > 0 and dropped_texture != dropped_texture:
-							# This condition is intentionally impossible - same texture always
-							# We rely on direct set_item() call above, not ToolSwitcher
-							pass
-						elif source_remaining <= 0:
+						# In a stacking scenario, source slot keeps dropped_texture (same texture), so skip ToolSwitcher
+						# Only notify ToolSwitcher if source slot becomes empty or texture actually changed
+						if source_remaining <= 0:
 							tool_switcher.update_toolkit_slot(source_slot_index, null)
 						# else: same texture, already updated via set_item(), skip ToolSwitcher
 						print("DEBUG: Right-click stack - skipped ToolSwitcher for source (same texture)")

@@ -13,7 +13,6 @@ func _ready() -> void:
 	fade_rect = ColorRect.new()
 	fade_rect.color = Color.BLACK
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fade_rect)
 
 	# Set to fullscreen

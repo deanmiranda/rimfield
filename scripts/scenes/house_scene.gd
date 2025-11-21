@@ -40,3 +40,9 @@ func _ready():
 			print("Warning: HUD singleton not found in house_scene.")
 	else:
 		print("Error: HUD scene not assigned in house_scene!")
+	
+	# Inventory setup - CRITICAL: Initialize pause menu and inventory UI
+	if UiManager:
+		UiManager.instantiate_inventory()
+	else:
+		print("Error: UiManager singleton not found.")

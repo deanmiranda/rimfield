@@ -167,13 +167,23 @@ func _input(event: InputEvent) -> void:
 func _has_nearby_interactables() -> bool:
 	"""Check if there are any interactable objects nearby the player"""
 	# Find the player
+	# CRITICAL: Player is instantiated as Node2D root with CharacterBody2D child
+	# Structure: player_instance (Node2D "Player") -> "Player" (CharacterBody2D)
 	var player = get_tree().get_first_node_in_group("player")
 	if not player:
 		# Try alternative methods to find player
 		var current_scene = get_tree().current_scene
 		if current_scene:
+			# Search for Node2D roots that have a CharacterBody2D child named "Player"
 			for child in current_scene.get_children():
-				if child is CharacterBody2D and child.has_method("start_interaction"):
+				if child is Node2D and child.name == "Player":
+					# Found the player root - get the CharacterBody2D child
+					var player_body = child.get_node_or_null("Player")
+					if player_body and player_body is CharacterBody2D and player_body.has_method("start_interaction"):
+						player = player_body
+						break
+				elif child is CharacterBody2D and child.has_method("start_interaction"):
+					# Fallback: direct CharacterBody2D (shouldn't happen with current structure)
 					player = child
 					break
 
@@ -196,7 +206,8 @@ func _has_nearby_interactables() -> bool:
 	# 			return true  # Has nearby pickable items
 
 	# Check if player has an active interaction (e.g., house door)
-	if "current_interaction" in player:
+	# CRITICAL: Check if player is null before accessing properties to prevent null reference error
+	if player and "current_interaction" in player:
 		var current_interaction = player.get("current_interaction")
 		if current_interaction != null and current_interaction != "":
 			return true  # Has an active interaction

@@ -153,15 +153,18 @@ func _is_any_slot_dragging() -> bool:
 		hud = get_tree().current_scene.get_node_or_null("Hud")
 	
 	if hud:
-		var margin_container = hud.get_node_or_null("MarginContainer")
-		if margin_container:
-			var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
-			if toolkit_container:
-				for i in range(toolkit_container.get_child_count()):
-					var slot = toolkit_container.get_child(i)
-					if slot and slot is TextureButton:
-						if "is_dragging" in slot and slot.is_dragging:
-							return true
+		# CRITICAL: HUD structure is Hud (Node) -> HUD (CanvasLayer) -> MarginContainer -> HBoxContainer
+		var hud_canvas = hud.get_node_or_null("HUD")
+		if hud_canvas:
+			var margin_container = hud_canvas.get_node_or_null("MarginContainer")
+			if margin_container:
+				var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
+				if toolkit_container:
+					for i in range(toolkit_container.get_child_count()):
+						var slot = toolkit_container.get_child(i)
+						if slot and slot is TextureButton:
+							if "is_dragging" in slot and slot.is_dragging:
+								return true
 	
 	# Check inventory slots (only if pause menu is visible)
 	var pause_menu = null
