@@ -143,10 +143,65 @@ func _input(event: InputEvent) -> void:
 		elif pause_menu and pause_menu.visible:
 			toggle_pause_menu()  # Close pause menu
 
+	# Handle E key (ui_interact) - toggle menu like ESC (works even when menu is open)
+	elif event.is_action_pressed("ui_interact"):
+		# First, check if there are any interactable objects nearby
+		# If there are, let them handle the interaction instead of opening inventory
+		if _has_nearby_interactables():
+			# There are interactables nearby - don't open inventory, let them handle it
+			return
+
+		# No interactables nearby - toggle inventory (pause menu) with E key (like ESC)
+		toggle_pause_menu()
+
 	elif event.is_action_pressed("ui_inventory"):
 		# Disabled - inventory is now accessed via ESC pause menu
 		# toggle_inventory()
 		pass
+
+
+# NOTE: E key handling moved to _input() so it works even when pause menu is open
+# _unhandled_input() only fires if input wasn't handled, but pause menu handles input
+
+
+func _has_nearby_interactables() -> bool:
+	"""Check if there are any interactable objects nearby the player"""
+	# Find the player
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		# Try alternative methods to find player
+		var current_scene = get_tree().current_scene
+		if current_scene:
+			for child in current_scene.get_children():
+				if child is CharacterBody2D and child.has_method("start_interaction"):
+					player = child
+					break
+
+	if not player:
+		return false  # No player found, can't check for interactables
+
+	# Check if player has nearby pickables
+	# NOTE: Pickables are now picked up with right-click, not E key
+	# So we don't need to check for pickables when determining if E should open inventory
+	# (Right-click is handled separately in player.gd)
+	# if "nearby_pickables" in player:
+	# 	var nearby_pickables = player.get("nearby_pickables")
+	# 	if nearby_pickables is Array and nearby_pickables.size() > 0:
+	# 		# Filter out invalid entries
+	# 		var valid_pickables = []
+	# 		for pickable in nearby_pickables:
+	# 			if is_instance_valid(pickable):
+	# 				valid_pickables.append(pickable)
+	# 		if valid_pickables.size() > 0:
+	# 			return true  # Has nearby pickable items
+
+	# Check if player has an active interaction (e.g., house door)
+	if "current_interaction" in player:
+		var current_interaction = player.get("current_interaction")
+		if current_interaction != null and current_interaction != "":
+			return true  # Has an active interaction
+
+	return false  # No interactables nearby
 
 
 # Function to toggle pause menu visibility

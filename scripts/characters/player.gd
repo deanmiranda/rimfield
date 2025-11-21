@@ -5,19 +5,19 @@ extends CharacterBody2D
 
 # Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
 var game_config: Resource = null
-var speed: float = 200  # Default (will be overridden by GameConfig)
-var direction: Vector2 = Vector2.ZERO  # Tracks input direction
-var interactable: Node = null  # Stores the interactable object the player is near
-var farming_manager: Node = null  # Reference to the farming system
-var current_interaction: String = ""  # Track the current interaction
+var speed: float = 200 # Default (will be overridden by GameConfig)
+var direction: Vector2 = Vector2.ZERO # Tracks input direction
+var interactable: Node = null # Stores the interactable object the player is near
+var farming_manager: Node = null # Reference to the farming system
+var current_interaction: String = "" # Track the current interaction
 
 # Interaction system - signal-based sets (no polling)
-var nearby_pickables: Array = []  # Array of nearby pickable items
-var pickup_radius: float = 48.0  # Default (will be overridden by GameConfig)
+var nearby_pickables: Array = [] # Array of nearby pickable items
+var pickup_radius: float = 48.0 # Default (will be overridden by GameConfig)
 
-@onready var inventory_manager = InventoryManager  # Singleton reference
-@onready var sprite = $AnimatedSprite2D  # Reference to AnimatedSprite2D node
-@onready var interaction_area: Area2D = null  # Will be created in _ready
+@onready var inventory_manager = InventoryManager # Singleton reference
+@onready var sprite = $AnimatedSprite2D # Reference to AnimatedSprite2D node
+@onready var interaction_area: Area2D = null # Will be created in _ready
 
 
 func _ready() -> void:
@@ -30,9 +30,9 @@ func _ready() -> void:
 	# Create interaction Area2D for detecting nearby pickables
 	interaction_area = Area2D.new()
 	interaction_area.name = "InteractionArea"
-	interaction_area.monitorable = false  # This area detects, doesn't need to be detected
-	interaction_area.monitoring = true  # Enable monitoring
-	interaction_area.collision_mask = 2  # Detect items on collision layer 2
+	interaction_area.monitorable = false # This area detects, doesn't need to be detected
+	interaction_area.monitoring = true # Enable monitoring
+	interaction_area.collision_mask = 2 # Detect items on collision layer 2
 	add_child(interaction_area)
 
 	# Create collision shape for interaction radius
@@ -95,31 +95,91 @@ func _update_animation(input_direction: Vector2) -> void:
 			sprite.play("walk_up")
 
 
-func _process(_delta: float) -> void:
-	# Handle interaction input
-	if Input.is_action_just_pressed("ui_mouse_left"):
-		if farming_manager:
-			var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
-			# Let farming_manager handle the interaction
-			farming_manager.interact_with_tile(mouse_pos, global_position)
+func _input(event: InputEvent) -> void:
+	# CRITICAL: Don't process farming interactions here - moved to _unhandled_input()
+	# This ensures UI elements (toolkit, inventory) get priority and can handle clicks first
+	# Only check for dragging state to prevent conflicts
+	if event.is_action_pressed("ui_mouse_left") and not event.is_echo():
+		# CRITICAL: Don't trigger tool actions if player is dragging an item
+		# Check if any toolkit or inventory slot is currently dragging
+		if _is_any_slot_dragging():
+			# Don't mark as handled - let UI handle it if needed
+			return # Block tool action when dragging
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# CRITICAL: _unhandled_input() is called AFTER UI elements have had a chance to handle input
+	# This ensures UI elements (toolkit, inventory) get priority over world interactions
+	# Handle left-click for farming interactions (only if not handled by UI)
+	if event.is_action_pressed("ui_mouse_left") and not event.is_echo():
+		# CRITICAL: Don't trigger tool actions if player is dragging an item
+		if _is_any_slot_dragging():
+			return # Block tool action when dragging
+		
+		# Only process farming if UI didn't handle the click
+		if farming_manager:
+			var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
+			# Let farming_manager handle the interaction
+			# CRITICAL: This should only be called once per click, not every frame
+			farming_manager.interact_with_tile(mouse_pos, global_position)
+	
 	# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
 	# Tools are now managed entirely by ToolSwitcher based on slot selection
 	# Keyboard shortcuts (1-0) select slots via ToolSwitcher, which then updates farming_manager
 	# This ensures tools are tied to tool textures, not slot positions
-	pass
-
-	# Handle E key for contextual interaction
+	# Handle E key for door interactions (house entrance)
 	if event.is_action_pressed("ui_interact"):
-		# Prioritize pickables over doors
-		if nearby_pickables.size() > 0:
-			_pickup_nearest_item()
-		elif current_interaction == "house":
+		if current_interaction == "house":
 			# Door interaction is handled by house_interaction.gd
 			# This is just a fallback - door should handle its own input
 			pass
+
+	# Handle right-click for item pickup (vegetables, dropped items)
+	# Note: This won't conflict with toolkit right-click drag because UI elements
+	# capture input first. If right-click is over a toolkit slot, it won't reach here.
+	if event is InputEventMouseButton:
+		if event.button_index == 2 and event.pressed: # MOUSE_BUTTON_RIGHT = 2
+			# Right-click to pick up nearby items
+			if nearby_pickables.size() > 0:
+				_pickup_nearest_item()
+
+
+func _is_any_slot_dragging() -> bool:
+	"""Check if any toolkit or inventory slot is currently dragging an item"""
+	# Check toolkit slots
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		# Try alternative path
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	if hud:
+		var margin_container = hud.get_node_or_null("MarginContainer")
+		if margin_container:
+			var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
+			if toolkit_container:
+				for i in range(toolkit_container.get_child_count()):
+					var slot = toolkit_container.get_child(i)
+					if slot and slot is TextureButton:
+						if "is_dragging" in slot and slot.is_dragging:
+							return true
+	
+	# Check inventory slots (only if pause menu is visible)
+	var pause_menu = null
+	if UiManager and "pause_menu" in UiManager:
+		pause_menu = UiManager.pause_menu
+	
+	if pause_menu and pause_menu.visible:
+		var inventory_grid = pause_menu.get_node_or_null(
+			"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+		)
+		if inventory_grid:
+			for i in range(inventory_grid.get_child_count()):
+				var slot = inventory_grid.get_child(i)
+				if slot and slot is TextureButton:
+					if "is_dragging" in slot and slot.is_dragging:
+						return true
+	
+	return false
 
 
 func _on_interaction_area_body_entered(body: Node2D) -> void:

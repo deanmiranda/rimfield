@@ -16,8 +16,8 @@ var inventory_instance: Control = null
 
 # Use GameConfig Resource instead of magic number (follows .cursor/rules/godot.md)
 var game_config: Resource = null
-var max_inventory_slots: int = 12  # Default inventory size (will be overridden by GameConfig)
-var max_toolkit_slots: int = 10  # Default toolkit size (will be overridden by GameConfig)
+var max_inventory_slots: int = 12 # Default inventory size (will be overridden by GameConfig)
+var max_toolkit_slots: int = 10 # Default toolkit size (will be overridden by GameConfig)
 
 # Stack limits
 const MAX_TOOLBELT_STACK = 9
@@ -86,7 +86,7 @@ func add_item_auto_stack(item_texture: Texture, count: int = 1) -> int:
 	# Update UI
 	sync_inventory_ui()
 
-	return remaining  # Return any overflow
+	return remaining # Return any overflow
 
 
 # Add item to toolkit with auto-stacking
@@ -124,7 +124,7 @@ func add_item_to_toolkit_auto_stack(item_texture: Texture, count: int = 1) -> in
 	# Update UI
 	sync_toolkit_ui()
 
-	return remaining  # Return any overflow
+	return remaining # Return any overflow
 
 
 func get_first_empty_slot() -> int:
@@ -163,7 +163,7 @@ func remove_item_from_inventory(slot_index: int) -> void:
 
 # Instantiate the inventory UI and add it to the current scene tree
 func instantiate_inventory_ui(parent_node: Node = null) -> void:
-	if inventory_instance:  # Prevent duplicates
+	if inventory_instance: # Prevent duplicates
 		return
 
 	if not inventory_scene:
@@ -207,11 +207,11 @@ func add_item_to_first_empty_slot(item_data: Resource) -> bool:
 		var slot_data = inventory_slots.get(
 			slot_index, {"texture": null, "count": 0, "weight": 0.0}
 		)
-		if slot_data["texture"] == null or slot_data["count"] == 0:  # Check if the slot is empty
+		if slot_data["texture"] == null or slot_data["count"] == 0: # Check if the slot is empty
 			#print("Found empty slot: ", slot_index)
 			inventory_slots[slot_index] = {"texture": item_data.texture, "count": 1, "weight": 0.0}
 			#print("Item added to slot: ", slot_index, " Item ID: ", item_data.item_id)
-			sync_inventory_ui()  # Trigger UI update
+			sync_inventory_ui() # Trigger UI update
 			return true
 	return false
 
@@ -247,9 +247,9 @@ func sync_inventory_ui() -> void:
 	# Sync slots with inventory dictionary
 	for i in range(inventory_slots.size()):
 		if i >= grid_container.get_child_count():
-			break  # Stop if we exceed the available slots in GridContainer
+			break # Stop if we exceed the available slots in GridContainer
 
-		var slot = grid_container.get_child(i)  # Get slot by index
+		var slot = grid_container.get_child(i) # Get slot by index
 		if slot and slot is TextureButton:
 			var slot_data = inventory_slots.get(i, {"texture": null, "count": 0, "weight": 0.0})
 			var item_texture = slot_data["texture"]
@@ -294,7 +294,6 @@ func get_toolkit_item_count(slot_index: int) -> int:
 
 func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
 	"""Add item to toolkit slot (used when dragging from inventory)"""
-
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
 		return false
 
@@ -335,6 +334,14 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 			var item_texture = slot_data["texture"]
 			var item_count = slot_data["count"]
 
+			# CRITICAL: Don't overwrite slot if it's currently being dragged
+			var is_dragging = false
+			if texture_button and "is_dragging" in texture_button:
+				is_dragging = texture_button.is_dragging
+			
+			if is_dragging:
+				continue
+			
 			# Update the TextureButton itself (which is the hud_slot)
 			if texture_button.has_method("set_item"):
 				texture_button.set_item(item_texture, item_count)
@@ -364,13 +371,13 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 		var slot = hud.get_node_or_null(slot_path)
 
 		if slot:
-			if slot.texture != null:  # Skip if slot already has a item
+			if slot.texture != null: # Skip if slot already has a item
 				continue
 
 			# Directly assign the droppable's texture
 			if item_data and item_data.texture:
-				inventory_slots[i] = item_data.texture  # Update inventory slot for reference
-				slot.texture = item_data.texture  # Update HUD slot
+				inventory_slots[i] = item_data.texture # Update inventory slot for reference
+				slot.texture = item_data.texture # Update HUD slot
 				return true
 
 		else:
@@ -390,7 +397,7 @@ func assign_textures_to_slots() -> void:
 	var slots = grid_container.get_children()
 	for slot in slots:
 		if slot is TextureButton:
-			var slot_index = 0  # Declare slot_index before use
+			var slot_index = 0 # Declare slot_index before use
 			if not slot.has_meta("slot_index"):
 				slot_index = slots.find(slot)
 				slot.set_meta("slot_index", slot_index)

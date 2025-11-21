@@ -55,7 +55,7 @@ func _ready() -> void:
 	# Create tooltip label
 	tooltip_label = Label.new()
 	tooltip_label.name = "TooltipLabel"
-	tooltip_label.text = "Press E to collect"
+	tooltip_label.text = "Right-click to collect"
 	tooltip_label.visible = false
 	tooltip_label.modulate = Color(1, 1, 1, 0)  # Start invisible
 	tooltip_label.add_theme_font_size_override("font_size", 14)

@@ -272,6 +272,14 @@ if event.is_action_pressed("ui_jump"):
     jump()
 ```
 
+### Item Pickup Controls
+- **Right-click** is used for picking up items (vegetables, dropped items) when the player is nearby
+- **E key** is used for door interactions (house entrance)
+- **E key** opens inventory (pause menu) only if no interactable objects are nearby
+- Right-click on toolkit slots is for drag-and-drop (takes priority over world pickup)
+- The hover icon (plus icon) shows when items are nearby and becomes "enabled" when close enough
+- Future: Right-click pickup will trigger a character animation (pulling item out of ground)
+
 ## Scene Management
 
 ### Scene Transitions

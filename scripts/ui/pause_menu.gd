@@ -76,13 +76,13 @@ var stat_creativity: int = 50
 
 func _ready() -> void:
 	self.visible = false
-
+	
 	# Wait for nodes to be fully ready
 	await get_tree().process_frame
-
+	
 	# FIRST: Initialize inventory slots (create the 30 TextureButton children)
 	_setup_inventory_slots()
-
+	
 
 	# THEN: Register with InventoryManager and sync (now that slots exist!)
 	if InventoryManager and inventory_grid:
@@ -94,26 +94,26 @@ func _ready() -> void:
 		InventoryManager.sync_inventory_ui()
 	# Setup player sprite (use first frame of idle animation)
 	_setup_player_sprite()
-
+	
 	# Ensure player info section is visible and properly sized
 	if inventory_tab:
 		var player_info = inventory_tab.get_node_or_null("VBoxContainer/PlayerInfoContainer")
 		if player_info:
 			player_info.visible = true
 			player_info.custom_minimum_size = Vector2(0, 200) # Force minimum size
-
+	
 	# Update all UI elements
 	_update_ui()
-
+	
 	# Connect tab change signal for extensibility
 	if tab_container:
 		tab_container.tab_changed.connect(_on_tab_changed)
 		# Set default tab to Inventory (index 0)
 		tab_container.current_tab = 0
-
+	
 	# Connect MainMenu tab button signals
 	_connect_main_menu_signals()
-
+	
 	# Hide save feedback initially
 	if save_feedback_label:
 		save_feedback_label.visible = false
@@ -123,20 +123,20 @@ func _setup_inventory_slots() -> void:
 	"""Create and configure all inventory slots (30 total, bottom 6 locked)"""
 	if not inventory_grid:
 		return
-
+	
 	# Make sure grid is visible
 	inventory_grid.visible = true
-
+	
 	# Load empty slot texture
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
 	var slot_script = load("res://scripts/ui/inventory_menu_slot.gd")
-
+	
 	if not slot_script:
 		return
-
+	
 	# Load border texture for slot outlines (like existing inventory)
 	var border_texture = preload("res://assets/ui/tile_outline.png")
-
+	
 	# Create 30 slots (3 columns x 10 rows)
 	var slots = []
 	for i in range(INVENTORY_SLOTS_TOTAL):
@@ -159,7 +159,7 @@ func _setup_inventory_slots() -> void:
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		slot.focus_mode = Control.FOCUS_CLICK
 		slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-
+		
 		# Add background style for slots (removed white test background)
 		var bg_style = StyleBoxFlat.new()
 		bg_style.bg_color = Color(0.3, 0.3, 0.3, 1.0) # Dark gray background
@@ -172,18 +172,18 @@ func _setup_inventory_slots() -> void:
 		slot.add_theme_stylebox_override("hover", bg_style.duplicate())
 		slot.add_theme_stylebox_override("pressed", bg_style.duplicate())
 		slot.add_theme_stylebox_override("disabled", bg_style.duplicate())
-
+		
 		# Add border TextureRect as child (exactly like existing inventory slots)
 		# Must add AFTER slot is in tree for proper layout
 		# We'll add it after adding to grid
-
+		
 		# Lock bottom 2 rows (slots 24-29)
 		if i >= INVENTORY_SLOTS_ACTIVE:
 			slot.is_locked = true
-
+		
 		inventory_grid.add_child(slot)
 		slots.append({"slot": slot, "index": i})
-
+		
 		# Add border TextureRect AFTER slot is in tree (like existing inventory)
 		var border_rect = TextureRect.new()
 		border_rect.name = "Border"
@@ -204,14 +204,14 @@ func _setup_inventory_slots() -> void:
 		border_rect.z_as_relative = false
 		border_rect.visible = true
 		slot.add_child(border_rect)
-
+		
 	# Force grid to update layout
 	inventory_grid.queue_sort()
-
+	
 	# Wait for layout to update
 	await get_tree().process_frame
 	await get_tree().process_frame
-
+	
 	# Connect slot signals after all slots are added to tree
 	await get_tree().process_frame
 	for slot_data in slots:
@@ -226,7 +226,7 @@ func _setup_player_sprite() -> void:
 	"""Setup player sprite using first frame of idle animation"""
 	if not player_sprite:
 		return
-
+	
 	# Use the player sprite atlas - first frame of idle (stand_down)
 	# Region: Rect2(0, 0, 32, 32) from char1.png
 	var player_texture = preload("res://assets/sprites/char1.png")
@@ -339,8 +339,8 @@ func _notification(what: int) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	"""Handle ESC key - close menu if open"""
-	# Don't process ESC on main menu - only during gameplay
+	"""Handle ESC and E keys - close menu if open"""
+	# Don't process on main menu - only during gameplay
 	var current_scene = get_tree().current_scene
 	if current_scene:
 		# Check both scene name and scene file path to be safe
@@ -348,9 +348,9 @@ func _input(event: InputEvent) -> void:
 		var scene_file = current_scene.scene_file_path
 		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
 			return
-
-	# Handle ESC to close menu (UiManager also handles this, but we ensure it works)
-	if event.is_action_pressed("ui_cancel"):
+	
+	# Handle ESC or E key to close menu (UiManager also handles this, but we ensure it works)
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_interact"):
 		if self.visible:
 			# Close the menu
 			self.visible = false
@@ -384,7 +384,7 @@ func _on_save_game_pressed() -> void:
 	# Provide feedback for saving
 	if not save_feedback_label:
 		return
-
+	
 	save_feedback_label.visible = true
 	save_feedback_label.text = "Game Saving..."
 
@@ -405,14 +405,14 @@ func _on_save_game_pressed() -> void:
 					save_count += 1
 				file_name = save_dir.get_next()
 			save_dir.list_dir_end()
-
+		
 		# Set feedback text based on the save count
 		if save_count > 4:
 			save_feedback_label.text = "Game Saved! If you save again, older saves will be overwritten."
-
+			
 			# Force an immediate UI update after changing the text
 			await get_tree().process_frame # Allow one frame to process to update the label
-
+			
 			# Longer delay for the special warning message
 			await get_tree().create_timer(2.0).timeout # 2-second delay for longer message
 			save_feedback_label.visible = false
@@ -430,7 +430,7 @@ func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
 	# Unpause the game before switching to the main menu
 	get_tree().paused = false
-
+	
 	# Assuming there's a SceneManager singleton that handles scene transitions
 	if SceneManager:
 		SceneManager.change_scene("res://scenes/ui/main_menu.tscn")
@@ -449,7 +449,7 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 	"""Handle inventory slot drop - notify ToolSwitcher (InventoryManager already updated in drop_data)"""
 	# NOTE: InventoryManager is now updated in inventory_menu_slot.drop_data() BEFORE UI swap
 	# This signal handler only needs to notify ToolSwitcher about toolkit changes
-
+	
 	# If item came from toolkit, notify ToolSwitcher about the toolkit slot change
 	if data.has("source") and data["source"] == "toolkit":
 		var toolkit_slot_index = data.get("slot_index", -1)
@@ -459,7 +459,7 @@ func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void
 			var swapped_item: Texture = null
 			if source_node and source_node.has_method("get_item"):
 				swapped_item = source_node.get_item()
-
+			
 			# CRITICAL: Notify ToolSwitcher about the toolkit slot change
 			# Find ToolSwitcher in the HUD
 			var hud = get_tree().root.get_node_or_null("HUD")

@@ -1,4 +1,4 @@
-extends Node2D  # Assuming the root of house_scene is Node2D
+extends Node2D # Assuming the root of house_scene is Node2D
 
 var hud_instance: Node
 var hud_scene_path = preload("res://scenes/ui/hud.tscn")
@@ -13,12 +13,14 @@ func _ready():
 	# Use spawn position from SceneManager if set, otherwise default to entrance (far from exit)
 	if SceneManager and SceneManager.player_spawn_position != Vector2.ZERO:
 		player_instance.global_position = SceneManager.player_spawn_position
-		SceneManager.player_spawn_position = Vector2.ZERO  # Reset after use
+		SceneManager.player_spawn_position = Vector2.ZERO # Reset after use
 	else:
 		# Default spawn: inside house, far from the exit doorway (exit is at y=86)
 		player_instance.global_position = Vector2(-8, 54)
 
 	# Force camera to snap to player position immediately (no smooth transition)
+	# CRITICAL: Access PlayerCamera using two-step path to match actual player scene structure
+	# Structure: player_instance (root Node2D "Player") -> "Player" (CharacterBody2D) -> "PlayerCamera" (Camera2D)
 	var player_node = player_instance.get_node_or_null("Player")
 	if player_node:
 		var camera = player_node.get_node_or_null("PlayerCamera")
