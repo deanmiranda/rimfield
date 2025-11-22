@@ -342,9 +342,45 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 			if is_dragging:
 				continue
 			
-			# Update the TextureButton itself (which is the hud_slot)
-			if texture_button.has_method("set_item"):
-				texture_button.set_item(item_texture, item_count)
+			# CRITICAL: Check current UI state before updating
+			# If dictionary says slot is empty but UI has an item, preserve the UI item
+			var current_ui_texture: Texture = null
+			var current_ui_count: int = 0
+			
+			if texture_button.has_method("get_item"):
+				current_ui_texture = texture_button.get_item()
+				if texture_button.has_method("get_stack_count"):
+					current_ui_count = texture_button.get_stack_count()
+				elif current_ui_texture:
+					current_ui_count = 1
+			else:
+				# Fallback: check child TextureRect
+				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
+				if hud_slot and hud_slot is TextureRect:
+					current_ui_texture = hud_slot.texture
+					if current_ui_texture:
+						current_ui_count = 1
+			
+			# CRITICAL: If UI has an item but dictionary says empty, SKIP updating that slot
+			# This preserves pre-loaded items that aren't in the dictionary yet
+			if current_ui_texture and not item_texture:
+				# UI has item but dictionary doesn't - preserve UI item, update dictionary
+				toolkit_slots[i] = {"texture": current_ui_texture, "count": current_ui_count, "weight": 0.0}
+				continue # SKIP updating this slot - preserve what's in UI
+			
+			# Only update if the texture or count actually changed
+			var needs_update = false
+			if current_ui_texture != item_texture:
+				needs_update = true
+			elif current_ui_texture and current_ui_count != item_count:
+				needs_update = true
+			elif item_texture and not current_ui_texture:
+				needs_update = true
+			
+			if needs_update:
+				# Update the TextureButton itself (which is the hud_slot)
+				if texture_button.has_method("set_item"):
+					texture_button.set_item(item_texture, item_count)
 			else:
 				# Fallback: update child TextureRect
 				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
@@ -505,6 +541,54 @@ func _sync_initial_toolkit_from_ui() -> void:
 			# Populate toolkit_slots with the found texture
 			if slot_texture:
 				toolkit_slots[i] = {"texture": slot_texture, "count": 1, "weight": 0.0}
+
+
+func _sync_toolkit_from_ui() -> void:
+	"""Sync toolkit_slots dictionary FROM current UI state (preserves pre-loaded items)"""
+	# CRITICAL: Use HUD singleton's cached reference instead of searching tree
+	var hud_instance = null
+	if HUD and HUD.hud_scene_instance:
+		hud_instance = HUD.hud_scene_instance.get_node_or_null("HUD")
+	
+	# Fallback: search tree if cached reference not available
+	if not hud_instance:
+		var hud_root = _find_hud_root(get_tree().root)
+		if hud_root:
+			hud_instance = hud_root.get_node_or_null("HUD")
+	
+	if not hud_instance:
+		return
+
+	var slots_container = hud_instance.get_node_or_null("MarginContainer/HBoxContainer")
+	if not slots_container:
+		return
+
+	# Read each toolkit slot from the UI and update toolkit_slots dictionary
+	for i in range(min(max_toolkit_slots, slots_container.get_child_count())):
+		var texture_button = slots_container.get_child(i)
+		if texture_button and texture_button is TextureButton:
+			# Try to get the texture from the slot
+			var slot_texture: Texture = null
+			var slot_count: int = 0
+
+			# Check if the button has get_item method (hud_slot extends TextureButton)
+			if texture_button.has_method("get_item"):
+				slot_texture = texture_button.get_item()
+				# CRITICAL: Read actual stack count from hud_slot
+				if texture_button.has_method("get_stack_count"):
+					slot_count = texture_button.get_stack_count()
+				elif slot_texture:
+					slot_count = 1 # Default to 1 if texture exists but no count method
+			else:
+				# Fallback: check child TextureRect
+				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
+				if hud_slot and hud_slot is TextureRect:
+					slot_texture = hud_slot.texture
+					if slot_texture:
+						slot_count = 1 # TextureRect doesn't have count, default to 1
+
+			# Update toolkit_slots dictionary with current UI state
+			toolkit_slots[i] = {"texture": slot_texture, "count": slot_count, "weight": 0.0}
 
 ##Debug functions
 ## Populate the inventory with only a single test item for drag-and-drop testing
