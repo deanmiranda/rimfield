@@ -7,11 +7,48 @@ This document outlines the current development priorities and next steps for the
 ## 🎯 Current Focus: Inventory Drag and Drop
 
 **Priority:** HIGH  
-**Status:** IN PROGRESS  
+**Status:** IN PROGRESS - Fixing Right-Click Bugs  
 **Goal:** Fix left and right click behaviors for inventory drag and drop system
 
-### Current Issue
-The inventory drag and drop system has left-click drag working, but right-click behavior needs to be implemented. Both left and right click behaviors need refinement to work correctly across inventory and toolkit slots.
+### Current Status
+- ✅ **Left-click drag and drop:** Working great!
+- ⚠️ **Right-click drag and drop:** 90% working, 2 critical bugs remaining
+
+### Critical Bugs to Fix (Right-Click)
+
+#### Bug 2.a: Items Destroyed Instead of Swapped ✅ FIXED
+**Problem:** When right-click dragging multiple items (e.g., 2 items from a stack of 7) and dropping on a target slot with different item type, the target slot items are destroyed and replaced instead of being swapped back to the ghost slot.
+
+**Expected Behavior:** 
+- Ghost slot items → Target slot
+- Target slot items → Ghost slot (swap, don't destroy)
+
+**Status:** ✅ FIXED
+- Updated `drop_data()` in `inventory_menu_slot.gd` to swap target items to ghost slot instead of keeping remaining items on cursor
+- When right-click dragging different item types with remaining items, target items now go to ghost slot (swap)
+
+**Files Modified:**
+- `scripts/ui/inventory_menu_slot.gd` - `drop_data()` function (line ~1255-1290)
+
+#### Bug 2.a.1: Items Destroyed on Invalid Drop ✅ FIXED
+**Problem:** When dropping items into invalid locations (not a slot, not world map area), items are destroyed instead of returning to source slot.
+
+**Expected Behavior:**
+- Items should return to source slot if dropped in invalid location
+- Guard against dropping in illegal positions:
+  - Not a valid inventory slot
+  - Not a valid toolkit slot  
+  - Not a valid world map area
+  - Any other invalid position
+
+**Status:** ✅ FIXED
+- Updated `_stop_drag()` in both files to restore items when drop fails on valid UI slots
+- Added guards to prevent item destruction on invalid drops
+- Items now restore to source slot if drop fails
+
+**Files Modified:**
+- `scripts/ui/inventory_menu_slot.gd` - `_stop_drag()` function (line ~395-402)
+- `scripts/ui/hud_slot.gd` - `_stop_drag()` function (line ~367-380)
 
 ### Known Bugs (To Address After Drag/Drop)
 - **Tool Interaction Range Issue:** Tools currently work when clicking anywhere, not just on tiles near the character. Should only work on the 8 tiles closest to the character (3x3 grid minus center). Files: `scripts/game_systems/farming_manager.gd`, `scripts/scenes/farm_scene.gd`

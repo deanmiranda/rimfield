@@ -26,6 +26,9 @@ var original_stack_count: int = 0 # Store original stack count
 var _is_right_click_drag: bool = false # Track if this is a right-click drag
 var drag_count: int = 0 # Number of items being dragged (for right-click accumulation)
 var drag_preview_label: Label = null # Label for showing drag count
+var has_swapped_items_in_ghost: bool = false # Track if ghost slot has swapped items (prevent cleanup)
+var source_remaining_texture: Texture = null # Store source slot's remaining texture after swap
+var source_remaining_count: int = 0 # Store source slot's remaining count after swap
 
 const MAX_INVENTORY_STACK = 99
 
@@ -291,6 +294,16 @@ func _start_right_click_drag() -> void:
 	if item_texture == null or stack_count <= 0:
 		return # No item to drag
 
+	# CRITICAL: Check if there's already a drag in progress from another slot with a different item type
+	# Ghost slot can only hold one type of item - cancel any existing drag with different type
+	# Check both inventory slots AND toolkit slots
+	var existing_drag_texture = _find_existing_drag_texture()
+	if existing_drag_texture != null and existing_drag_texture != item_texture:
+		# Different item type - cancel the old drag
+		print("DEBUG inventory: Canceling existing drag with different item type (existing=", existing_drag_texture, " new=", item_texture, ")")
+		_cancel_existing_drag_from_other_slot()
+		_cancel_existing_drag_from_toolkit()
+
 	# If already dragging the same item from THIS slot, add one more to the drag count
 	if is_dragging and _is_right_click_drag and original_texture == item_texture:
 		# CRITICAL: Can't drag more than the original stack count (prevent creating items)
@@ -392,14 +405,23 @@ func _stop_drag() -> void:
 		print("DEBUG inventory _stop_drag: After _handle_drop(), is_dragging is false - drop was already handled")
 		return
 	
-	# If drop didn't succeed on UI, check if clicking on world (throw-to-world)
+	# CRITICAL BUG FIX 2.a.1: If drop didn't succeed on UI, check if clicking on world (throw-to-world)
+	# OR if clicking on invalid location (UI panel but not a slot), restore items
 	if not drop_success:
-		# Check if mouse is over any UI Control node
-		var is_over_ui = _is_mouse_over_ui(drop_position)
-		if not is_over_ui:
-			# Not over UI - throw to world
+		# Check if mouse is over any valid UI slot (toolkit or inventory)
+		var is_over_valid_slot = _is_mouse_over_ui(drop_position)
+		if not is_over_valid_slot:
+			# Not over valid UI slot - check if it's a valid world area
+			# TODO: Add world drop validation when world drop is implemented
+			# For now, try to throw to world, but if that fails, restore items
 			_throw_to_world(drop_position)
-			drop_success = true # Mark as successful to prevent cancel
+			# If throw_to_world succeeds, it will handle the drop
+			# If it fails, drop_success stays false and items will be restored below
+		else:
+			# Over UI slot but drop failed - might be locked slot or other issue
+			# CRITICAL: Restore items to prevent destruction
+			print("DEBUG inventory _stop_drag: Drop failed on valid UI slot - restoring items to prevent destruction")
+			drop_success = false # Keep as false to trigger restore
 
 	# Clean up drag preview and its parent layer
 	if drag_preview:
@@ -436,14 +458,44 @@ func _stop_drag_cleanup() -> void:
 	"""Clean up drag state without handling drop (called by drop handler)"""
 	print("DEBUG inventory _stop_drag_cleanup: Cleaning up drag state - is_dragging=", is_dragging, " _is_right_click_drag=", _is_right_click_drag, " original_stack_count=", original_stack_count, " drag_count=", drag_count)
 	
-	# Clean up drag preview and its parent layer
+	# CRITICAL: Don't cleanup if we have swapped items in ghost slot - user needs to continue dragging
+	if has_swapped_items_in_ghost:
+		print("DEBUG inventory _stop_drag_cleanup: SKIPPING cleanup - swapped items in ghost slot, user can continue dragging")
+		return
+	
+	# CRITICAL: Disable process FIRST to stop updating drag preview position
+	set_process(false)
+	
+	# CRITICAL: Clean up drag preview immediately
+	# Clean up drag_preview (the actual drag preview we use)
 	if drag_preview:
+		# Hide it immediately before freeing
+		drag_preview.visible = false
 		var drag_layer = drag_preview.get_parent()
 		if drag_layer and drag_layer.name == "InventoryDragPreviewLayer":
+			# Free the entire layer (which contains the preview)
+			# CRITICAL: Also hide the layer immediately
+			drag_layer.visible = false
 			drag_layer.queue_free()
+			print("DEBUG inventory _stop_drag_cleanup: Freed drag layer with preview")
 		else:
+			# Fallback: free just the preview
 			drag_preview.queue_free()
+			print("DEBUG inventory _stop_drag_cleanup: Freed drag preview directly")
 		drag_preview = null
+	
+	# CRITICAL: Also search for any orphaned InventoryDragPreviewLayer in the scene tree
+	# This handles cases where drag_preview reference was lost but layer still exists
+	var root = get_tree().root
+	if root:
+		for child in root.get_children():
+			if child.name == "InventoryDragPreviewLayer":
+				print("DEBUG inventory _stop_drag_cleanup: Found orphaned drag layer, cleaning up")
+				child.visible = false
+				child.queue_free()
+	
+	# Also clean up custom_drag_preview if it exists
+	_cleanup_drag_preview()
 	
 	# Clean up drag preview label
 	if drag_preview_label:
@@ -456,14 +508,12 @@ func _stop_drag_cleanup() -> void:
 	# Clear drag state
 	is_dragging = false
 	_is_right_click_drag = false
+	has_swapped_items_in_ghost = false
 	drag_count = 0
 	original_texture = null
 	original_stack_count = 0
 	
 	print("DEBUG inventory _stop_drag_cleanup: AFTER cleanup - is_dragging=", is_dragging, " _is_right_click_drag=", _is_right_click_drag, " original_stack_count=", original_stack_count)
-	
-	# Disable process
-	set_process(false)
 
 
 func _update_drag_preview_count(new_count: int) -> void:
@@ -535,6 +585,143 @@ func _create_drag_preview(texture: Texture, count: int = 0) -> TextureRect:
 		preview.add_child(drag_preview_label)
 
 	return preview
+
+
+func _cancel_existing_drag_from_other_slot() -> void:
+	"""Cancel any existing drag from another inventory slot (prevents multiple item types in ghost slot)"""
+	# Find the pause menu which contains all inventory slots
+	var pause_menu = _find_pause_menu()
+	if not pause_menu:
+		return
+	
+	# Find the inventory grid container (using the correct path)
+	var inventory_grid = pause_menu.get_node_or_null(
+		"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+	)
+	if not inventory_grid:
+		return
+	
+	# Search all inventory slots for one that's currently dragging
+	for slot in inventory_grid.get_children():
+		if slot and slot != self: # Don't cancel our own drag
+			# Check if slot has the dragging properties
+			if "is_dragging" in slot:
+				# Check if it's a right-click drag by checking the private variable
+				var is_right_click = false
+				if "_is_right_click_drag" in slot:
+					is_right_click = slot._is_right_click_drag
+				
+				if slot.is_dragging and is_right_click:
+					# Found the slot that's dragging - restore its items and clean up
+					print("DEBUG inventory: Canceling drag from slot ", slot.slot_index if "slot_index" in slot else "unknown")
+					
+					# Restore items to the source slot
+					if "original_texture" in slot and "original_stack_count" in slot:
+						var restore_texture = slot.original_texture
+						var restore_count = slot.original_stack_count
+						
+						# Update InventoryManager
+						if InventoryManager and restore_texture:
+							var slot_idx = slot.slot_index if "slot_index" in slot else -1
+							if slot_idx >= 0:
+								InventoryManager.update_inventory_slots(slot_idx, restore_texture, restore_count)
+						
+						# Update UI
+						if slot.has_method("set_item"):
+							slot.set_item(restore_texture, restore_count)
+					
+					# Clean up the drag state
+					if slot.has_method("_stop_drag_cleanup"):
+						slot._stop_drag_cleanup()
+					
+					break
+
+
+func _find_existing_drag_texture() -> Texture:
+	"""Find the texture of any existing drag (from inventory or toolkit)"""
+	# Check drag layer in scene tree first (fastest check)
+	var root = get_tree().root
+	if root:
+		for child in root.get_children():
+			if child.name == "InventoryDragPreviewLayer":
+				var existing_preview = child.get_child(0) if child.get_child_count() > 0 else null
+				if existing_preview and existing_preview is TextureRect:
+					return existing_preview.texture
+	
+	# Also check inventory slots directly
+	var pause_menu = _find_pause_menu()
+	if pause_menu:
+		var inventory_grid = pause_menu.get_node_or_null(
+			"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+		)
+		if inventory_grid:
+			for slot in inventory_grid.get_children():
+				if slot and slot != self and "is_dragging" in slot:
+					var is_right_click = false
+					if "_is_right_click_drag" in slot:
+						is_right_click = slot._is_right_click_drag
+					
+					if slot.is_dragging and is_right_click and "original_texture" in slot:
+						return slot.original_texture
+	
+	# Also check toolkit slots
+	var hud = _find_hud()
+	if hud:
+		var slots_container = hud.get_node_or_null("MarginContainer/HBoxContainer")
+		if slots_container:
+			for slot in slots_container.get_children():
+				if slot and "is_dragging" in slot:
+					var is_right_click = false
+					if "_is_right_click_drag" in slot:
+						is_right_click = slot._is_right_click_drag
+					
+					if slot.is_dragging and is_right_click and "original_texture" in slot:
+						return slot.original_texture
+	
+	return null
+
+
+func _cancel_existing_drag_from_toolkit() -> void:
+	"""Cancel any existing drag from a toolkit slot (prevents multiple item types in ghost slot)"""
+	var hud = _find_hud()
+	if not hud:
+		return
+	
+	var slots_container = hud.get_node_or_null("MarginContainer/HBoxContainer")
+	if not slots_container:
+		return
+	
+	# Search all toolkit slots for one that's currently dragging
+	for slot in slots_container.get_children():
+		if slot and "is_dragging" in slot:
+			var is_right_click = false
+			if "_is_right_click_drag" in slot:
+				is_right_click = slot._is_right_click_drag
+			
+			if slot.is_dragging and is_right_click:
+				# Found the slot that's dragging - restore its items and clean up
+				print("DEBUG inventory: Canceling drag from toolkit slot ", slot.slot_index if "slot_index" in slot else "unknown")
+				
+				# Restore items to the source slot
+				if "original_texture" in slot and "original_stack_count" in slot:
+					var restore_texture = slot.original_texture
+					var restore_count = slot.original_stack_count
+					
+					# Update InventoryManager
+					if InventoryManager and restore_texture:
+						var slot_idx = slot.slot_index if "slot_index" in slot else -1
+						if slot_idx >= 0:
+							InventoryManager.add_item_to_toolkit(slot_idx, restore_texture, restore_count)
+					
+					# Update UI
+					if slot.has_method("set_item"):
+						slot.set_item(restore_texture, restore_count)
+				
+				# Clean up the drag state
+				if slot.has_method("_stop_drag_cleanup"):
+					slot._stop_drag_cleanup()
+				
+				break
 
 
 func _update_drag_preview_position() -> void:
@@ -1003,6 +1190,19 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	var source_node = data.get("source_node", null)
 	var source: String = data.get("source", "unknown")
 	
+	# CRITICAL GUARD: Prevent duplicate drops - if source is not dragging, drop already happened
+	if source_node and "is_dragging" in source_node and not source_node.is_dragging:
+		print("DEBUG inventory drop_data: GUARD - Source not dragging, drop already processed, ignoring duplicate")
+		return
+	
+	# CRITICAL GUARD: Validate drop data to prevent item creation/destruction
+	if from_stack_count <= 0:
+		print("DEBUG inventory drop_data: GUARD - Invalid drop count (", from_stack_count, "), rejecting drop")
+		return
+	if not from_item_texture:
+		print("DEBUG inventory drop_data: GUARD - Invalid drop texture (null), rejecting drop")
+		return
+	
 	# CRITICAL: Check drag data FIRST for right-click drag flag (more reliable)
 	var is_right_click_drag: bool = data.get("is_right_click_drag", false)
 	var source_original_stack_count: int = data.get("original_stack_count", 0)
@@ -1227,74 +1427,115 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	# For right-click drags from inventory, preserve the remaining stack
 	elif source == "inventory" and source_slot_index >= 0 and is_right_click_drag and source_original_stack_count > 0:
 		# Right-click drag: source should have (original - dragged) items remaining, plus swapped item
-		var source_remaining = source_original_stack_count - from_stack_count
-		print("DEBUG inventory drop_data: Right-click drop from inventory - original=", source_original_stack_count, " dragged=", from_stack_count, " remaining=", source_remaining, " temp_texture=", temp_texture)
+		# CRITICAL: If we have swapped items in ghost slot, this is the SECOND drop (dropping the swapped items)
+		# The source slot already shows remaining items, so we just need to place the swapped items
+		# and clear the swapped state - DO NOT UPDATE SOURCE SLOT
+		var skip_source_update = false
+		if source_node and "has_swapped_items_in_ghost" in source_node and source_node.has_swapped_items_in_ghost:
+			if "source_remaining_texture" in source_node and "source_remaining_count" in source_node:
+				print("DEBUG inventory drop_data: Dropping swapped items from ghost slot - source slot already correct, skipping update")
+				# Source slot is already correct - don't touch it
+				# Just clear the swapped state so cleanup can happen
+				source_node.has_swapped_items_in_ghost = false
+				# Use stored remaining values - source slot should NOT be updated
+				var source_remaining = source_node.source_remaining_count
+				# Update InventoryManager to ensure consistency (source slot already has correct items)
+				if InventoryManager and source_node.source_remaining_texture:
+					InventoryManager.update_inventory_slots(source_slot_index, source_node.source_remaining_texture, source_remaining)
+				# CRITICAL: Skip all source slot update logic below - it's already correct
+				skip_source_update = true
+				# CRITICAL: Force cleanup immediately since we're dropping the swapped items
+				# The cleanup will now proceed because has_swapped_items_in_ghost is false
+				# We set the flag to false above, so cleanup should work now
+				if source_node.has_method("_stop_drag_cleanup"):
+					print("DEBUG inventory drop_data: Force cleaning up after dropping swapped items (has_swapped_items_in_ghost=", source_node.has_swapped_items_in_ghost, ")")
+					source_node._stop_drag_cleanup()
+				# Continue to the cleanup at the end - it will be skipped if already cleaned up
 		
-		# Update source slot: swap the items, preserving remaining items if same type
-		# CRITICAL: Handle empty slot case (temp_texture is null)
-		if source_node and source_node.has_method("set_item"):
-			if not temp_texture:
-				# Empty slot - just update source with remaining items
-				print("DEBUG inventory drop_data: Right-click drop on empty slot - updating source with remaining items")
-				if source_remaining > 0:
-					source_node.set_item(from_item_texture, source_remaining)
-				else:
-					source_node.set_item(null, 0)
-				# Clean up drag state
-				if source_node.has_method("_stop_drag_cleanup"):
-					source_node._stop_drag_cleanup()
-			elif source_remaining > 0 and temp_texture == from_item_texture:
-				# Same item type - stack the remaining items with the swapped item
-				var new_source_count = temp_stack_count + source_remaining
-				source_node.set_item(temp_texture, new_source_count)
-				if InventoryManager:
-					InventoryManager.update_inventory_slots(source_slot_index, temp_texture, new_source_count)
-				# All items handled - clean up drag state
-				if source_node.has_method("_stop_drag_cleanup"):
-					source_node._stop_drag_cleanup()
-			else:
-				# Different item type or no remaining items - swap: source gets swapped item
-				# CRITICAL: If remaining items exist, keep them on the cursor instead of losing them
-				if source_remaining > 0:
-					print("DEBUG inventory drop_data: Right-click swap with different item type - keeping ", source_remaining, " items on cursor")
-					# CRITICAL: Source slot gets the swapped item (temp_texture, temp_stack_count)
-					# This is the item that was in the target slot before the swap
-					source_node.set_item(temp_texture, temp_stack_count)
-					if InventoryManager:
-						InventoryManager.update_inventory_slots(source_slot_index, temp_texture, temp_stack_count)
-					
-					# Update source node's drag state to continue dragging the remaining items
-					if "drag_count" in source_node:
-						source_node.drag_count = source_remaining
-					if "original_texture" in source_node:
-						source_node.original_texture = from_item_texture
-					if "original_stack_count" in source_node:
-						source_node.original_stack_count = source_original_stack_count
-					# Update drag preview to show remaining count
-					if source_node.has_method("_update_drag_preview_count"):
-						source_node._update_drag_preview_count(source_remaining)
-					elif source_node.has_method("_create_drag_preview"):
-						# Recreate drag preview with new count
-						if "drag_preview" in source_node and source_node.drag_preview:
-							if source_node.has_method("_cleanup_drag_preview"):
-								source_node._cleanup_drag_preview()
-						source_node.drag_preview = source_node._create_drag_preview(from_item_texture, source_remaining)
-					# Don't call _stop_drag_cleanup() - let the user continue dragging the remainder
-				else:
-					# No remaining items - just swap
-					source_node.set_item(temp_texture, temp_stack_count)
-					if InventoryManager:
-						InventoryManager.update_inventory_slots(source_slot_index, temp_texture, temp_stack_count)
+		if not skip_source_update:
+			var source_remaining = source_original_stack_count - from_stack_count
+			print("DEBUG inventory drop_data: Right-click drop from inventory - original=", source_original_stack_count, " dragged=", from_stack_count, " remaining=", source_remaining, " temp_texture=", temp_texture)
+			
+			# Update source slot: swap the items, preserving remaining items if same type
+			# CRITICAL: Handle empty slot case (temp_texture is null)
+			if source_node and source_node.has_method("set_item"):
+				if not temp_texture:
+					# Empty slot - just update source with remaining items
+					print("DEBUG inventory drop_data: Right-click drop on empty slot - updating source with remaining items")
+					if source_remaining > 0:
+						source_node.set_item(from_item_texture, source_remaining)
+					else:
+						source_node.set_item(null, 0)
 					# Clean up drag state
 					if source_node.has_method("_stop_drag_cleanup"):
 						source_node._stop_drag_cleanup()
+				elif source_remaining > 0 and temp_texture == from_item_texture:
+					# Same item type - stack the remaining items with the swapped item
+					var new_source_count = temp_stack_count + source_remaining
+					source_node.set_item(temp_texture, new_source_count)
+					if InventoryManager:
+						InventoryManager.update_inventory_slots(source_slot_index, temp_texture, new_source_count)
+					# All items handled - clean up drag state
+					if source_node.has_method("_stop_drag_cleanup"):
+						source_node._stop_drag_cleanup()
+				else:
+					# Different item type or no remaining items - swap: source gets swapped item
+					# CRITICAL BUG FIX 2.a: When swapping different item types, the target slot's items
+					# should go to the ghost slot (swap), not be destroyed
+					if source_remaining > 0:
+						print("DEBUG inventory drop_data: Right-click swap with different item type - swapping target items to ghost slot")
+						
+						# CRITICAL: Source slot should show remaining items from original stack
+						# NOT the swapped items - those go to the ghost slot
+						source_node.set_item(from_item_texture, source_remaining)
+						if InventoryManager:
+							InventoryManager.update_inventory_slots(source_slot_index, from_item_texture, source_remaining)
+						
+						# CRITICAL: Store source slot's remaining state so it doesn't get overwritten
+						# when ghost slot items are dropped later
+						if "source_remaining_texture" in source_node:
+							source_node.source_remaining_texture = from_item_texture
+						if "source_remaining_count" in source_node:
+							source_node.source_remaining_count = source_remaining
+						
+						# CRITICAL: Update ghost slot to show the target slot's items (the swap)
+						# This ensures items are swapped, not destroyed
+						if "drag_count" in source_node:
+							source_node.drag_count = temp_stack_count
+						if "original_texture" in source_node:
+							source_node.original_texture = temp_texture
+						if "original_stack_count" in source_node:
+							source_node.original_stack_count = temp_stack_count
+						# CRITICAL: Update drag preview to show swapped items (both texture AND count)
+						# We must recreate the drag preview because the texture changed (not just the count)
+						if source_node.has_method("_cleanup_drag_preview"):
+							source_node._cleanup_drag_preview()
+							print("DEBUG inventory drop_data: Cleaned up old drag preview")
+						if source_node.has_method("_create_drag_preview"):
+							source_node.drag_preview = source_node._create_drag_preview(temp_texture, temp_stack_count)
+							print("DEBUG inventory drop_data: Created new drag preview with swapped texture=", temp_texture, " count=", temp_stack_count)
+						
+						# CRITICAL: Mark that we have swapped items in ghost slot - prevent cleanup
+						source_node.has_swapped_items_in_ghost = true
+						# Don't call _stop_drag_cleanup() - let the user continue dragging the swapped items
+						print("DEBUG inventory drop_data: Swap complete - ghost slot should now show swapped items, has_swapped_items_in_ghost=true")
+					else:
+						# No remaining items - just swap
+						source_node.set_item(temp_texture, temp_stack_count)
+						if InventoryManager:
+							InventoryManager.update_inventory_slots(source_slot_index, temp_texture, temp_stack_count)
+						# Clean up drag state
+						if source_node.has_method("_stop_drag_cleanup"):
+							source_node._stop_drag_cleanup()
 		
-		# Only clean up if _stop_drag_cleanup() wasn't called above
-		if source_node and source_node.has_method("_stop_drag_cleanup") and source_node.is_dragging:
-			# This should only happen if source_remaining == 0 and same item type (already handled above)
-			# But just in case, check if drag state is still active
-			if not (source_remaining > 0 and temp_texture != from_item_texture):
-				source_node._stop_drag_cleanup()
+		# CRITICAL: Always clean up source slot's drag state after successful drop
+		# If we had swapped items, they were just dropped above, so cleanup is safe now
+		# BUT: If skip_source_update is true, we already cleaned up above, so skip this
+		if not skip_source_update and source_node and source_node.has_method("_stop_drag_cleanup"):
+			# Check if we have swapped items - if so, cleanup will be skipped in _stop_drag_cleanup()
+			# but we still want to try to cleanup
+			print("DEBUG inventory drop_data: Cleaning up source drag state after successful drop")
+			source_node._stop_drag_cleanup()
 		elif source_node and not source_node.has_method("_stop_drag_cleanup"):
 			# Fallback: directly clear drag state if method doesn't exist
 			if "is_dragging" in source_node:
