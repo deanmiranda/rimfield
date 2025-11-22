@@ -1,224 +1,375 @@
-# Next Steps: Inventory Drag and Drop Bug Fixes
+# Next Steps - Rimfield Development Roadmap
 
-## Current Status (Last Updated: Today)
+This document outlines the current development priorities and next steps for the Rimfield project.
 
-### ✅ Completed
-1. **Basic drag and drop implementation** - Full drag-and-drop system between toolkit and inventory is functional
-2. **Right-click drag support** - Right-click to drag one item at a time, with accumulation on repeated right-clicks
-3. **Left-click drag support** - Left-click to drag entire stack
-4. **Visual feedback** - Ghost icons, drag previews, and count labels
-5. **Bug Fix: Right-click then left-click on empty slot** - Original stack count is now preserved when dropping on empty slots
+---
 
-### 🔧 In Progress / Needs Testing
-1. **Bug: Right-click drag then left-click swap on different item type**
-   - **Status**: Fix identified, needs implementation
-   - **Issue**: When right-click dragging items from toolkit and dropping on inventory slot with a different item type, the swap doesn't work correctly. The source slot gets the original item back instead of the swapped item, and remaining items are lost.
-   - **Root Cause**: In `scripts/ui/inventory_menu_slot.gd` lines 1195-1226, when `source_remaining > 0`, the code sets source slot to `from_item_texture, source_remaining` (original item) instead of `temp_texture, temp_stack_count` (swapped item).
-   - **Proposed Fix**: 
-     - When swapping different item types with right-click drag and `source_remaining > 0`:
-       - Source slot should receive the swapped item (`temp_texture, temp_stack_count`)
-       - Remaining items (`source_remaining`) should stay on cursor by updating drag state
-       - Drag preview should be updated to show remaining count
-     - This matches the inventory-to-inventory right-click swap logic (lines 1255-1290)
-   - **File to Modify**: `scripts/ui/inventory_menu_slot.gd` (lines ~1195-1226)
-   - **Implementation**: Replace the toolkit right-click drag handling section to properly handle different item type swaps
+## 🎯 Current Focus: Inventory Drag and Drop
 
-## Testing Required
+**Priority:** HIGH  
+**Status:** IN PROGRESS  
+**Goal:** Fix left and right click behaviors for inventory drag and drop system
 
-### Test Case 1: Right-click drag then left-click on empty slot ✅ (Fixed)
-**Steps:**
-1. Open inventory panel
-2. Right-click a stack (e.g., 8 items) — should grab 1 item, showing 7 remaining
-3. Left-click on an empty inventory slot
-4. **Expected result:**
-   - Empty slot gets the dragged item (1 item)
-   - Source slot shows the remaining items (7 items)
-   - No items lost
+### Current Issue
+The inventory drag and drop system has left-click drag working, but right-click behavior needs to be implemented. Both left and right click behaviors need refinement to work correctly across inventory and toolkit slots.
 
-### Test Case 2: Right-click drag then left-click on different item type 🔧 (Needs Testing)
-**Steps:**
-1. Open inventory panel
-2. Right-click a stack (e.g., 8 items of type A) — should grab 1 item, showing 7 remaining
-3. Left-click on a slot with a different item type (e.g., type B with 3 items)
-4. **Expected result:**
-   - Target slot gets the dragged item (1x type A)
-   - Source slot gets the swapped item (3x type B)
-   - Remaining items (7x type A) stay on the cursor as a ghost icon
-   - Ghost icon shows count "7"
-5. **Previous bug:** The swapped item (type B) was destroyed/lost
+### Known Bugs (To Address After Drag/Drop)
+- **Tool Interaction Range Issue:** Tools currently work when clicking anywhere, not just on tiles near the character. Should only work on the 8 tiles closest to the character (3x3 grid minus center). Files: `scripts/game_systems/farming_manager.gd`, `scripts/scenes/farm_scene.gd`
 
-### Test Case 3: Right-click drag then left-click on same item type
-**Steps:**
-1. Open inventory panel
-2. Right-click a stack (e.g., 8 items of type A) — should grab 1 item, showing 7 remaining
-3. Left-click on a slot with the same item type (e.g., type A with 3 items, max stack 99)
-4. **Expected result:**
-   - Target slot gets stacked items (3 + 1 = 4 items of type A)
-   - Source slot gets the remaining items (7 items of type A)
-   - If stacking exceeds max, remainder stays on cursor
+### Tasks
 
-### Test Case 4: Right-click drag accumulation
-**Steps:**
-1. Open inventory panel
-2. Right-click a stack (e.g., 8 items) — should grab 1 item
-3. Right-click the same slot again — should grab another item (now dragging 2)
-4. Right-click again — should grab another item (now dragging 3)
-5. **Expected result:**
-   - Drag preview count label updates (1 → 2 → 3)
-   - Source slot count decreases accordingly (7 → 6 → 5)
-   - Cannot accumulate more than the original stack count
+#### Left Click Drag and Drop
+- [ ] **Fix left-click drag detection**
+  - Ensure drag starts correctly on mouse press
+  - Verify drag preview follows mouse smoothly
+  - Test drag cancellation (releasing outside valid drop zones)
 
-### Test Case 5: Right-click drag transition to left-click drag
-**Steps:**
-1. Open inventory panel
-2. Right-click a stack (e.g., 8 items) — should grab 1 item
-3. While still dragging, left-click and hold — should transition to left-click drag
-4. **Expected result:**
-   - Drag preview updates to show full stack (8 items)
-   - Source slot becomes empty (all items being dragged)
-   - Can drop entire stack
+- [ ] **Fix left-click drop handling**
+  - Inventory → Inventory: Item swapping works correctly
+  - Inventory → Toolkit: Items move to toolkit slots properly
+  - Toolkit → Inventory: Items move to inventory slots properly
+  - Toolkit → Toolkit: Items swap within toolkit correctly
 
-## Code Location
+- [ ] **Fix left-click visual feedback**
+  - Drag preview appears and follows cursor
+  - Valid drop targets highlight correctly
+  - Invalid drop targets show red flash
+  - Source slot dims during drag
 
-**Primary File**: `scripts/ui/inventory_menu_slot.gd`
-- **Key Functions**:
-  - `_gui_input()` - Handles mouse input and drag transitions (lines ~200-280)
-  - `_start_drag()` - Initiates left-click drag (lines ~300-400)
-  - `_start_right_click_drag()` - Initiates/accumulates right-click drag (lines ~450-550)
-  - `drop_data()` - Handles drop logic, including swaps (lines ~800-1300)
-  - `_stop_drag_cleanup()` - Cleans up drag state (lines ~600-650)
+- [ ] **Fix left-click edge cases**
+  - Dragging to same slot (no-op)
+  - Dragging locked slots (prevent)
+  - Dragging empty slots (prevent)
+  - Dragging when menu is closing (cancel gracefully)
+  - Multiple rapid drags (prevent race conditions)
 
-## Debug Output
+#### Right Click Behavior
+- [ ] **Implement right-click context menu**
+  - Right-click on inventory slot shows context menu
+  - Options: "Use", "Move to Toolkit", "Drop", "Info" (future)
+  - Right-click on toolkit slot shows context menu
+  - Options: "Move to Inventory", "Info" (future)
 
-The code currently has extensive debug print statements (29 instances of "DEBUG inventory"). These can be removed after testing confirms all bugs are fixed.
+- [ ] **Alternative: Right-click quick actions**
+  - Right-click on inventory slot → Quick move to first empty toolkit slot
+  - Right-click on toolkit slot → Quick move to first empty inventory slot
+  - Right-click on empty slot → No action (or show "Info" if slot has item info)
 
-**To find debug statements:**
-```powershell
-Select-String -Path "scripts\ui\inventory_menu_slot.gd" -Pattern "DEBUG inventory"
-```
+- [ ] **Right-click visual feedback**
+  - Show context menu at cursor position
+  - Highlight menu options on hover
+  - Close menu on click outside or ESC key
 
-## Next Actions
+#### Testing & Validation
+- [ ] **Test all drag scenarios**
+  - [ ] Toolkit → Inventory (all 10 toolkit slots)
+  - [ ] Inventory → Toolkit (all 30 inventory slots)
+  - [ ] Swapping items between toolkit and inventory
+  - [ ] Swapping items within toolkit
+  - [ ] Swapping items within inventory
+  - [ ] Dragging to locked inventory slots (should fail gracefully)
+  - [ ] Dragging empty slots (should fail gracefully)
+  - [ ] Rapid drag operations (should not cause errors)
 
-1. **Test Test Case 2** (right-click drag then left-click on different item type)
-   - Verify items swap correctly
-   - Verify remaining items stay on cursor
-   - Check that no items are lost/destroyed
+- [ ] **Test right-click scenarios**
+  - [ ] Right-click on inventory slot with item
+  - [ ] Right-click on toolkit slot with item
+  - [ ] Right-click on empty slots
+  - [ ] Context menu interactions
+  - [ ] Menu closing behavior
 
-2. **If Test Case 2 passes:**
-   - Test all other test cases to ensure no regressions
-   - Remove debug print statements
-   - Mark bug as complete
+- [ ] **Performance testing**
+  - [ ] No lag during drag operations
+  - [ ] Smooth drag preview movement
+  - [ ] No memory leaks from drag preview layers
+  - [ ] No errors in console during drag/drop
 
-3. **If Test Case 2 fails:**
-   - Review the `drop_data()` function, specifically the section handling right-click drags from inventory (lines ~1228-1300)
-   - Check that `source_remaining` is calculated correctly
-   - Verify that drag state is preserved when keeping items on cursor
-   - Check that `_update_drag_preview_count()` is being called correctly
+### Files to Modify
+- `scripts/ui/inventory_menu_slot.gd` - Main inventory slot drag/drop logic
+- `scripts/ui/hud_slot.gd` - Toolkit slot drag/drop logic
+- `scripts/singletons/inventory_manager.gd` - Data synchronization
+- `scripts/ui/tool_switcher.gd` - Toolkit updates
+- `scenes/ui/inventory_scene.tscn` - Context menu UI (if needed)
+- `scenes/ui/hud.tscn` - Context menu UI (if needed)
 
-## Technical Notes
+### Success Criteria
+✅ Left-click drag and drop works flawlessly in all scenarios  
+✅ Right-click behavior is implemented and intuitive  
+✅ Visual feedback is clear and responsive  
+✅ No errors or performance issues  
+✅ Code follows project coding standards  
 
-### Key Variables
-- `original_stack_count`: Stores the original stack size before any drag operations
-- `drag_count`: Number of items currently being dragged
-- `_is_right_click_drag`: Boolean flag indicating right-click drag mode
-- `source_original_stack_count`: Passed in drag data to preserve original stack across drops
+---
 
-### Critical Logic Flow
-1. Right-click drag starts → `original_stack_count` is set to current `stack_count`
-2. Items are accumulated → `drag_count` increases, `stack_count` decreases
-3. Drop occurs → `source_remaining = source_original_stack_count - drag_count`
-4. If swapping with different item type → remaining items stay on cursor, source gets swapped item
+## 🔧 Code Technical Debt
 
-## Known Issues / Edge Cases to Watch
+**Priority:** MEDIUM  
+**Status:** PENDING (After drag/drop is complete)  
+**Goal:** Improve code quality, maintainability, and adherence to best practices
 
-- [x] Right-click drag from toolkit to inventory with different item type - **FIX IDENTIFIED** (see Proposed Fix above)
-- [ ] Right-click drag from inventory to toolkit with different item type - **NEEDS VERIFICATION**
-- [ ] Rapid right-click accumulation (should not cause race conditions)
-- [ ] Right-click drag then cancel (right-click outside inventory) - should restore original stack
-- [ ] Right-click drag with stack size 1 (edge case)
+### High Priority Technical Debt
 
-## Proposed Fixes
+#### 1. Code Organization
+- [ ] **Remove duplicate `utils/` directory**
+  - Consolidate `scripts/util/` and `scripts/utils/` (empty) to `scripts/util/`
 
-### Fix 1: Right-click drag from toolkit to inventory (different item type swap)
+- [ ] **Fix script ordering**
+  - Ensure all scripts follow: Signals → Constants → Exports → Vars → Functions
 
-**Location**: `scripts/ui/inventory_menu_slot.gd` lines 1195-1226
+- [ ] **Remove commented-out code**
+  - Clean up all commented-out debug code and old implementations
 
-**Current Problem**: When right-click dragging from toolkit and dropping on inventory with different item type:
-- Source slot incorrectly gets `from_item_texture, source_remaining` (original item with remaining count)
-- Should get `temp_texture, temp_stack_count` (swapped item from target slot)
-- Remaining items are lost instead of staying on cursor
+- [ ] **Consolidate duplicate code**
+  - Review for duplicate logic that can be extracted to utility functions
 
-**Fix Code**:
-```gdscript
-if source == "toolkit" and source_slot_index >= 0 and is_right_click_drag and source_original_stack_count > 0:
-	# Right-click drag: source should have (original - dragged) items remaining
-	var source_remaining = source_original_stack_count - from_stack_count
-	print("DEBUG inventory drop_data: Right-click full swap from toolkit - original=", source_original_stack_count, " dragged=", from_stack_count, " remaining=", source_remaining)
-	
-	# CRITICAL: For different item types, source gets the swapped item, remaining stays on cursor
-	if source_remaining > 0:
-		# Different item type swap: source gets swapped item, remaining items stay on cursor
-		if source_node and source_node.has_method("set_item"):
-			# Source slot gets the swapped item (that was in the target slot)
-			source_node.set_item(temp_texture, temp_stack_count)
-		# Update InventoryManager
-		if InventoryManager:
-			if temp_texture:
-				InventoryManager.add_item_to_toolkit(source_slot_index, temp_texture, temp_stack_count)
-			else:
-				InventoryManager.remove_item_from_toolkit(source_slot_index)
-		
-		# CRITICAL: Update source node's drag state to continue dragging the remaining items
-		if "drag_count" in source_node:
-			source_node.drag_count = source_remaining
-		if "original_texture" in source_node:
-			source_node.original_texture = from_item_texture
-		if "original_stack_count" in source_node:
-			source_node.original_stack_count = source_original_stack_count
-		# Update drag preview to show remaining count
-		if source_node.has_method("_update_drag_preview_count"):
-			source_node._update_drag_preview_count(source_remaining)
-		elif source_node.has_method("_create_drag_preview"):
-			# Recreate drag preview with new count
-			if "drag_preview" in source_node and source_node.drag_preview:
-				if source_node.has_method("_cleanup_drag_preview"):
-					source_node._cleanup_drag_preview()
-			source_node.drag_preview = source_node._create_drag_preview(from_item_texture, source_remaining)
-		# Don't call _stop_drag_cleanup() - let the user continue dragging the remainder
-	else:
-		# All items moved - source gets swapped item (if any) or becomes empty
-		if source_node and source_node.has_method("set_item"):
-			source_node.set_item(temp_texture, temp_stack_count)
-		# Update InventoryManager
-		if InventoryManager:
-			if temp_texture:
-				InventoryManager.add_item_to_toolkit(source_slot_index, temp_texture, temp_stack_count)
-			else:
-				InventoryManager.remove_item_from_toolkit(source_slot_index)
-		
-		# CRITICAL: Stop dragging on the source slot to clean up ghost icon and drag state
-		if source_node and source_node.has_method("_stop_drag_cleanup"):
-			source_node._stop_drag_cleanup()
-		elif source_node:
-			# Fallback: directly clear drag state if method doesn't exist
-			if "is_dragging" in source_node:
-				source_node.is_dragging = false
-			if "_is_right_click_drag" in source_node:
-				source_node._is_right_click_drag = false
-			if "drag_preview" in source_node and source_node.drag_preview:
-				if source_node.has_method("_cleanup_drag_preview"):
-					source_node._cleanup_drag_preview()
-```
+#### 2. Magic Numbers Elimination
+- [ ] **Audit all scripts for magic numbers**
+  - Replace with GameConfig or ToolConfig references
+  - Common magic numbers: `10` (HUD slots), `12` (inventory slots), `99` (max stack), `1.5` (interaction distance), `200` (player speed)
 
-**Key Changes**:
-1. When `source_remaining > 0` and swapping different item types: source slot gets `temp_texture, temp_stack_count` (swapped item)
-2. Remaining items (`source_remaining`) stay on cursor by updating drag state instead of calling `_stop_drag_cleanup()`
-3. Drag preview is updated to show remaining count
-4. Matches the inventory-to-inventory right-click swap logic pattern
+- [ ] **Create missing config resources**
+  - Add any new config values needed to `resources/data/game_config.tres`
 
-## Future Enhancements
+- [ ] **Document all config values**
+  - Add comments explaining what each config value does
 
-- Remove all debug print statements after testing
-- Add sound effects for drag/drop operations
-- Consider adding visual feedback for invalid drops
-- Optimize drag preview creation/destruction if performance issues arise
+#### 3. Node Path References
+- [ ] **Remove all `/root/...` paths** (if any remain)
+  - Replace with dependency injection or `@onready` references
+  - Verify with `scripts/verify_rules.ps1`
+
+- [ ] **Audit `get_node()` calls**
+  - Replace with `get_node_or_null()` where nodes might not exist
+  - Cache frequently accessed nodes with `@onready`
+
+- [ ] **Add null checks**
+  - Ensure all node accesses have proper null checking
+
+#### 4. Type Hints
+- [ ] **Add missing type hints**
+  - All variables and functions should have explicit types
+
+- [ ] **Fix `-> void` returns**
+  - Ensure all functions that return nothing use `-> void`
+
+- [ ] **Type hint function parameters**
+  - All parameters should have types
+
+#### 5. Error Handling
+- [ ] **Add error handling**
+  - All resource loads and node accesses should check for null
+
+- [ ] **Improve error messages**
+  - Make error messages more descriptive and actionable
+
+- [ ] **Add validation**
+  - Validate inputs at function boundaries
+
+### Medium Priority Technical Debt
+
+#### 6. Performance Optimization
+- [ ] **Review `_process()` functions**
+  - Move expensive operations to timers or events
+  - Verify no heavy polling logic remains
+
+- [ ] **Cache node references**
+  - Use `@onready` for frequently accessed nodes
+
+- [ ] **Optimize signal connections**
+  - Ensure signals are connected efficiently
+  - Remove duplicate connections
+
+#### 7. Code Duplication
+- [ ] **Extract common patterns**
+  - Create utility functions for repeated code
+  - Note: Significant duplication between `hud_slot.gd` and `inventory_menu_slot.gd` for drag-and-drop functions
+
+- [ ] **Consolidate similar scripts**
+  - Review if multiple scripts can be merged
+  - Consider creating shared base class or utility functions for common drag-and-drop logic
+
+- [ ] **Create base classes**
+  - Use inheritance for common functionality (e.g., base slot class)
+
+- [ ] **Remove deprecated code**
+  - Remove unused `get_drag_data()` from `hud_slot.gd` and `inventory_menu_slot.gd` if manual drag works
+  - Remove debug print statements from `hud_slot.gd`
+  - Remove `_notification()` handler for `NOTIFICATION_DRAG_END` from `inventory_menu_slot.gd`
+  - Remove `custom_drag_preview` and `_process()` from `inventory_menu_slot.gd` if `get_drag_data()` is removed
+
+#### 8. Documentation
+- [ ] **Add file headers**
+  - All scripts should have a brief description comment
+
+- [ ] **Document public APIs**
+  - All public functions should have doc comments
+
+- [ ] **Explain complex logic**
+  - Add comments for non-obvious algorithms
+
+### Low Priority Technical Debt
+
+#### 9. Code Style Consistency
+- [ ] **Standardize spacing**
+  - Ensure consistent blank line usage
+
+- [ ] **Fix indentation**
+  - Ensure all files use tabs consistently
+
+- [ ] **Line length**
+  - Break long lines appropriately
+
+- [ ] **Remove trailing whitespace**
+  - Clean up all files
+
+#### 10. Signal Management
+- [ ] **Document all signals**
+  - Add comments explaining when signals are emitted
+
+- [ ] **Review signal connections**
+  - Ensure all connections are properly managed
+
+- [ ] **Add signal disconnection**
+  - Ensure signals are disconnected in cleanup
+
+---
+
+## 📦 Commit & Branch Management
+
+**Priority:** MEDIUM  
+**Status:** PENDING (After drag/drop and tech debt)  
+**Goal:** Clean up branch and prepare for next features
+
+### Tasks
+- [ ] **Review all changes**
+  - Ensure drag/drop fixes are complete
+  - Verify technical debt items are addressed
+  - Run `scripts/verify_rules.ps1` and fix any violations
+
+- [ ] **Test all functionality**
+  - Run full game test suite
+  - Test all drag/drop scenarios
+  - Test all existing features still work
+
+- [ ] **Update documentation**
+  - Update README.md if needed
+  - Update NEXT_STEPS.md with completed items
+  - Document any new patterns or changes
+
+- [ ] **Commit changes**
+  - Create meaningful commit messages
+  - Group related changes logically
+  - Follow commit message conventions
+
+- [ ] **Push to branch**
+  - Push `develop` branch to remote
+  - Create PR if needed
+  - Merge after review
+
+---
+
+## 🚀 Next Features
+
+**Priority:** LOW  
+**Status:** PLANNED (After commit)  
+**Goal:** Plan and prioritize next feature development
+
+### Potential Features to Review
+
+#### Core Gameplay
+- [ ] **Day/Night Cycle**
+  - Time system with day progression
+  - Visual day/night transitions
+  - Time-based events
+
+- [ ] **NPC Interactions**
+  - NPC dialogue system
+  - Quest system
+  - Relationship tracking
+
+- [ ] **Mining System**
+  - Mine areas and mechanics
+  - Ore collection
+  - Mining tools
+
+- [ ] **Crafting System**
+  - Crafting recipes
+  - Crafting UI
+  - Resource combination
+
+#### Systems & Mechanics
+- [ ] **Weather System**
+  - Weather effects on farming
+  - Visual weather effects
+  - Weather-based events
+
+- [ ] **Player Upgrades**
+  - Skill system
+  - Player stats
+  - Upgrade progression
+
+- [ ] **Farm Upgrades**
+  - Building construction
+  - Farm expansion
+  - Upgrade system
+
+- [ ] **Equipment System**
+  - Equipment slots
+  - Equipment effects
+  - Equipment UI
+
+#### UI & UX
+- [ ] **Save/Load System Enhancements**
+  - Multiple save slots
+  - Save game previews
+  - Auto-save functionality
+
+- [ ] **Settings Menu**
+  - Graphics settings
+  - Audio settings
+  - Input remapping
+
+- [ ] **Inventory Enhancements**
+  - Item stacking
+  - Item sorting
+  - Item categories/tabs
+
+- [ ] **Tooltips & Info**
+  - Item tooltips
+  - Context-sensitive help
+  - Tutorial system
+
+### Feature Planning Process
+1. Review feature list and prioritize
+2. Create feature branch
+3. Design feature architecture
+4. Implement feature
+5. Test thoroughly
+6. Document feature
+7. Merge to develop
+
+---
+
+## 📝 Notes
+
+- **Current Branch:** `develop`
+- **Focus Order:**
+  1. ✅ Inventory drag and drop (left/right click) - **CURRENT**
+  2. ⏳ Code technical debt - **NEXT**
+  3. ⏳ Commit branch - **THEN**
+  4. ⏳ Review next features - **FINALLY**
+
+- **Development Workflow:**
+  - Work on current focus until complete
+  - Run verification scripts before committing
+  - Test thoroughly before moving to next phase
+  - Document changes as you go
+
+- **Questions or Issues:**
+  - Review code comments and existing patterns
+  - Check `.cursor/rules/godot.md` for standards
+  - Run `scripts/verify_rules.ps1` for code quality checks
+
+---
+
+**Last Updated:** Focus is on inventory drag and drop right-click behavior implementation.
