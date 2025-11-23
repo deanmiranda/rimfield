@@ -11,8 +11,8 @@ This document outlines the current development priorities and next steps for the
 **Goal:** Fix left and right click behaviors for inventory drag and drop system
 
 ### Current Status
-- ✅ **Left-click drag and drop:** Working great!
-- ⚠️ **Right-click drag and drop:** 90% working, 2 critical bugs remaining
+- 🚨 **Inventory left-click drag and drop:** Regression in inventory panel — dropping or swapping while a right-click drag is active destroys stacks.
+- ⚠️ **Right-click drag and drop:** Toolkit solid; inventory panel `r l r l` and `r l l` sequences remain broken.
 
 ### Critical Bugs to Fix (Right-Click)
 
@@ -49,6 +49,71 @@ This document outlines the current development priorities and next steps for the
 **Files Modified:**
 - `scripts/ui/inventory_menu_slot.gd` - `_stop_drag()` function (line ~395-402)
 - `scripts/ui/hud_slot.gd` - `_stop_drag()` function (line ~367-380)
+
+#### Bug 2.a.2: Ghost Image Lingering After Drop ✅ FIXED
+**Problem:** Ghost icon remains visible on screen after dropping swapped items and clearing the ghost slot.
+
+**Expected Behavior:**
+- Ghost image should disappear immediately after drop
+- No lingering ghost images on world map or inventory panel
+- Proper cleanup of drag preview layers
+
+**Status:** ✅ FIXED
+- Modified `_stop_drag_cleanup()` to hide drag layer immediately before freeing
+- Added search for orphaned drag layers in scene tree
+- Ensured `_process` is stopped and `drag_preview` is freed correctly
+
+**Files Modified:**
+- `scripts/ui/inventory_menu_slot.gd` - `_stop_drag_cleanup()` function
+
+#### Bug 2.a.3: Multiple Item Types in Ghost Slot ✅ FIXED
+**Problem:** User could right-click drag items from different slots with different item types, allowing multiple item types to accumulate in the ghost slot. Ghost slot should only hold one item type at a time.
+
+**Expected Behavior:**
+- Ghost slot can only hold one item type
+- Starting a new right-click drag with a different item type should cancel the existing drag
+- Items from canceled drag should be restored to their source slot
+
+**Status:** ✅ FIXED
+- Added `_find_existing_drag_texture()` to check for existing drags in both inventory and toolkit slots
+- Added `_cancel_existing_drag_from_other_slot()` and `_cancel_existing_drag_from_toolkit()` for inventory slots
+- Added `_cancel_existing_drag_from_inventory()` and `_cancel_existing_drag_from_other_toolkit_slot()` for toolkit slots
+- Guard in `_start_right_click_drag()` cancels any existing drag with different item type before starting new one
+
+**Files Modified:**
+- `scripts/ui/inventory_menu_slot.gd` - `_start_right_click_drag()` and helper functions
+- `scripts/ui/hud_slot.gd` - `_start_right_click_drag()` and helper functions
+
+#### Bug 2.b: Inventory Panel `r l r l` / `r l l` Sequences Destroy Stacks 🚨 ACTIVE
+**Problem:** When a right-click drag is active in the inventory panel, left-clicking another slot should cancel the drag and start a new one. Instead, the current logic attempts to drop the partial stack, causing item loss or duplication and preventing swaps.
+
+**Expected Behavior:**
+- Right-click drag active → left-click on another slot cancels the drag and starts a fresh left-click drag.
+- Left-click drag active → clicking another slot should perform a swap/place, matching toolbar behavior.
+- Dropping to empty slots must never destroy items; InventoryManager stays in sync.
+
+**Status:** 🚧 IN PROGRESS
+- Toolbar already satisfies both patterns; inventory panel needs parity with toolkit logic.
+- Next step: Detect whether the dragging slot is performing a right-click or left-click drag and branch accordingly (cancel vs. receive drop).
+
+**Files to Touch:**
+- `scripts/ui/inventory_menu_slot.gd` (`_gui_input`, `_stop_drag`, `drop_data`)
+- `scripts/ui/hud_slot.gd` (`_gui_input`)
+
+#### Bug 2.c: Right-click Drops Blocked in Inventory & Toolbar 🚨 ACTIVE
+**Problem:** After recent guarding changes, right-click drags cannot be dropped onto inventory slots or toolkit slots. As soon as the cursor is over a potential target, the existing drag is canceled instead of performing the drop. This also prevents left-click drags from placing stacks into empty toolkit slots (the empty slot cancels the drag instead of receiving it).
+
+**Expected Behavior:**
+- When another slot is dragging and the mouse is over the current slot, the slot should attempt to receive the drop (both left-click and right-click drags).
+- Cancellation should only happen when the mouse is NOT over the target slot.
+
+**Status:** 🚧 IN PROGRESS
+- Need to reintroduce "receive drop" logic for same-source drags in both inventory and toolkit `_gui_input` handlers.
+- Ensure `_cancel_existing_drag_from_*` helpers are only called when we truly intend to abandon the existing drag.
+
+**Files to Touch:**
+- `scripts/ui/inventory_menu_slot.gd` (`_gui_input`)
+- `scripts/ui/hud_slot.gd` (`_gui_input`)
 
 ### Known Bugs (To Address After Drag/Drop)
 - **Tool Interaction Range Issue:** Tools currently work when clicking anywhere, not just on tiles near the character. Should only work on the 8 tiles closest to the character (3x3 grid minus center). Files: `scripts/game_systems/farming_manager.gd`, `scripts/scenes/farm_scene.gd`
@@ -409,4 +474,4 @@ This document outlines the current development priorities and next steps for the
 
 ---
 
-**Last Updated:** Focus is on inventory drag and drop right-click behavior implementation.
+**Last Updated:** All critical right-click drag and drop bugs have been fixed! Ready to move to code technical debt cleanup.

@@ -21,6 +21,9 @@ var drag_count: int = 0 # Number of items being dragged (accumulates on repeated
 var has_swapped_items_in_ghost: bool = false # Track if ghost slot has swapped items (prevent cleanup)
 var source_remaining_texture: Texture = null # Store source slot's remaining texture after swap
 var source_remaining_count: int = 0 # Store source slot's remaining count after swap
+var swapped_dest_slot_index: int = -1 # Store destination slot index where swapped items came from (for restoration)
+var original_original_stack_count: int = 0 # Store original_stack_count before swap (for restoration)
+var original_drag_count_before_swap: int = 0 # Store original drag_count before swap (for restoration)
 var drag_preview: TextureRect = null
 var drag_preview_label: Label = null # Label to show drag count
 var original_texture: Texture = null # Store original texture to restore if drop fails
@@ -149,43 +152,91 @@ func get_drag_data(_position: Vector2) -> Variant:
 
 
 func _gui_input(event: InputEvent) -> void:
-	"""Handle manual drag and drop for toolkit slots"""
+	"""Handle manual drag and drop for toolkit slots - click to pick up, click to drop"""
 	if event is InputEventMouseButton:
 		if event.button_index == BUTTON_LEFT:
 			if event.pressed:
-				# If already dragging from right-click, drop the item
-				if is_dragging:
+				# FIRST: If THIS slot is dragging (left-click), stop drag (drop items on click)
+				if is_dragging and not _is_right_click_drag:
 					# Mark input as handled to prevent tool actions
 					get_viewport().set_input_as_handled()
 					_stop_drag()
 					return
-				else:
-					# FIRST: Check if another slot is dragging (inventory or toolkit)
-					# If so, try to receive the drop instead of starting a new drag
-					var dragging_slot = _find_dragging_slot()
-					if dragging_slot and dragging_slot != self:
-						# Another slot is dragging - try to receive the drop
-						var viewport = get_viewport()
-						if viewport:
-							var mouse_pos = viewport.get_mouse_position()
-							var slot_rect = get_global_rect()
-							if slot_rect.has_point(mouse_pos):
-								# Mouse is over this slot - receive the drop
+				
+				# SECOND: If THIS slot has swapped items in ghost slot during right-click drag, block transition to left-click
+				# User must drop the swapped items first
+				if is_dragging and _is_right_click_drag and has_swapped_items_in_ghost:
+					print("DEBUG toolkit _gui_input: Blocking left-click - swapped items in ghost slot, user must drop them first")
+					return # Block the transition
+				
+				# THIRD: Check if another slot is dragging
+				var dragging_slot = _find_dragging_slot()
+				if dragging_slot and dragging_slot != self:
+					# Check if dragging slot is from inventory (different source)
+					var is_from_inventory = false
+					var pause_menu = _find_pause_menu()
+					if pause_menu:
+						var inventory_grid = pause_menu.get_node_or_null(
+							"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+						)
+						if inventory_grid and dragging_slot.get_parent() == inventory_grid:
+							is_from_inventory = true
+					
+					var viewport = get_viewport()
+					if viewport:
+						var mouse_pos = viewport.get_mouse_position()
+						var slot_rect = get_global_rect()
+						var mouse_over_this_slot = slot_rect.has_point(mouse_pos)
+						
+						if is_from_inventory:
+							# Dragging from inventory - always receive the drop if mouse is over this slot
+							if mouse_over_this_slot:
+								print("DEBUG toolkit _gui_input: Inventory slot is dragging, mouse over this slot - receiving drop")
 								if dragging_slot.has_method("_get_drag_data_for_drop"):
 									var drag_data = dragging_slot._get_drag_data_for_drop()
 									if drag_data and can_drop_data(mouse_pos, drag_data):
 										drop_data(mouse_pos, drag_data)
 										return
-					
-					# No active drag from another slot - start drag with entire stack
-					_start_drag()
-			elif not event.pressed:
-				# Left-click release: only stop drag if it was a left-click drag (not right-click)
-				if is_dragging and not _is_right_click_drag:
-					_stop_drag()
-				elif not is_dragging:
-					# Click without drag - select this slot (even if empty)
-					_select_slot()
+						else:
+							# Dragging from toolkit (same source)
+							var dragging_is_right_click = false
+							if "_is_right_click_drag" in dragging_slot:
+								dragging_is_right_click = dragging_slot._is_right_click_drag
+							
+							if mouse_over_this_slot:
+								var target_empty = (item_texture == null or stack_count <= 0)
+								var should_receive_drop = false
+								
+								if dragging_is_right_click:
+									var dragged_texture = null
+									if "original_texture" in dragging_slot:
+										dragged_texture = dragging_slot.original_texture
+									
+									if target_empty:
+										should_receive_drop = true
+									elif dragged_texture and item_texture and dragged_texture == item_texture:
+										should_receive_drop = true
+								else:
+									should_receive_drop = true
+								
+								if should_receive_drop and dragging_slot.has_method("_get_drag_data_for_drop"):
+									print("DEBUG toolkit _gui_input: Receiving drop from toolkit slot ", dragging_slot.slot_index if "slot_index" in dragging_slot else "unknown", " (right_click=", dragging_is_right_click, ", target_empty=", target_empty, ")")
+									var drag_data = dragging_slot._get_drag_data_for_drop()
+									if drag_data and can_drop_data(mouse_pos, drag_data):
+										drop_data(mouse_pos, drag_data)
+										return
+							
+							# Mouse not over slot OR drop not allowed - cancel existing drag before starting new drag
+							if dragging_is_right_click:
+								print("DEBUG toolkit _gui_input: Another toolkit slot (", dragging_slot.slot_index if "slot_index" in dragging_slot else "unknown", ") is right-click dragging but drop not allowed here - canceling before starting new drag from slot ", slot_index)
+							else:
+								print("DEBUG toolkit _gui_input: Another toolkit slot (", dragging_slot.slot_index if "slot_index" in dragging_slot else "unknown", ") is left-click dragging but drop not allowed here - canceling before starting new drag from slot ", slot_index)
+							_cancel_existing_drag_from_inventory()
+							_cancel_existing_drag_from_other_toolkit_slot()
+							# Now start the new drag from this slot
+				
+				# FOURTH: Start drag with entire stack (pick up on click)
+				_start_drag()
 		elif event.button_index == BUTTON_RIGHT:
 			if event.pressed:
 				# Right-click: Instantly take one item from stack (no hold needed)
@@ -202,6 +253,14 @@ func _gui_input(event: InputEvent) -> void:
 
 func _start_drag() -> void:
 	"""Start manual drag operation with entire stack (left-click drag)"""
+	print("DEBUG toolkit _start_drag: Starting drag on slot ", slot_index)
+	# CRITICAL: Cancel any existing drags from other slots first
+	# This prevents multiple drags from being active simultaneously
+	print("DEBUG toolkit _start_drag: Canceling existing drags before starting new drag")
+	_cancel_existing_drag_from_inventory()
+	_cancel_existing_drag_from_other_toolkit_slot()
+	print("DEBUG toolkit _start_drag: Finished canceling existing drags")
+	
 	# Sync item_texture with child TextureRect
 	var hud_slot_rect = get_node_or_null("Hud_slot_" + str(slot_index))
 	if hud_slot_rect and hud_slot_rect is TextureRect:
@@ -212,6 +271,38 @@ func _start_drag() -> void:
 	
 	if item_texture == null:
 		return # No item to drag
+	
+	# CRITICAL: If swapped items exist in ghost slot, block transition to left-click drag
+	# This prevents item duplication/destruction
+	if has_swapped_items_in_ghost:
+		print("DEBUG toolkit _start_drag: Blocking left-click drag - swapped items in ghost slot")
+		return # Block the transition
+	
+	# CRITICAL: If transitioning from right-click to left-click on the SAME slot, clean up right-click state
+	if is_dragging and _is_right_click_drag:
+		# Clean up right-click drag preview
+		if drag_preview:
+			var drag_layer = drag_preview.get_parent()
+			if drag_layer and drag_layer.name == "InventoryDragPreviewLayer":
+				drag_layer.queue_free()
+			else:
+				drag_preview.queue_free()
+			drag_preview = null
+		if drag_preview_label:
+			drag_preview_label.queue_free()
+			drag_preview_label = null
+		
+		# Clear swapped items flag when transitioning
+		has_swapped_items_in_ghost = false
+		source_remaining_texture = null
+		source_remaining_count = 0
+		
+		# Use original_stack_count if available (from right-click drag)
+		if original_stack_count > 0 and original_stack_count > stack_count:
+			stack_count = original_stack_count
+			if InventoryManager:
+				InventoryManager.add_item_to_toolkit(slot_index, item_texture, original_stack_count)
+			set_item(item_texture, original_stack_count)
 	
 	is_dragging = true
 	_is_right_click_drag = false # This is a left-click drag
@@ -249,6 +340,42 @@ func _start_right_click_drag() -> void:
 	if item_texture == null or stack_count <= 0:
 		return # No item to drag
 
+	# CRITICAL: Check if there's a drag with swapped items in ghost slot
+	# If swapped items exist, only allow right-clicking on the same item type
+	var swapped_slot = _find_slot_with_swapped_items()
+	var swapped_texture = null
+	if swapped_slot:
+		swapped_texture = swapped_slot.original_texture if "original_texture" in swapped_slot else null
+		if swapped_texture and swapped_texture != item_texture:
+			# Different item type - prevent this right-click and restore swapped items
+			print("DEBUG toolkit: Blocking right-click on different item type - ghost slot has swapped items (swapped=", swapped_texture, " clicked=", item_texture, ")")
+			# CRITICAL: Restore swapped items to their ORIGINAL destination (where they were swapped from)
+			# The swapped items need to go back to the slot they came from, not the current source slot
+			if swapped_slot and "drag_count" in swapped_slot and "original_texture" in swapped_slot:
+				var swapped_items_texture = swapped_slot.original_texture
+				var swapped_items_count = swapped_slot.drag_count
+				# Find the slot where these swapped items should go back to
+				# This is the slot that currently has the source_remaining items
+				if "source_remaining_texture" in swapped_slot and "source_remaining_count" in swapped_slot:
+					# The swapped items should go back to where they came from
+					# We need to find the slot that has source_remaining items and swap back
+					# For now, just restore the swapped items to the current source slot's position
+					# by dropping them back where they came from
+					print("DEBUG toolkit: Restoring swapped items (", swapped_items_count, "x ", swapped_items_texture, ") to their source")
+					# Drop the swapped items back to their original destination
+					# This will restore the swap
+					if swapped_slot.has_method("_restore_swapped_items"):
+						swapped_slot._restore_swapped_items()
+					else:
+						# Fallback: cancel the drag which should restore items
+						_cancel_existing_drag_from_inventory()
+						_cancel_existing_drag_from_other_toolkit_slot()
+			else:
+				# No swapped slot info - just cancel normally
+				_cancel_existing_drag_from_inventory()
+				_cancel_existing_drag_from_other_toolkit_slot()
+			return # Block this right-click
+
 	# CRITICAL: Check if there's already a drag in progress from another slot with a different item type
 	# Ghost slot can only hold one type of item - cancel any existing drag with different type
 	# Check both inventory slots AND toolkit slots
@@ -258,6 +385,34 @@ func _start_right_click_drag() -> void:
 		print("DEBUG toolkit: Canceling existing drag with different item type (existing=", existing_drag_texture, " new=", item_texture, ")")
 		_cancel_existing_drag_from_inventory()
 		_cancel_existing_drag_from_other_toolkit_slot()
+
+	# CRITICAL: If there's a swapped slot with the same item type, accumulate to it instead
+	if swapped_slot and swapped_texture == item_texture:
+		# Same item type - accumulate to the swapped slot
+		# CRITICAL: Check if we can accumulate more (don't exceed original_stack_count)
+		var swapped_original_count = swapped_slot.original_stack_count if "original_stack_count" in swapped_slot else 0
+		var swapped_drag_count = swapped_slot.drag_count if "drag_count" in swapped_slot else 0
+		
+		if swapped_drag_count >= swapped_original_count:
+			print("DEBUG toolkit: Cannot accumulate more to swapped drag - already at max (", swapped_original_count, ")")
+			return # Already dragging the full swapped stack
+		
+		# Fallback: manually accumulate
+		if "drag_count" in swapped_slot:
+			swapped_slot.drag_count += 1
+			print("DEBUG toolkit: Accumulating to swapped drag - now dragging ", swapped_slot.drag_count, " items")
+			# Update drag preview
+			if swapped_slot.drag_preview_label:
+				swapped_slot.drag_preview_label.text = str(swapped_slot.drag_count)
+			# Update this slot to show reduced count
+			var new_remaining = stack_count - 1
+			if InventoryManager:
+				if new_remaining > 0:
+					InventoryManager.add_item_to_toolkit(slot_index, item_texture, new_remaining)
+				else:
+					InventoryManager.remove_item_from_toolkit(slot_index)
+			set_item(item_texture, new_remaining)
+			return
 
 	# If already dragging the same item from THIS slot, add one more to the drag count
 	if is_dragging and _is_right_click_drag and original_texture == item_texture:
@@ -388,9 +543,13 @@ func _stop_drag() -> void:
 			# Mark input as handled BEFORE throwing to prevent tool actions
 			get_viewport().set_input_as_handled()
 			print("DEBUG _stop_drag: Throwing to world")
-			_throw_to_world(mouse_pos)
-			# If throw_to_world succeeds, it will handle the drop
-			# If it fails, drop_success stays false and items will be restored below
+			var throw_success = _throw_to_world(mouse_pos)
+			if throw_success:
+				# Throw to world succeeded - items are dropped, drag is cleaned up
+				drop_success = true
+				# _throw_to_world() already cleaned up drag state, so return early
+				return
+			# If throw_to_world fails, drop_success stays false and items will be restored below
 		else:
 			# Over UI slot but drop failed - might be locked slot or other issue
 			# CRITICAL: Restore items to prevent destruction
@@ -569,9 +728,25 @@ func _create_drag_preview(texture: Texture, count: int = 1) -> TextureRect:
 
 
 func _process(_delta: float) -> void:
-	"""Update drag preview position when dragging (especially for right-click drags that need global tracking)"""
+	"""Update drag preview position when dragging and handle world clicks"""
 	if is_dragging and drag_preview:
 		_update_drag_preview_position()
+		
+		# CRITICAL: Check for clicks on world while dragging (click-to-drop)
+		# This handles cases where clicking the world doesn't trigger _gui_input()
+		# Support both left-click and right-click world drops
+		if Input.is_action_just_pressed("ui_mouse_left") or Input.is_action_just_pressed("ui_mouse_right"):
+			# Check if mouse is over any UI slot
+			var viewport = get_viewport()
+			if viewport:
+				var mouse_pos = viewport.get_mouse_position()
+				var is_over_ui = _is_mouse_over_ui(mouse_pos)
+				
+				# If not over UI, this is a world click - stop drag to drop
+				if not is_over_ui:
+					var click_type = "left" if Input.is_action_just_pressed("ui_mouse_left") else "right"
+					print("DEBUG toolkit _process: World ", click_type, "-click detected while dragging - stopping drag")
+					_stop_drag()
 	else:
 		# Stop processing when not dragging
 		set_process(false)
@@ -652,10 +827,11 @@ func _handle_drop(drop_position: Vector2) -> bool:
 						# For both right-click and left-click drags, restore the item when dropping on same slot
 						if _is_right_click_drag:
 							print("DEBUG _handle_drop: Right-click drag on same slot - restoring item")
-							# Restore the item by calling _receive_drop on self
-							# CRITICAL: This will restore the original stack count
+							# CRITICAL: For right-click same-slot drops, restore the FULL original stack count
+							# Pass original_stack_count (not drag_count) so _receive_drop() can restore correctly
 							if has_method("_receive_drop"):
-								var success = _receive_drop(original_texture, drag_count, slot_index, self, "toolkit")
+								# CRITICAL: Use original_stack_count to restore the full stack, not just drag_count
+								var success = _receive_drop(original_texture, original_stack_count, slot_index, self, "toolkit")
 								# CRITICAL: After _receive_drop() updates the slot, we need to ensure
 								# the drag state is cleaned up, but NOT by calling _stop_drag_cleanup()
 								# because that would clear original_stack_count before _stop_drag() finishes
@@ -784,10 +960,10 @@ func _is_mouse_over_ui(mouse_pos: Vector2) -> bool:
 	return false
 
 
-func _throw_to_world(mouse_pos: Vector2) -> void:
-	"""Throw dragged item(s) to world position with physics/bounce"""
+func _throw_to_world(mouse_pos: Vector2) -> bool:
+	"""Throw dragged item(s) to world position with physics/bounce. Returns true if successful."""
 	if not is_dragging or not original_texture:
-		return
+		return false
 	
 	# Get player position - items should scatter around the player, not at mouse position
 	# CRITICAL: Player structure is: Player (Node2D parent) -> Player (CharacterBody2D child that actually moves)
@@ -797,7 +973,7 @@ func _throw_to_world(mouse_pos: Vector2) -> void:
 	
 	if not player_parent:
 		_cancel_drag()
-		return
+		return false
 	
 	# Get the actual CharacterBody2D child that moves (this is where the real position is)
 	var player: CharacterBody2D = null
@@ -818,7 +994,7 @@ func _throw_to_world(mouse_pos: Vector2) -> void:
 		player_pos = player_parent.global_position
 	else:
 		_cancel_drag()
-		return
+		return false
 	
 	# Get HUD instance for droppable
 	var hud = get_tree().root.get_node_or_null("Hud")
@@ -827,7 +1003,7 @@ func _throw_to_world(mouse_pos: Vector2) -> void:
 		hud = get_tree().current_scene.get_node_or_null("Hud")
 	if not hud:
 		_cancel_drag()
-		return
+		return false
 	
 	# Drop items in front of the player (small scatter, not far away)
 	var item_count = drag_count
@@ -892,6 +1068,9 @@ func _throw_to_world(mouse_pos: Vector2) -> void:
 		else:
 			var remaining = original_stack_count - items_thrown
 			set_item(original_texture, remaining)
+	
+	# Return success
+	return true
 	
 	# Reset drag state
 	original_texture = null
@@ -964,73 +1143,225 @@ func _find_hud_root(node: Node) -> Node:
 
 func _cancel_existing_drag_from_inventory() -> void:
 	"""Cancel any existing drag from an inventory slot (prevents multiple item types in ghost slot)"""
+	print("DEBUG toolkit _cancel_existing_drag_from_inventory: Checking for inventory drags")
 	var pause_menu = _find_pause_menu()
 	if not pause_menu:
+		print("DEBUG toolkit _cancel_existing_drag_from_inventory: No pause menu found")
 		return
 	
 	var inventory_grid = pause_menu.get_node_or_null(
 		"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
 	)
 	if not inventory_grid:
+		print("DEBUG toolkit _cancel_existing_drag_from_inventory: No inventory grid found")
 		return
 	
 	for slot in inventory_grid.get_children():
-		if slot and "is_dragging" in slot:
+		if slot and "is_dragging" in slot and slot.is_dragging:
+			# Cancel ANY drag (both left-click and right-click)
 			var is_right_click = false
 			if "_is_right_click_drag" in slot:
 				is_right_click = slot._is_right_click_drag
 			
-			if slot.is_dragging and is_right_click:
-				print("DEBUG toolkit: Canceling drag from inventory slot ", slot.slot_index if "slot_index" in slot else "unknown")
+			print("DEBUG toolkit: Canceling drag from inventory slot ", slot.slot_index if "slot_index" in slot else "unknown", " (right-click=", is_right_click, ")")
+			
+			if "original_texture" in slot and "original_stack_count" in slot:
+				var restore_texture = slot.original_texture
+				var restore_count = slot.original_stack_count
 				
-				if "original_texture" in slot and "original_stack_count" in slot:
-					var restore_texture = slot.original_texture
-					var restore_count = slot.original_stack_count
-					
-					if InventoryManager and restore_texture:
-						var slot_idx = slot.slot_index if "slot_index" in slot else -1
-						if slot_idx >= 0:
-							InventoryManager.update_inventory_slots(slot_idx, restore_texture, restore_count)
-					
-					if slot.has_method("set_item"):
-						slot.set_item(restore_texture, restore_count)
+				if InventoryManager and restore_texture:
+					var slot_idx = slot.slot_index if "slot_index" in slot else -1
+					if slot_idx >= 0:
+						InventoryManager.update_inventory_slots(slot_idx, restore_texture, restore_count)
 				
-				if slot.has_method("_stop_drag_cleanup"):
-					slot._stop_drag_cleanup()
-				
-				break
+				if slot.has_method("set_item"):
+					slot.set_item(restore_texture, restore_count)
+			
+			if slot.has_method("_stop_drag_cleanup"):
+				slot._stop_drag_cleanup()
+			
+			break
+
+
+func _find_slot_with_swapped_items() -> Node:
+	"""Find the slot (toolkit or inventory) that has swapped items in ghost slot"""
+	# Check toolkit slots first
+	var hud = get_tree().root
+	if hud:
+		var hud_root = _find_hud_root(hud)
+		if hud_root:
+			var hud_canvas = hud_root.get_node_or_null("HUD")
+			if hud_canvas:
+				var slots_container = hud_canvas.get_node_or_null("MarginContainer/HBoxContainer")
+				if slots_container:
+					for slot in slots_container.get_children():
+						if slot and "is_dragging" in slot and "has_swapped_items_in_ghost" in slot:
+							if slot.is_dragging and slot.has_swapped_items_in_ghost:
+								return slot
+	
+	# Check inventory slots
+	var pause_menu = _find_pause_menu()
+	if pause_menu:
+		var inventory_grid = pause_menu.get_node_or_null(
+			"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+		)
+		if inventory_grid:
+			for slot in inventory_grid.get_children():
+				if slot and "is_dragging" in slot and "has_swapped_items_in_ghost" in slot:
+					if slot.is_dragging and slot.has_swapped_items_in_ghost:
+						return slot
+	
+	return null
 
 
 func _cancel_existing_drag_from_other_toolkit_slot() -> void:
 	"""Cancel any existing drag from another toolkit slot (prevents multiple item types in ghost slot)"""
+	print("DEBUG toolkit _cancel_existing_drag_from_other_toolkit_slot: Checking for toolkit drags (self=slot ", slot_index, ")")
 	var hud = get_tree().root
 	if not hud:
+		print("DEBUG toolkit _cancel_existing_drag_from_other_toolkit_slot: No hud root found")
 		return
 	
 	var hud_root = _find_hud_root(hud)
 	if not hud_root:
+		print("DEBUG toolkit _cancel_existing_drag_from_other_toolkit_slot: No hud root found")
 		return
 	
 	var hud_canvas = hud_root.get_node_or_null("HUD")
 	if not hud_canvas:
+		print("DEBUG toolkit _cancel_existing_drag_from_other_toolkit_slot: No HUD canvas found")
 		return
 	
 	var slots_container = hud_canvas.get_node_or_null("MarginContainer/HBoxContainer")
 	if not slots_container:
+		print("DEBUG toolkit _cancel_existing_drag_from_other_toolkit_slot: No slots container found")
 		return
 	
 	for slot in slots_container.get_children():
-		if slot and slot != self and "is_dragging" in slot:
+		if slot and slot != self and "is_dragging" in slot and slot.is_dragging:
+			# Cancel ANY drag (both left-click and right-click)
 			var is_right_click = false
 			if "_is_right_click_drag" in slot:
 				is_right_click = slot._is_right_click_drag
 			
-			if slot.is_dragging and is_right_click:
+			if is_right_click:
 				print("DEBUG toolkit: Canceling drag from toolkit slot ", slot.slot_index if "slot_index" in slot else "unknown")
 				
+				# CRITICAL: Check if this slot has swapped items in ghost slot
+				# If so, we need to restore the swap properly:
+				# 1. Restore destination slot to its original state (swapped items go back)
+				# 2. Restore source slot to its remaining state (source_remaining_texture/count)
+				# 3. Clear the ghost slot
+				if "has_swapped_items_in_ghost" in slot and slot.has_swapped_items_in_ghost:
+					print("DEBUG toolkit: Canceling drag with swapped items - restoring swap")
+					# Find the destination slot where swapped items should go back
+					# The swapped items are in the ghost slot (original_texture/original_stack_count)
+					# We need to find which slot currently has the source's remaining items
+					# and swap them back
+					
+					# The swapped items should go back to where they came from
+					# We stored the destination slot info when we swapped
+					# For now, we'll restore the source slot to its remaining state
+					# and drop the swapped items back to where they came from
+					
+					# Restore source slot to its remaining state
+					if "source_remaining_texture" in slot and "source_remaining_count" in slot:
+						var source_remaining_tex = slot.source_remaining_texture
+						var source_remaining_cnt = slot.source_remaining_count
+						
+						# CRITICAL: Add back the originally dragged item that was lost during swap
+						if "original_drag_count_before_swap" in slot and slot.original_drag_count_before_swap > 0:
+							source_remaining_cnt += slot.original_drag_count_before_swap
+							print("DEBUG toolkit: Adding back original drag_count=", slot.original_drag_count_before_swap, " to source_remaining, new count=", source_remaining_cnt)
+						
+						# CRITICAL: Also restore original_stack_count to its original value (before swap)
+						if "original_original_stack_count" in slot and slot.original_original_stack_count > 0:
+							slot.original_stack_count = slot.original_original_stack_count
+							print("DEBUG toolkit: Restored original_stack_count to ", slot.original_stack_count)
+						
+						if InventoryManager and source_remaining_tex:
+							var slot_idx = slot.slot_index if "slot_index" in slot else -1
+							if slot_idx >= 0:
+								InventoryManager.add_item_to_toolkit(slot_idx, source_remaining_tex, source_remaining_cnt)
+						
+						if slot.has_method("set_item"):
+							slot.set_item(source_remaining_tex, source_remaining_cnt)
+					
+					# Now we need to restore the destination slot
+					# The swapped items (original_texture/original_stack_count) need to go back
+					# But we don't know which slot they came from...
+					# For now, we'll just clear the ghost slot and let the user drop manually
+					# OR we could try to find the slot that has the swapped items' texture
+					
+					# Restore destination slot to its original state (swapped items go back)
+					if "swapped_dest_slot_index" in slot and slot.swapped_dest_slot_index >= 0:
+						var dest_slot_idx = slot.swapped_dest_slot_index
+						var swapped_texture = slot.original_texture if "original_texture" in slot else null
+						var swapped_count = slot.original_stack_count if "original_stack_count" in slot else 0
+						
+						print("DEBUG toolkit: Restoring destination slot ", dest_slot_idx, " with swapped items: ", swapped_count, "x ", swapped_texture)
+						
+						# Find the destination slot and restore it
+						if slots_container:
+							var found_dest = false
+							for dest_slot in slots_container.get_children():
+								if dest_slot and "slot_index" in dest_slot and dest_slot.slot_index == dest_slot_idx:
+									found_dest = true
+									print("DEBUG toolkit: Found destination slot ", dest_slot_idx, " - restoring to ", swapped_count, "x ", swapped_texture)
+									if InventoryManager and swapped_texture:
+										InventoryManager.add_item_to_toolkit(dest_slot_idx, swapped_texture, swapped_count)
+									if dest_slot.has_method("set_item"):
+										dest_slot.set_item(swapped_texture, swapped_count)
+									break
+							if not found_dest:
+								print("DEBUG toolkit: ERROR - Could not find destination slot ", dest_slot_idx, " to restore!")
+					else:
+						print("DEBUG toolkit: WARNING - No swapped_dest_slot_index stored, cannot restore destination slot!")
+					
+					# Clear swapped items flag
+					slot.has_swapped_items_in_ghost = false
+					slot.source_remaining_texture = null
+					slot.source_remaining_count = 0
+					slot.swapped_dest_slot_index = -1
+					slot.original_original_stack_count = 0
+					slot.original_drag_count_before_swap = 0
+					
+					# Clean up drag state
+					if slot.has_method("_stop_drag_cleanup"):
+						slot._stop_drag_cleanup()
+				else:
+					# Normal cancel - restore original items
+					if "original_texture" in slot and "original_stack_count" in slot:
+						# CRITICAL: Save original values BEFORE clearing drag state
+						var restore_texture = slot.original_texture
+						var restore_count = slot.original_stack_count
+						
+						# CRITICAL: Clear drag state BEFORE restoring items to prevent race conditions
+						if slot.has_method("_stop_drag_cleanup"):
+							slot._stop_drag_cleanup()
+						
+						if InventoryManager and restore_texture:
+							var slot_idx = slot.slot_index if "slot_index" in slot else -1
+							if slot_idx >= 0:
+								InventoryManager.add_item_to_toolkit(slot_idx, restore_texture, restore_count)
+						
+						if slot.has_method("set_item"):
+							slot.set_item(restore_texture, restore_count)
+					else:
+						# No original items stored - just clear drag state
+						if slot.has_method("_stop_drag_cleanup"):
+							slot._stop_drag_cleanup()
+			else:
+				# Left-click drag - restore original items
+				print("DEBUG toolkit: Canceling left-click drag from toolkit slot ", slot.slot_index if "slot_index" in slot else "unknown")
 				if "original_texture" in slot and "original_stack_count" in slot:
+					# CRITICAL: Save original values BEFORE clearing drag state
 					var restore_texture = slot.original_texture
 					var restore_count = slot.original_stack_count
+					
+					# CRITICAL: Clear drag state BEFORE restoring items to prevent race conditions
+					if slot.has_method("_stop_drag_cleanup"):
+						slot._stop_drag_cleanup()
 					
 					if InventoryManager and restore_texture:
 						var slot_idx = slot.slot_index if "slot_index" in slot else -1
@@ -1039,9 +1370,10 @@ func _cancel_existing_drag_from_other_toolkit_slot() -> void:
 					
 					if slot.has_method("set_item"):
 						slot.set_item(restore_texture, restore_count)
-				
-				if slot.has_method("_stop_drag_cleanup"):
-					slot._stop_drag_cleanup()
+				else:
+					# No original items stored - just clear drag state
+					if slot.has_method("_stop_drag_cleanup"):
+						slot._stop_drag_cleanup()
 				
 				break
 
@@ -1223,20 +1555,30 @@ func _receive_drop(
 	if source_slot_index == slot_index:
 		if is_right_click_drag:
 			# Right-click drag: restore original_stack_count (not the reduced current_stack_count)
-			# CRITICAL: Ensure source_original_stack_count is set
+			# CRITICAL: If dropped_stack_count is already the original_stack_count (passed from _handle_drop),
+			# use it directly. Otherwise, calculate from source node.
 			if source_original_stack_count <= 0:
-				# Emergency fallback calculation
-				if source_node:
-					var source_current = source_node.stack_count if "stack_count" in source_node else 0
-					var source_drag = source_node.drag_count if "drag_count" in source_node else dropped_stack_count
-					source_original_stack_count = source_current + source_drag
-				# CRITICAL: If calculation still fails, use current_stack_count + dropped_stack_count as last resort
-				# This is better than using dropped_stack_count alone (which is just the dragged amount)
-				if source_original_stack_count <= 0:
-					# Last resort: current_stack_count + dropped_stack_count should give us the original
-					# This works because: original = current (reduced) + dragged
-					source_original_stack_count = current_stack_count + dropped_stack_count
-					print("WARNING: Using fallback calculation for original_stack_count: ", source_original_stack_count, " (current=", current_stack_count, " + dragged=", dropped_stack_count, ")")
+				# Check if dropped_stack_count might already be the original (when called from _handle_drop with original_stack_count)
+				# For same-slot drops, if dropped_stack_count > drag_count, it's likely the original
+				if source_node and "drag_count" in source_node:
+					var source_drag = source_node.drag_count
+					if dropped_stack_count > source_drag:
+						# dropped_stack_count is likely the original_stack_count
+						source_original_stack_count = dropped_stack_count
+						print("DEBUG _receive_drop: Using dropped_stack_count as original_stack_count: ", source_original_stack_count)
+					else:
+						# Calculate from source node
+						var source_current = source_node.stack_count if "stack_count" in source_node else 0
+						source_original_stack_count = source_current + source_drag
+						print("DEBUG _receive_drop: Calculated original_stack_count from source: ", source_original_stack_count)
+				else:
+					# Fallback: use dropped_stack_count if it seems reasonable
+					if dropped_stack_count > 0:
+						source_original_stack_count = dropped_stack_count
+					else:
+						# Last resort: current_stack_count + dropped_stack_count
+						source_original_stack_count = current_stack_count + dropped_stack_count
+						print("WARNING: Using fallback calculation for original_stack_count: ", source_original_stack_count)
 			
 			print("DEBUG _receive_drop: Same-slot drop for right-click drag - restoring original_stack_count=", source_original_stack_count)
 			# CRITICAL: Update InventoryManager FIRST before UI
@@ -1460,39 +1802,45 @@ func _receive_drop(
 				# CRITICAL: Skip all source slot update logic below - it's already correct
 				skip_source_update = true
 		
-		# CRITICAL: Recalculate source_original_stack_count to ensure it's accurate
-		# This is needed because the stacking branch might not have set it
-		if source_node:
-			var source_current = source_node.stack_count if "stack_count" in source_node else 0
-			var source_drag = source_node.drag_count if "drag_count" in source_node else dropped_stack_count
-			var calculated_original = source_current + source_drag
+		# CRITICAL: If we're dropping swapped items, source_remaining is already set correctly above
+		# Don't recalculate it - use the stored value
+		if not skip_source_update:
+			# CRITICAL: Recalculate source_original_stack_count to ensure it's accurate
+			# This is needed because the stacking branch might not have set it
+			if source_node:
+				var source_current = source_node.stack_count if "stack_count" in source_node else 0
+				var source_drag = source_node.drag_count if "drag_count" in source_node else dropped_stack_count
+				var calculated_original = source_current + source_drag
+				
+				# Also read stored value if available
+				var stored_original = 0
+				if "original_stack_count" in source_node:
+					stored_original = source_node.original_stack_count
+				
+				# Use stored if valid, otherwise calculated
+				if stored_original > 0 and source_original_stack_count <= 0:
+					source_original_stack_count = stored_original
+					print("DEBUG: Full swap - using stored original_stack_count: ", source_original_stack_count)
+				elif source_original_stack_count <= 0:
+					source_original_stack_count = calculated_original
+					print("DEBUG: Full swap - using calculated original_stack_count: ", source_original_stack_count)
 			
-			# Also read stored value if available
-			var stored_original = 0
-			if "original_stack_count" in source_node:
-				stored_original = source_node.original_stack_count
+			# Defensive fallback if still invalid
+			if source_original_stack_count <= 0:
+				print("ERROR: source_original_stack_count still invalid - using dropped_stack_count")
+				source_original_stack_count = dropped_stack_count
 			
-			# Use stored if valid, otherwise calculated
-			if stored_original > 0 and source_original_stack_count <= 0:
-				source_original_stack_count = stored_original
-				print("DEBUG: Full swap - using stored original_stack_count: ", source_original_stack_count)
-			elif source_original_stack_count <= 0:
-				source_original_stack_count = calculated_original
-				print("DEBUG: Full swap - using calculated original_stack_count: ", source_original_stack_count)
-		
-		# Defensive fallback if still invalid
-		if source_original_stack_count <= 0:
-			print("ERROR: source_original_stack_count still invalid - using dropped_stack_count")
-			source_original_stack_count = dropped_stack_count
-		
-		# Now calculate remaining items
-		if source_slot_index == slot_index:
-			# Dropping back to same slot - restore original count
-			source_remaining = source_original_stack_count
+			# Now calculate remaining items
+			if source_slot_index == slot_index:
+				# Dropping back to same slot - restore original count
+				source_remaining = source_original_stack_count
+			else:
+				# Dropping to different slot - source keeps (original - dragged)
+				# CRITICAL: Use original_stack_count, not current stack_count (which was already reduced)
+				source_remaining = source_original_stack_count - dropped_stack_count
 		else:
-			# Dropping to different slot - source keeps (original - dragged)
-			# CRITICAL: Use original_stack_count, not current stack_count (which was already reduced)
-			source_remaining = source_original_stack_count - dropped_stack_count
+			# Dropping swapped items - source_remaining is already set from source_remaining_count above
+			print("DEBUG _receive_drop: Using stored source_remaining=", source_remaining, " (dropping swapped items)")
 		
 		# CRITICAL: Always update source slot for right-click drags
 		# This MUST happen to preserve the original stack - don't skip this!
@@ -1551,7 +1899,11 @@ func _receive_drop(
 							source_node.source_remaining_count = source_remaining
 						# Update ghost slot to show swapped items (destination slot's ORIGINAL items, saved before overwrite)
 						print("DEBUG _receive_drop: Updating ghost slot with swapped items")
+						# CRITICAL: Store the original drag_count before overwriting it (the originally dragged item)
 						if "drag_count" in source_node:
+							if "original_drag_count_before_swap" in source_node:
+								source_node.original_drag_count_before_swap = source_node.drag_count
+								print("DEBUG _receive_drop: Stored original_drag_count_before_swap=", source_node.original_drag_count_before_swap)
 							source_node.drag_count = dest_stack_count
 							print("DEBUG _receive_drop: Updated drag_count to ", dest_stack_count)
 						if "original_texture" in source_node:
@@ -1570,6 +1922,10 @@ func _receive_drop(
 							print("DEBUG _receive_drop: Created new drag preview with swapped texture=", dest_texture, " count=", dest_stack_count)
 						else:
 							print("DEBUG _receive_drop: WARNING - source_node doesn't have _create_drag_preview method")
+						# CRITICAL: Store destination slot index so we can restore swap if needed
+						if "swapped_dest_slot_index" in source_node:
+							source_node.swapped_dest_slot_index = slot_index
+							print("DEBUG _receive_drop: Stored swapped_dest_slot_index=", slot_index)
 						# CRITICAL: Mark that we have swapped items in ghost slot - prevent cleanup
 						source_node.has_swapped_items_in_ghost = true
 						# Don't call _stop_drag_cleanup() - let user continue dragging swapped items
@@ -1588,8 +1944,27 @@ func _receive_drop(
 						source_node.set_item(null, 0)
 			else:
 				print("ERROR: Source node doesn't have set_item method for right-click drag")
-		else:
-			print("ERROR: Source node is null for right-click drag")
+		elif not source_node:
+			# CRITICAL: Source node is null - this can happen if the slot was cleaned up
+			# We need to handle this gracefully to prevent item loss
+			print("ERROR: Source node is null for right-click drag - attempting to restore items")
+			# Try to find the source slot by index and restore items
+			var hud = get_tree().root
+			if hud:
+				var hud_root = _find_hud_root(hud)
+				if hud_root:
+					var hud_canvas = hud_root.get_node_or_null("HUD")
+					if hud_canvas:
+						var slots_container = hud_canvas.get_node_or_null("MarginContainer/HBoxContainer")
+						if slots_container:
+							for slot in slots_container.get_children():
+								if slot and "slot_index" in slot and slot.slot_index == source_slot_index:
+									# Found the source slot - restore items
+									if source_remaining > 0:
+										slot.set_item(dropped_texture, source_remaining)
+										if InventoryManager:
+											InventoryManager.add_item_to_toolkit(source_slot_index, dropped_texture, source_remaining)
+									break
 	else:
 		# Left-click drag: full swap
 		# Source gets what was in the destination (current_texture, current_stack_count)
