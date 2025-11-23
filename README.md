@@ -339,3 +339,30 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ---
 
 **Last Updated:** Current development focus is on inventory drag and drop functionality (left/right click behaviors).
+
+
+**Prompts for Cursor** If you want to build a new feature start with a prompt like this, it will make use of the rimfield-godot-architecture.md rules and build with intelligent planning:
+``` You are helping me implement a NEW FEATURE in my Godot 4 game Rimfield.
+
+Follow the `rimfield-godot-architecture` rules:
+
+1. Start by summarizing the feature in 1–2 sentences.
+2. Then design:
+   - Data model (GDScript classes/Resources and fields)
+   - Manager/owner and its responsibilities
+   - Public API (methods)
+   - Signals/events
+3. Explain how it integrates with:
+   - Time (DayNight/TimeManager) if relevant
+   - Energy/PlayerState if relevant
+   - Save/load system
+4. Call out at least one future extension we know about
+   (e.g. soil quality grading, NPC needs, containers, etc.)
+   and show how the current design leaves a clean hook for it.
+5. Only THEN propose actual scene structure and GDScript snippets.
+
+Avoid quick hacks. I would rather have a small, clean, extensible feature
+than something fragile that I will have to rewrite later.
+
+Feature: “Watering system: watering can tool, watered tiles, and growth tick integration.”
+ ```
