@@ -264,4 +264,4 @@ func stop_interaction():
 
 func interact_with_droppable(droppable_data: Resource) -> void:
 	if inventory_manager:
-		var success = inventory_manager.add_item_to_first_empty_slot(droppable_data)
+		var _success = inventory_manager.add_item_to_first_empty_slot(droppable_data)

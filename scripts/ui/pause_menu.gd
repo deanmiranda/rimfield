@@ -439,13 +439,13 @@ func _on_back_to_main_menu_pressed() -> void:
 		get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
-func _on_inventory_slot_clicked(slot_index: int) -> void:
+func _on_inventory_slot_clicked(_slot_index: int) -> void:
 	"""Handle inventory slot clicks - prepare for future functionality"""
 	# Future: Handle slot selection, item interaction, toolbelt swapping, etc.
 	pass
 
 
-func _on_inventory_slot_drop_received(slot_index: int, data: Dictionary) -> void:
+func _on_inventory_slot_drop_received(_slot_index: int, data: Dictionary) -> void:
 	"""Handle inventory slot drop - notify ToolSwitcher (InventoryManager already updated in drop_data)"""
 	# NOTE: InventoryManager is now updated in inventory_menu_slot.drop_data() BEFORE UI swap
 	# This signal handler only needs to notify ToolSwitcher about toolkit changes

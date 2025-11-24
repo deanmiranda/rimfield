@@ -1,12 +1,12 @@
 extends Node2D
 
-@export var tilemap_layer: NodePath  # Reference the TileMapLayer node
+@export var tilemap_layer: NodePath # Reference the TileMapLayer node
 @export var grass_emitter_scene: Resource
 @export var tilled_emitter_scene: Resource
 @export var dirt_emitter_scene: Resource
-@export var cell_size: Vector2 = Vector2(16, 16)  # Define the size of each cell manually or export for flexibility
-@export var debug_disable_dust: bool = true  # Toggle to disable dust emitter
-@export var farming_manager_path: NodePath  # farming_manager path
+@export var cell_size: Vector2 = Vector2(16, 16) # Define the size of each cell manually or export for flexibility
+@export var debug_disable_dust: bool = true # Toggle to disable dust emitter
+@export var farming_manager_path: NodePath # farming_manager path
 
 var hud_instance: Node
 var hud_scene_path = preload("res://scenes/ui/hud.tscn")
@@ -24,7 +24,7 @@ func _ready() -> void:
 	# Use spawn position from SceneManager if set (e.g., exiting house)
 	if SceneManager and SceneManager.player_spawn_position != Vector2.ZERO:
 		player_instance.global_position = SceneManager.player_spawn_position
-		SceneManager.player_spawn_position = Vector2.ZERO  # Reset after use
+		SceneManager.player_spawn_position = Vector2.ZERO # Reset after use
 	else:
 		# Default: use PlayerSpawnPoint node
 		var spawn_point = $PlayerSpawnPoint
@@ -41,8 +41,8 @@ func _ready() -> void:
 			camera.reset_smoothing()
 
 	# Farming logic setup
-	GameState.connect("game_loaded", Callable(self, "_on_game_loaded"))  # Proper Callable usage
-	_load_farm_state()  # Also run on initial entry
+	GameState.connect("game_loaded", Callable(self, "_on_game_loaded")) # Proper Callable usage
+	_load_farm_state() # Also run on initial entry
 
 	# Inventory setup
 	if UiManager:
@@ -58,9 +58,9 @@ func _ready() -> void:
 		# Pass HUD instance to the farming manager
 		if farming_manager and hud_instance:
 			if HUD:
-				HUD.set_farming_manager(farming_manager)  # Link FarmingManager to HUD
-				HUD.set_hud_scene_instance(hud_instance)  # Inject HUD scene instance to cache references (replaces /root/... paths)
-				farming_manager.set_hud(hud_instance)  # Link HUD to FarmingManager
+				HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
+				HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
+				farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
 			else:
 				print("Error: hud_instance is not an instance of HUD script.")
 		else:
@@ -109,19 +109,19 @@ func spawn_random_droppables(count: int) -> void:
 
 
 func _get_random_droppable_name() -> String:
-	var droppable_names = ["carrot", "strawberry", "tomato"]  # Add more droppable types
+	var droppable_names = ["carrot", "strawberry", "tomato"] # Add more droppable types
 	return droppable_names[randi() % droppable_names.size()]
 
 
 func _get_random_farm_position() -> Vector2:
-	var farm_area = Rect2(Vector2(0, 0), Vector2(-400, 400))  # Define the bounds of your farm
+	var farm_area = Rect2(Vector2(0, 0), Vector2(-400, 400)) # Define the bounds of your farm
 	var random_x = randi() % int(farm_area.size.x) + farm_area.position.x
 	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
 	return Vector2(random_x, random_y)
 
 
 func _on_game_loaded() -> void:
-	_load_farm_state()  # Apply loaded state when notified
+	_load_farm_state() # Apply loaded state when notified
 
 
 func _load_farm_state() -> void:
@@ -137,25 +137,25 @@ func _load_farm_state() -> void:
 
 	for position_key in GameState.farm_state.keys():
 		# Ensure position_key is a string before splitting
-		var position: Vector2i
+		var tile_position: Vector2i
 		if position_key is String:
 			var components = position_key.split(",")
-			position = Vector2i(components[0].to_int(), components[1].to_int())
+			tile_position = Vector2i(components[0].to_int(), components[1].to_int())
 		elif position_key is Vector2i:
-			position = position_key
+			tile_position = position_key
 		else:
 			print("Invalid position_key format:", position_key)
 			continue
 
 		# Get the state and set the tile
-		var state = GameState.get_tile_state(position)
+		var state = GameState.get_tile_state(tile_position)
 		match state:
 			"dirt":
-				tilemap.set_cell(position, farming_manager.TILE_ID_DIRT, Vector2i(0, 0))
+				tilemap.set_cell(tile_position, farming_manager.TILE_ID_DIRT, Vector2i(0, 0))
 			"tilled":
-				tilemap.set_cell(position, farming_manager.TILE_ID_TILLED, Vector2i(0, 0))
+				tilemap.set_cell(tile_position, farming_manager.TILE_ID_TILLED, Vector2i(0, 0))
 			"planted":
-				tilemap.set_cell(position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
+				tilemap.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:

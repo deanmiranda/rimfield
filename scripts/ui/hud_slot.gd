@@ -1361,9 +1361,9 @@ func _find_tool_switcher() -> Node:
 	# Try to find HUD first, then ToolSwitcher within it
 	var hud = get_tree().root.get_node_or_null("HUD")
 	if hud:
-		var tool_switcher = hud.get_node_or_null("ToolSwitcher")
-		if tool_switcher:
-			return tool_switcher
+		var tool_switcher_node = hud.get_node_or_null("ToolSwitcher")
+		if tool_switcher_node:
+			return tool_switcher_node
 		# Also check if HUD has a child scene instance
 		for child in hud.get_children():
 			if child.has_node("ToolSwitcher"):
@@ -1372,9 +1372,9 @@ func _find_tool_switcher() -> Node:
 	# Try finding in current scene
 	var current_scene = get_tree().current_scene
 	if current_scene:
-		var tool_switcher = current_scene.get_node_or_null("ToolSwitcher")
-		if tool_switcher:
-			return tool_switcher
+		var tool_switcher_node = current_scene.get_node_or_null("ToolSwitcher")
+		if tool_switcher_node:
+			return tool_switcher_node
 		# Check children recursively
 		for child in current_scene.get_children():
 			if child.has_node("ToolSwitcher"):
@@ -1485,9 +1485,9 @@ func _receive_drop(
 			set_item(dropped_texture, dropped_stack_count)
 		
 		# Notify ToolSwitcher
-		var tool_switcher = _find_tool_switcher()
-		if tool_switcher:
-			tool_switcher.update_toolkit_slot(slot_index, dropped_texture)
+		var tool_switcher_node = _find_tool_switcher()
+		if tool_switcher_node:
+			tool_switcher_node.update_toolkit_slot(slot_index, dropped_texture)
 		
 		# Don't call _stop_drag_cleanup() here - let _stop_drag() handle it
 		return true
@@ -1508,7 +1508,7 @@ func _receive_drop(
 			
 			# Update source slot with remaining items
 			var remaining = dropped_stack_count - amount_to_add
-			var source_remaining = 0
+			var local_source_remaining = 0
 			if is_right_click_drag:
 				# Right-click drag: source should have (original - dragged) items remaining
 				# CRITICAL: source_original_stack_count should already be set from the check above
@@ -1525,11 +1525,11 @@ func _receive_drop(
 				# Calculate remaining
 				if source_slot_index == slot_index:
 					# Dropping back to same slot - restore original count
-					source_remaining = source_original_stack_count
+					local_source_remaining = source_original_stack_count
 				else:
 					# Dropping to different slot - source keeps (original - dragged)
 					# CRITICAL: Use original_stack_count, not current stack_count (which was already reduced)
-					source_remaining = source_original_stack_count - dropped_stack_count
+					local_source_remaining = source_original_stack_count - dropped_stack_count
 				
 				# CRITICAL: Always update source slot for right-click drags (even if same slot)
 				# This MUST happen to preserve the original stack
@@ -1537,21 +1537,21 @@ func _receive_drop(
 				if InventoryManager:
 					if source == "inventory":
 						# Source is inventory - use update_inventory_slots
-						if source_remaining > 0:
-							InventoryManager.update_inventory_slots(source_slot_index, dropped_texture, source_remaining)
+						if local_source_remaining > 0:
+							InventoryManager.update_inventory_slots(source_slot_index, dropped_texture, local_source_remaining)
 						else:
 							InventoryManager.update_inventory_slots(source_slot_index, null, 0)
 					else:
 						# Source is toolkit - use toolkit methods
-						if source_remaining > 0:
-							InventoryManager.add_item_to_toolkit(source_slot_index, dropped_texture, source_remaining)
+						if local_source_remaining > 0:
+							InventoryManager.add_item_to_toolkit(source_slot_index, dropped_texture, local_source_remaining)
 						else:
 							InventoryManager.remove_item_from_toolkit(source_slot_index)
 				
 				# Then update UI
 				if source_node and source_node.has_method("set_item"):
-					if source_remaining > 0:
-						source_node.set_item(dropped_texture, source_remaining)
+					if local_source_remaining > 0:
+						source_node.set_item(dropped_texture, local_source_remaining)
 					else:
 						source_node.set_item(null, 0)
 			else:
@@ -1580,10 +1580,10 @@ func _receive_drop(
 						InventoryManager.remove_item_from_toolkit(source_slot_index)
 					
 					# Don't call _stop_drag_cleanup() - let the user continue dragging the remainder
-					source_remaining = 0 # Source is empty, remainder is on cursor
+					local_source_remaining = 0 # Source is empty, remainder is on cursor
 				else:
 					# All items fit - handle normally
-					source_remaining = remaining
+					local_source_remaining = remaining
 					# Update InventoryManager FIRST before UI
 					if InventoryManager:
 						if remaining > 0:
@@ -1604,25 +1604,25 @@ func _receive_drop(
 			# Instead, let _stop_drag() handle the cleanup after drag state is cleared
 			if source_slot_index != slot_index:
 				# Different slot - safe to notify ToolSwitcher
-				var tool_switcher = _find_tool_switcher()
-				if tool_switcher:
+				var tool_switcher_node = _find_tool_switcher()
+				if tool_switcher_node:
 					# Destination slot now has the stacked item
-					tool_switcher.update_toolkit_slot(slot_index, dropped_texture)
+					tool_switcher_node.update_toolkit_slot(slot_index, dropped_texture)
 					# Source slot handling
 					if is_right_click_drag:
 						# Right-click: source keeps its original texture (unless all items were moved)
 						# CRITICAL: Skip ToolSwitcher if texture didn't change (it won't update count)
 						# In a stacking scenario, source slot keeps dropped_texture (same texture), so skip ToolSwitcher
 						# Only notify ToolSwitcher if source slot becomes empty or texture actually changed
-						if source_remaining <= 0:
-							tool_switcher.update_toolkit_slot(source_slot_index, null)
+						if local_source_remaining <= 0:
+							tool_switcher_node.update_toolkit_slot(source_slot_index, null)
 						# else: same texture, already updated via set_item(), skip ToolSwitcher
 					else:
 						# Left-click: source gets cleared if no items remain
-						if source_remaining <= 0:
-							tool_switcher.update_toolkit_slot(source_slot_index, null)
+						if local_source_remaining <= 0:
+							tool_switcher_node.update_toolkit_slot(source_slot_index, null)
 						else:
-							tool_switcher.update_toolkit_slot(source_slot_index, dropped_texture)
+							tool_switcher_node.update_toolkit_slot(source_slot_index, dropped_texture)
 			# For same-slot drops, ToolSwitcher will be notified after _stop_drag() clears drag state
 			
 			# CRITICAL: For same-slot drops, don't call _stop_drag_cleanup() here
@@ -1889,7 +1889,10 @@ func _select_slot() -> void:
 	"""Select this slot when clicked (without dragging) - handles empty slots too"""
 
 	# Get current texture (may be null for empty slots)
-	var _current_texture = get_item()
+	var current_texture = get_item()
+
+	# Emit signal for scene connections (HUD and ToolSwitcher)
+	emit_signal("tool_selected", slot_index, current_texture)
 
 	# Notify ToolSwitcher to update active slot
 	var tool_switcher = _find_tool_switcher()
@@ -2043,12 +2046,12 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 				if source_node and source_node.has_method("_stop_drag_cleanup"):
 					source_node._stop_drag_cleanup()
 
-			var tool_switcher = _find_tool_switcher()
-			if tool_switcher and tool_switcher.has_method("update_toolkit_slot"):
-				tool_switcher.update_toolkit_slot(slot_index, current_texture)
+			var tool_switcher_node = _find_tool_switcher()
+			if tool_switcher_node and tool_switcher_node.has_method("update_toolkit_slot"):
+				tool_switcher_node.update_toolkit_slot(slot_index, current_texture)
 				if source == "toolkit" and source_slot_index >= 0 and remaining == 0:
 					# Only update source slot if all items were stacked (not if remainder is on cursor)
-					tool_switcher.update_toolkit_slot(source_slot_index, null)
+					tool_switcher_node.update_toolkit_slot(source_slot_index, null)
 
 			if source == "inventory" and InventoryManager:
 				InventoryManager.sync_inventory_ui()

@@ -82,6 +82,17 @@ Group related bugs together to avoid context switching.
 3. Read relevant code sections
 4. Plan the fix
 
+### Check Existing Patterns Before Suggesting Code Changes:
+When encountering errors about missing InputMap actions, project settings, or configuration:
+1. **First check** if similar/related actions or settings already exist in `project.godot` or project settings
+2. **If a pattern exists**, suggest following that pattern (e.g., adding missing actions to InputMap) rather than code workarounds
+3. **Prefer configuration changes** over code changes when an established pattern exists
+4. **Only suggest code workarounds** if no configuration pattern exists or if explicitly requested
+
+**Example:** If code uses `Input.is_action_just_pressed("ui_mouse_left")` and errors about `"ui_mouse_right"` missing:
+- ✅ **Do:** Check if `ui_mouse_left` exists in InputMap → If yes, suggest adding `ui_mouse_right` to match the pattern
+- ❌ **Don't:** Immediately suggest changing code to use `Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)` without checking existing patterns
+
 ### When Making Changes:
 1. Make focused, targeted fixes
 2. Update only what's necessary
