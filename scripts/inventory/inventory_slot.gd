@@ -19,10 +19,9 @@ func _ready() -> void:
 	var parent = get_parent()
 	if slot_index == -1 and parent:
 		slot_index = parent.get_children().find(self) + 1
-		if slot_index == 0:
-			print("Error: Failed to find this slot in parent's children.")
-	_update_item_texture(item_texture)
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	if slot_index == 0:
+		_update_item_texture(item_texture)
+		mouse_filter = Control.MOUSE_FILTER_STOP
 
 
 # Sets the item texture and updates its state
@@ -111,7 +110,6 @@ func _handle_drop(drop_position: Vector2) -> void:
 	if parent_container and parent_container is GridContainer:
 		for child in parent_container.get_children():
 			if child is TextureButton and child.get_global_rect().has_point(drop_position):
-				print("DEBUG: Drop detected on slot", child.slot_index)
 				if _swap_items_with(child):
 					return
 

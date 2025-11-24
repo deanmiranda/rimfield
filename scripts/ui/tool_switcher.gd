@@ -76,7 +76,6 @@ func set_hud_by_slot(slot_index: int) -> void:
 				emit_signal("tool_changed", slot_index, item_texture)
 			else:
 				# Slot is empty - ALWAYS clear the active tool when selecting an empty slot
-				print("DEBUG: Slot ", slot_index, " is empty - clearing active tool")
 				current_tool_texture = null
 				current_tool = "unknown"
 				current_hud_slot = slot_index # Track which slot is selected, but it's empty
@@ -89,7 +88,6 @@ func set_hud_by_slot(slot_index: int) -> void:
 		
 func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 	"""Update toolkit slot and emit tool_changed if active tool was moved"""
-	print("DEBUG ToolSwitcher.update_toolkit_slot: slot_index=", slot_index, " texture=", texture)
 	
 	# Update the slot texture in the HUD
 	if not hud:
@@ -110,13 +108,9 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 			var is_dragging = false
 			if texture_button and "is_dragging" in texture_button:
 				is_dragging = texture_button.is_dragging
-				print("DEBUG ToolSwitcher: texture_button.is_dragging=", is_dragging)
-			else:
-				print("DEBUG ToolSwitcher: is_dragging property not found in texture_button")
 			
 			if is_dragging:
 				# Slot is being dragged - don't update it, just update the mapping
-				print("DEBUG ToolSwitcher: Slot ", slot_index, " is dragging - skipping update")
 				if texture:
 					tool_slot_map[texture] = slot_index
 				return
@@ -153,14 +147,12 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 			# PRIORITY 1: If the active tool texture was moved to this slot, follow it
 			# This ensures tool actions follow the tool, not the slot
 			if current_tool_texture and current_tool_texture == texture:
-				print("DEBUG: Active tool (", current_tool, ") moved to slot ", slot_index, " - updating active slot")
 				current_hud_slot = slot_index
 				# Tool name and texture stay the same (it's the same tool)
 				# Emit signal so farming_manager knows the tool is still active, just in a new slot
 				emit_signal("tool_changed", slot_index, texture)
 			# PRIORITY 2: If this is the currently active slot, update current tool
 			elif slot_index == current_hud_slot:
-				print("DEBUG: Active slot ", slot_index, " now contains different tool")
 				current_tool_texture = texture
 				if texture:
 					# Map texture to tool name using shared ToolConfig
@@ -168,7 +160,6 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 						current_tool = tool_config.get_tool_name(texture)
 					else:
 						current_tool = "unknown"
-					print("DEBUG: Active tool changed to: ", current_tool)
 					emit_signal("tool_changed", slot_index, texture)
 				else:
 					# Slot is now empty, set to unknown
