@@ -10,10 +10,11 @@ var hud_scene_instance: Node = null  # Injected reference to instantiated HUD sc
 var slots_container: HBoxContainer = null  # Cached reference to tool slots container
 var tool_switcher: Node = null  # Cached reference to ToolSwitcher node
 
+
 func _ready() -> void:
 # Connect the signal to highlight the active tool
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
-	
+
 	# Connect to UiManager's scene_changed signal
 	if UiManager:
 		UiManager.connect("scene_changed", Callable(self, "_on_scene_changed"))
@@ -21,18 +22,20 @@ func _ready() -> void:
 	# Check current scene on startup
 	_on_scene_changed(get_tree().current_scene.name)
 
+
 func _on_scene_changed(_new_scene_name: String) -> void:
 	if UiManager._is_not_game_scene():
 		pass  # Not in a game scene, HUD will be hidden
 	else:
 		setup_hud()
-		
+
+
 func setup_hud() -> void:
 	# Use cached references instead of absolute paths (follows .cursor/rules/godot.md)
 	# farming_manager should already be set via set_farming_manager() from farm_scene
 	if not farming_manager:
 		print("Error: FarmingManager not linked. Ensure set_farming_manager() is called.")
-	
+
 	# Connect to ToolSwitcher using cached reference
 	if tool_switcher:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
@@ -49,17 +52,41 @@ func setup_hud() -> void:
 	# Dynamically connect signals for each TextureButton node
 	var tool_buttons = slots_container.get_children()
 	#for i in range(tool_buttons.size()):
-		#print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
+	#print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
 
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			var hud_slot = tool_buttons[i].get_node("Hud_slot_" + str(i))
 			if hud_slot and hud_slot is TextureRect:  # Adjust for TextureRect
 				hud_slot.set_meta("slot_index", i)  # Assign slot index for tracking
-				tool_buttons[i].connect("gui_input", Callable(self, "_on_tool_clicked").bind(hud_slot))  # No need to cast
+				tool_buttons[i].connect(
+					"gui_input", Callable(self, "_on_tool_clicked").bind(hud_slot)
+				)  # No need to cast
 			else:
 				print("Error: hud_slot not found or invalid for tool button", i)
-	
+
+	# CRITICAL: Check if InventoryManager has existing data (from previous scene or save file)
+	# If yes, sync FROM InventoryManager TO UI (restore state)
+	# If no, sync FROM UI TO InventoryManager (first-time setup with pre-loaded tools)
+	if InventoryManager:
+		var has_existing_data = false
+		# Check if any toolkit slot has data
+		for i in range(InventoryManager.max_toolkit_slots):
+			var slot_data = InventoryManager.toolkit_slots.get(i, {"texture": null, "count": 0})
+			if slot_data["texture"] != null and slot_data["count"] > 0:
+				has_existing_data = true
+				break
+
+		if has_existing_data:
+			# Restore toolkit from InventoryManager (scene transition or load game)
+			InventoryManager.sync_toolkit_ui()
+			# Also sync inventory
+			InventoryManager.sync_inventory_ui()
+		else:
+			# First-time setup: Read pre-loaded tools from UI
+			if InventoryManager.has_method("_sync_initial_toolkit_from_ui"):
+				InventoryManager._sync_initial_toolkit_from_ui()
+
 	# Emit tool_changed for the first slot (slot 0)
 	if tool_buttons.size() > 0:
 		var first_slot = tool_buttons[0].get_node("Hud_slot_0")
@@ -71,12 +98,13 @@ func setup_hud() -> void:
 			print("Warning: No texture in Hud_slot_0. Defaulting to empty.")
 			emit_signal("tool_changed", 0, null)
 
-		
+
 func set_farming_manager(farming_manager_instance: Node) -> void:
 	if farming_manager_instance:
 		farming_manager = farming_manager_instance  # Save the reference
-	else: 
+	else:
 		print("Error: FarmingManager instance is null. Cannot link.")
+
 
 func set_hud_scene_instance(hud_instance: Node) -> void:
 	"""Inject the HUD scene instance and cache its child references.
@@ -87,20 +115,22 @@ func set_hud_scene_instance(hud_instance: Node) -> void:
 		slots_container = hud_instance.get_node_or_null("HUD/MarginContainer/HBoxContainer")
 		if not slots_container:
 			print("Error: Could not find HBoxContainer in HUD scene instance.")
-		
+
 		# Cache the ToolSwitcher reference
 		tool_switcher = hud_instance.get_node_or_null("ToolSwitcher")
 		if not tool_switcher:
 			print("Error: Could not find ToolSwitcher in HUD scene instance.")
 	else:
 		print("Error: HUD scene instance is null. Cannot cache references.")
-		
+
+
 func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> void:
 	#print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
 	if farming_manager:
 		farming_manager._on_tool_changed(slot_index, item_texture)
 	else:
 		print("Error: Farming manager is not linked.")
+
 
 func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> void:
 	if event is InputEventMouseButton and event.pressed:
@@ -113,16 +143,21 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 			else:
 				print("Error: Parent is not a TextureButton for clicked slot:", index)
 
+
 func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
 	# Use cached reference instead of absolute path (follows .cursor/rules/godot.md)
 	if not slots_container:
 		print("Error: Slots container not cached. Cannot highlight tool.")
 		return
-	
+
 	var tool_buttons = slots_container.get_children()
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			var highlight = tool_buttons[i].get_node_or_null("Highlight")
 			if highlight:
 				highlight.visible = (i == slot_index)
-			
+				# CRITICAL: Ensure highlight doesn't block mouse events for drag-and-drop
+				highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				# Ensure highlight is behind the button (lower z_index)
+				highlight.z_index = -1
+				highlight.z_as_relative = true

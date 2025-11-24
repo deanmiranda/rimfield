@@ -1,3 +1,17 @@
 {
-    "godotTools.editorPath.godot4": "c:\\Program Files (x86)\\Godot_v4.4.1-stable_win64.exe"
+    "godotTools.editorPath.godot4": "c:\\Program Files (x86)\\Godot_v4.4.1-stable_win64.exe",
+    
+    // GDScript formatting with gdformat
+    "godot_tools.gdscript_formatter": "gdformat",
+    "[gdscript]": {
+        "editor.defaultFormatter": "geequlim.godot-tools",
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "editor.insertSpaces": false  // Use tabs like Godot default
+    },
+    
+    // File associations
+    "files.associations": {
+        "*.gd": "gdscript"
+    }
 }

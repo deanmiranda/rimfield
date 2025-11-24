@@ -1,18 +1,18 @@
 extends Node
 
-signal tool_changed(slot_index: int, item_texture: Texture)  # Signal for tool changes
+signal tool_changed(slot_index: int, item_texture: Texture) # Signal for tool changes
 
 # Use shared ToolConfig Resource instead of duplicated TOOL_MAP (follows .cursor/rules/godot.md)
 var tool_config: Resource = null
 # Use shared GameConfig Resource for magic numbers (follows .cursor/rules/godot.md)
 var game_config: Resource = null
 
-var current_hud_slot: int = 0  # Currently active tool slot index
-var current_tool_texture: Texture = null  # Texture of the currently active tool
-var current_tool: String = "unknown"  # Default to unknown
+var current_hud_slot: int = 0 # Currently active tool slot index
+var current_tool_texture: Texture = null # Texture of the currently active tool
+var current_tool: String = "unknown" # Default to unknown
 
 # Track which slot contains which tool texture (so we can follow tools when moved)
-var tool_slot_map: Dictionary = {}  # Maps tool texture to slot index
+var tool_slot_map: Dictionary = {} # Maps tool texture to slot index
 
 # Cached reference to avoid repeated get_node() calls (follows .cursor/rules/godot.md)
 @onready var hud: Node = get_node("../HUD")
@@ -38,7 +38,7 @@ func _ready() -> void:
 		
 # Signal handler for tool_selected
 func _on_tool_selected(slot_index: int) -> void:
-	set_hud_by_slot(slot_index)  # Pass item_texture here
+	set_hud_by_slot(slot_index) # Pass item_texture here
 
 
 func set_hud_by_slot(slot_index: int) -> void:
@@ -76,10 +76,9 @@ func set_hud_by_slot(slot_index: int) -> void:
 				emit_signal("tool_changed", slot_index, item_texture)
 			else:
 				# Slot is empty - ALWAYS clear the active tool when selecting an empty slot
-				print("DEBUG: Slot ", slot_index, " is empty - clearing active tool")
 				current_tool_texture = null
 				current_tool = "unknown"
-				current_hud_slot = slot_index  # Track which slot is selected, but it's empty
+				current_hud_slot = slot_index # Track which slot is selected, but it's empty
 				emit_signal("tool_changed", slot_index, null)
 		else:
 			print("Tool slot not found at path:", slot_path)
@@ -89,6 +88,7 @@ func set_hud_by_slot(slot_index: int) -> void:
 		
 func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 	"""Update toolkit slot and emit tool_changed if active tool was moved"""
+	
 	# Update the slot texture in the HUD
 	if not hud:
 		print("Error: HUD not found.")
@@ -102,10 +102,37 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 		var hud_slot = hud.get_node_or_null(slot_path)
 		
 		if hud_slot:
-			if hud_slot.has_method("set_item"):
-				hud_slot.set_item(texture)
+			# CRITICAL: Don't overwrite slot if it's currently being dragged (is_dragging)
+			# This prevents clearing slots that are in the middle of a drag-and-drop operation
+			# is_dragging is a property on the TextureButton (parent), not a method
+			var is_dragging = false
+			if texture_button and "is_dragging" in texture_button:
+				is_dragging = texture_button.is_dragging
+			
+			if is_dragging:
+				# Slot is being dragged - don't update it, just update the mapping
+				if texture:
+					tool_slot_map[texture] = slot_index
+				return
+			
+			# CRITICAL: Only update if texture is different to avoid overwriting correct state
+			# Check current texture first
+			var current_texture: Texture = null
+			if hud_slot.has_method("get_texture"):
+				current_texture = hud_slot.get_texture()
 			elif hud_slot is TextureRect:
-				hud_slot.texture = texture
+				current_texture = hud_slot.texture
+			
+			# Only update if texture actually changed
+			if current_texture != texture:
+				if hud_slot.has_method("set_item"):
+					# set_item() expects (texture, count) - use current count if available
+					var current_count = 1
+					if hud_slot.has_method("get_stack_count"):
+						current_count = hud_slot.get_stack_count()
+					hud_slot.set_item(texture, current_count)
+				elif hud_slot is TextureRect:
+					hud_slot.texture = texture
 			
 			# Update tool slot mapping
 			if texture:
@@ -120,14 +147,12 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 			# PRIORITY 1: If the active tool texture was moved to this slot, follow it
 			# This ensures tool actions follow the tool, not the slot
 			if current_tool_texture and current_tool_texture == texture:
-				print("DEBUG: Active tool (", current_tool, ") moved to slot ", slot_index, " - updating active slot")
 				current_hud_slot = slot_index
 				# Tool name and texture stay the same (it's the same tool)
 				# Emit signal so farming_manager knows the tool is still active, just in a new slot
 				emit_signal("tool_changed", slot_index, texture)
 			# PRIORITY 2: If this is the currently active slot, update current tool
 			elif slot_index == current_hud_slot:
-				print("DEBUG: Active slot ", slot_index, " now contains different tool")
 				current_tool_texture = texture
 				if texture:
 					# Map texture to tool name using shared ToolConfig
@@ -135,7 +160,6 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 						current_tool = tool_config.get_tool_name(texture)
 					else:
 						current_tool = "unknown"
-					print("DEBUG: Active tool changed to: ", current_tool)
 					emit_signal("tool_changed", slot_index, texture)
 				else:
 					# Slot is now empty, set to unknown
@@ -150,9 +174,9 @@ func _input(event: InputEvent) -> void:
 	if game_config:
 		hud_slot_count = game_config.hud_slot_count
 	
-	for i in range(hud_slot_count):  # Keys 1-0 correspond to HUD slots 0-9
+	for i in range(hud_slot_count): # Keys 1-0 correspond to HUD slots 0-9
 		var action = "ui_hud_" + str(i + 1)
-		if i == 9:  # Special case for "0" key (maps to slot 9)
+		if i == 9: # Special case for "0" key (maps to slot 9)
 			action = "ui_hud_0"
 		if event.is_action_pressed(action):
 			set_hud_by_slot(i)
