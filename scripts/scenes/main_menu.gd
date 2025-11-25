@@ -1,14 +1,14 @@
 extends Control
 
-const LOAD_MENU = preload("res://scenes/ui/load_menu.tscn")  # Preload the load menu scene
+const LOAD_MENU = preload("res://scenes/ui/load_menu.tscn") # Preload the load menu scene
 
 func _on_new_game_pressed() -> void:
 	GameState.new_game()
 	#GameState.save_game()  # Create a new save file with timestamp
-	GameState.change_scene("farm_scene")  # Start the game on the farm scene
+	SceneManager.start_in_house(true) # Start the game in the house scene
 
 func _on_exit_pressed() -> void:
-	get_tree().quit()  # Exit the game
+	get_tree().quit() # Exit the game
 
 # Add a new function for the Load Game button
 func _on_load_game_pressed() -> void:
@@ -18,7 +18,7 @@ func _on_load_game_pressed() -> void:
 	
 	var load_instance = LOAD_MENU.instantiate()
 	if load_instance:
-		get_tree().root.add_child(load_instance)  # Add as a child of the root to overlay on top of everything
+		get_tree().root.add_child(load_instance) # Add as a child of the root to overlay on top of everything
 		print("Load scene added successfully.")
 	else:
 		print("Error: Could not instantiate LOAD_MENU.")
@@ -61,9 +61,9 @@ func _has_saved_games() -> bool:
 	var file_name = save_dir.get_next()
 	while file_name != "":
 		if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
-			save_dir.list_dir_end()  # End the directory listing after finding the save
-			return true  # Found a save file
+			save_dir.list_dir_end() # End the directory listing after finding the save
+			return true # Found a save file
 		file_name = save_dir.get_next()
 	save_dir.list_dir_end()
 
-	return false  # No save files found
+	return false # No save files found

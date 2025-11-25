@@ -1,7 +1,7 @@
 extends Area2D
 
 const HOUSE_SCENE_PATH = "res://scenes/world/house_scene.tscn"
-const HOUSE_SPAWN_POSITION = Vector2(-8, 54) # Inside house, far from exit
+const HOUSE_SPAWN_POSITION = Vector2(-8, 54) # Door spawn position inside house (matches DoorSpawnPoint marker)
 
 var player: Node = null # Reference to the player
 var player_in_zone: bool = false # Tracks if the player is in the zone

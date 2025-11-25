@@ -40,3 +40,29 @@ func change_scene(scene_path: String, spawn_position: Vector2 = Vector2.ZERO) ->
 func handle_pause_request(paused_state: bool):
 	get_tree().paused = paused_state
 	paused = paused_state
+
+
+func start_in_house(_from_new_game: bool = true) -> void:
+	"""Central function to start the player in the house scene.
+	
+	Args:
+		_from_new_game: True if starting a new game, False if loading a save.
+		For now, both cases use bed spawn (default). Save data is applied
+		after scene load by the save system.
+	"""
+	# Clear any existing spawn position override so house scene uses bed spawn
+	player_spawn_position = Vector2.ZERO
+	
+	# Wait for scene tree to be fully ready before changing scenes
+	# This prevents timing issues when called from button presses
+	await get_tree().process_frame
+	
+	var house_scene_path = "res://scenes/world/house_scene.tscn"
+	
+	# Verify scene file exists before attempting to load
+	if not ResourceLoader.exists(house_scene_path):
+		print("Error: House scene file not found at: ", house_scene_path)
+		return
+	
+	# Change to house scene (will use bed spawn by default)
+	await change_scene(house_scene_path, Vector2.ZERO)

@@ -1,18 +1,19 @@
-[gd_scene load_steps=8 format=3 uid="uid://u1mvuy8l6k23"]
+[gd_scene load_steps=9 format=3 uid="uid://u1mvuy8l6k23"]
 
 [ext_resource type="Script" uid="uid://dcsuoeae6kf4a" path="res://scripts/ui/hud_slot.gd" id="2_muuh7"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_5va86"]
 [ext_resource type="Texture2D" uid="uid://b5vipdhn607jm" path="res://assets/tiles/tools/shovel.png" id="4_ahcmr"]
 [ext_resource type="Texture2D" uid="uid://cevvdhf2p5k2s" path="res://assets/tiles/tools/rototiller.png" id="5_g2ra6"]
 [ext_resource type="Texture2D" uid="uid://dxnfv5aw2wdsu" path="res://assets/tiles/tools/pick-axe.png" id="6_wmhby"]
+[ext_resource type="Script" uid="uid://bhs3bktcaktft" path="res://scripts/ui/hud_clock.gd" id="7_h022r"]
 [ext_resource type="Texture2D" uid="uid://cfnt5tyopipyn" path="res://assets/tilesets/full version/tiles/FartSnipSeeds.png" id="7_t5p3x"]
 [ext_resource type="Script" uid="uid://ckttirqhdk8x0" path="res://scripts/ui/tool_switcher.gd" id="8_d4ui7"]
 
 [node name="Hud" type="Node"]
 
 [node name="HUD" type="CanvasLayer" parent="."]
-layer = 11
 process_mode = 3
+layer = 11
 
 [node name="Energy" type="VBoxContainer" parent="HUD"]
 anchors_preset = 3
@@ -423,6 +424,12 @@ offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.31342, 0.766809, 0.1702, 0.631373)
+
+[node name="TimeLabel" type="Label" parent="HUD"]
+offset_right = 40.0
+offset_bottom = 23.0
+text = "Time"
+script = ExtResource("7_h022r")
 
 [node name="ToolSwitcher" type="Node" parent="."]
 script = ExtResource("8_d4ui7")

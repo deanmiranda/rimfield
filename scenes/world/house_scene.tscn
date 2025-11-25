@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=4 uid="uid://cbji7jshgmul4"]
+[gd_scene load_steps=31 format=4 uid="uid://cbji7jshgmul4"]
 
 [ext_resource type="Script" uid="uid://culjkg6rx4qg5" path="res://scripts/scenes/house_scene.gd" id="1_aquta"]
 [ext_resource type="TileSet" uid="uid://dgf7c584pje4q" path="res://assets/tilesheets/HouseInterior.tres" id="1_fvgnd"]
@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://dgy6ybr2iabml" path="res://assets/tiles/interior full/furniture/tables_shadow.png" id="9_bp774"]
 [ext_resource type="Texture2D" uid="uid://xrxcq6861o1n" path="res://assets/tiles/interior full/basics/wallpapers.png" id="10_f6xk0"]
 [ext_resource type="Script" uid="uid://fnsfbmbg5a2x" path="res://scripts/game_systems/exit_zone.gd" id="11_dnpcd"]
+[ext_resource type="Script" uid="uid://bkcruo3a8jrcj" path="res://scripts/ui/bed_interaction.gd" id="13_cigt8"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_b6jyc"]
 texture = ExtResource("2_4bq14")
@@ -3785,9 +3786,9 @@ texture = ExtResource("5_q46t1")
 70:24/0 = 0
 71:24/0 = 0
 0:25/0 = 0
-0:25/0/physics_layer_0/polygon_0/points = PackedVector2Array(-8, -8, 8, -8, 8, 8, -8, 8)
+0:25/0/physics_layer_0/polygon_0/points = PackedVector2Array(-8, -8, 8, -8, 8, -4, -8, -4)
 1:25/0 = 0
-1:25/0/physics_layer_0/polygon_0/points = PackedVector2Array(-8, -8, 8, -8, 8, 8, -8, 8)
+1:25/0/physics_layer_0/polygon_0/points = PackedVector2Array(-8, -8, 8, -8, 8, -4, -8, -4)
 2:25/0 = 0
 3:25/0 = 0
 4:25/0 = 0
@@ -3907,9 +3908,9 @@ texture = ExtResource("5_q46t1")
 118:25/0 = 0
 119:25/0 = 0
 0:26/0 = 0
-0:26/0/physics_layer_0/polygon_0/points = PackedVector2Array(-8, -8, 8, -8, 8, 8, -8, 8)
+0:26/0/z_index = 1000
 1:26/0 = 0
-1:26/0/physics_layer_0/polygon_0/points = PackedVector2Array(-8, -8, 8, -8, 8, 8, -8, 8)
+1:26/0/z_index = 1000
 2:26/0 = 0
 3:26/0 = 0
 4:26/0 = 0
@@ -24877,6 +24878,9 @@ sources/0 = SubResource("TileSetAtlasSource_3s0x4")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yfpjs"]
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4oa7v"]
+size = Vector2(28, 22.5)
+
 [node name="House" type="Node2D"]
 script = ExtResource("1_aquta")
 
@@ -24916,6 +24920,20 @@ metadata/_edit_lock_ = true
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ExitZone"]
 position = Vector2(-8, 86)
 shape = SubResource("RectangleShape2D_yfpjs")
+
+[node name="BedSpawnPoint" type="Marker2D" parent="."]
+position = Vector2(48, 60)
+
+[node name="DoorSpawnPoint" type="Marker2D" parent="."]
+position = Vector2(-9, 59)
+
+[node name="BedArea" type="Area2D" parent="."]
+position = Vector2(49, 49)
+script = ExtResource("13_cigt8")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BedArea"]
+position = Vector2(-1, -0.25)
+shape = SubResource("RectangleShape2D_4oa7v")
 
 [connection signal="body_entered" from="ExitZone" to="ExitZone" method="_on_body_entered"]
 [connection signal="body_exited" from="ExitZone" to="ExitZone" method="_on_body_exited"]

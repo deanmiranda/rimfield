@@ -6,16 +6,16 @@ var tilled_emitter_scene: PackedScene = preload(
 	"res://scenes/effects/particles/tilled_particle.tscn"
 )
 var dirt_emitter_scene: PackedScene = preload("res://scenes/effects/particles/dirt_particle.tscn")
-var cell_size: Vector2 = Vector2(16, 16)  # Define the size of each cell manually for flexibility
-var debug_disable_dust: bool = true  # Toggle to disable dust emitter
+var cell_size: Vector2 = Vector2(16, 16) # Define the size of each cell manually for flexibility
+var debug_disable_dust: bool = true # Toggle to disable dust emitter
 
 # Pause Menu specific properties
 var pause_menu: Control
 var paused = false
 signal scene_changed(new_scene_name: String)
 
-@onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn")  # Path to the inventory scene
-var inventory_instance: Control = null  # Reference to the inventory instance
+@onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn") # Path to the inventory scene
+var inventory_instance: Control = null # Reference to the inventory instance
 
 var last_scene_name: String = ""
 
@@ -29,11 +29,11 @@ func _ready() -> void:
 	timer.timeout.connect(_check_scene_change)
 	timer.autostart = true
 	add_child(timer)
-	set_process(false)  # Disable per-frame polling
+	set_process(false) # Disable per-frame polling
 
-	instantiate_inventory()  # Call inventory instantiation
+	instantiate_inventory() # Call inventory instantiation
 	pause_menu_setup()
-	set_process_input(true)  # Ensure UiManager can process global inputs
+	set_process_input(true) # Ensure UiManager can process global inputs
 
 	# Check initial scene
 	var current_scene = get_tree().current_scene
@@ -57,14 +57,14 @@ func _check_scene_change() -> void:
 
 # Function to instantiate the inventory scene globally
 func instantiate_inventory() -> void:
-	if inventory_instance:  # Prevent duplicates
-		if inventory_instance.get_parent():  # Already added to the scene tree
+	if inventory_instance: # Prevent duplicates
+		if inventory_instance.get_parent(): # Already added to the scene tree
 			return
 
 	if inventory_scene is PackedScene:
 		inventory_instance = inventory_scene.instantiate()
-		add_child(inventory_instance)  # Add inventory instance to UI Manager
-		inventory_instance.visible = false  # Make it hidden by default
+		add_child(inventory_instance) # Add inventory instance to UI Manager
+		inventory_instance.visible = false # Make it hidden by default
 
 		# Set layout properties for proper anchoring and centering
 		inventory_instance.anchor_left = 0.5
@@ -117,7 +117,7 @@ func pause_menu_setup() -> void:
 
 	if pause_menu_scene is PackedScene:
 		var pause_menu_layer = pause_menu_scene.instantiate()
-		add_child(pause_menu_layer)  # Add the CanvasLayer to this scene
+		add_child(pause_menu_layer) # Add the CanvasLayer to this scene
 		# Get the Control child from the CanvasLayer
 		pause_menu = pause_menu_layer.get_node("Control")
 		pause_menu.visible = false
@@ -137,11 +137,11 @@ func _input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("ui_cancel"):
 		if inventory_instance and inventory_instance.visible:
-			toggle_inventory()  # Close inventory first
+			toggle_inventory() # Close inventory first
 		elif pause_menu and not pause_menu.visible:
-			toggle_pause_menu()  # Open pause menu if inventory is closed
+			toggle_pause_menu() # Open pause menu if inventory is closed
 		elif pause_menu and pause_menu.visible:
-			toggle_pause_menu()  # Close pause menu
+			toggle_pause_menu() # Close pause menu
 
 	# Handle E key (ui_interact) - toggle menu like ESC (works even when menu is open)
 	elif event.is_action_pressed("ui_interact"):
@@ -188,7 +188,7 @@ func _has_nearby_interactables() -> bool:
 					break
 
 	if not player:
-		return false  # No player found, can't check for interactables
+		return false # No player found, can't check for interactables
 
 	# Check if player has nearby pickables
 	# NOTE: Pickables are now picked up with right-click, not E key
@@ -210,9 +210,9 @@ func _has_nearby_interactables() -> bool:
 	if player and "current_interaction" in player:
 		var current_interaction = player.get("current_interaction")
 		if current_interaction != null and current_interaction != "":
-			return true  # Has an active interaction
+			return true # Has an active interaction
 
-	return false  # No interactables nearby
+	return false # No interactables nearby
 
 
 # Function to toggle pause menu visibility
@@ -224,12 +224,18 @@ func toggle_pause_menu() -> void:
 
 	if pause_menu.visible:
 		pause_menu.hide()
-		get_tree().paused = false  # Unpause the entire game
+		get_tree().paused = false # Unpause the entire game
 		paused = false
+		# Resume game time when inventory panel closes
+		if GameTimeManager:
+			GameTimeManager.set_paused(false)
 	else:
 		pause_menu.show()
-		get_tree().paused = true  # Pause the entire game, but leave UI active
+		get_tree().paused = true # Pause the entire game, but leave UI active
 		paused = true
+		# Pause game time when inventory panel opens
+		if GameTimeManager:
+			GameTimeManager.set_paused(true)
 
 		# Ensure inventory UI reflects latest data when opening the menu
 		if InventoryManager:
@@ -296,7 +302,7 @@ func update_input_processing() -> void:
 	# Get the current scene
 	var current_scene = get_tree().current_scene
 
-	if current_scene and current_scene.name != "Main_Menu":  # Enable input only in game scenes
+	if current_scene and current_scene.name != "Main_Menu": # Enable input only in game scenes
 		set_process_input(true)
 	else:
 		# Disable input processing in non-game scenes
