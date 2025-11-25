@@ -34,6 +34,7 @@ func _ready() -> void:
 	instantiate_inventory() # Call inventory instantiation
 	pause_menu_setup()
 	set_process_input(true) # Ensure UiManager can process global inputs
+	process_mode = Node.PROCESS_MODE_ALWAYS # Process input even when tree is paused
 
 	# Check initial scene
 	var current_scene = get_tree().current_scene
@@ -145,6 +146,22 @@ func _input(event: InputEvent) -> void:
 
 	# Handle E key (ui_interact) - toggle menu like ESC (works even when menu is open)
 	elif event.is_action_pressed("ui_interact"):
+		# Get SleepController instance from current scene
+		var sc = _get_sleep_controller()
+		
+		# Guard logic: check sleep state before opening inventory
+		if sc:
+			if sc.is_sleep_prompt_open():
+				# Sleep prompt is open - don't open inventory
+				return
+			if sc.is_sleep_sequence_running():
+				# Sleep sequence is running - don't open inventory
+				return
+			if sc.is_player_in_bed_area():
+				# Player is in bed area - request sleep and don't open inventory
+				sc.request_sleep_from_bed()
+				return
+		
 		# First, check if there are any interactable objects nearby
 		# If there are, let them handle the interaction instead of opening inventory
 		if _has_nearby_interactables():
@@ -289,6 +306,47 @@ func validate_paths_and_resources() -> void:
 #print("--- End of Enhanced Inventory Debug Info ---")
 
 # Helper functions
+
+
+# Helper function to get SleepController instance from current scene
+func _get_sleep_controller() -> Node:
+	"""Find SleepController node in the current scene
+	
+	Returns:
+		SleepController node if found, null otherwise
+	"""
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return null
+	
+	# Search for node with sleep_controller script
+	for child in current_scene.get_children():
+		var sc = _find_sleep_controller_in_children(child)
+		if sc:
+			return sc
+	
+	# Try direct node path
+	var sc = current_scene.get_node_or_null("SleepController")
+	if sc:
+		return sc
+	
+	return null
+
+
+func _find_sleep_controller_in_children(node: Node) -> Node:
+	"""Recursively search for node with sleep_controller script"""
+	var script = node.get_script()
+	if script:
+		var script_path = script.resource_path
+		if script_path and "sleep_controller" in script_path:
+			return node
+	
+	for child in node.get_children():
+		var result = _find_sleep_controller_in_children(child)
+		if result:
+			return result
+	
+	return null
 
 
 # Helper function to check if we're in a game scene

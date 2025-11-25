@@ -349,17 +349,16 @@ func _input(event: InputEvent) -> void:
 		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
 			return
 	
-	# Handle ESC or E key to close menu (UiManager also handles this, but we ensure it works)
+	# Only handle input when menu is visible - let UiManager handle it when hidden
+	if not self.visible:
+		return
+	
+	# Handle ESC or E key to close menu when visible
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_interact"):
-		if self.visible:
-			# Close the menu
-			self.visible = false
-			get_tree().paused = false
-			get_viewport().set_input_as_handled() # Prevent further processing
-		elif not self.visible:
-			# When opening, set to Inventory tab by default
-			if tab_container:
-				tab_container.current_tab = 0 # Inventory tab
+		# Close the menu
+		self.visible = false
+		get_tree().paused = false
+		get_viewport().set_input_as_handled() # Prevent further processing
 
 
 func _on_resume_button_pressed() -> void:

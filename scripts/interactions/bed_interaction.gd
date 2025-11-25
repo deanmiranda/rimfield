@@ -1,14 +1,16 @@
 extends Area2D
 
-## BedInteraction - Handles player interaction with the bed
+## BedInteraction - Handles player detection in bed area
 ##
-## This script detects when the player enters the bed area, shows a tooltip,
-## and allows the player to sleep by pressing E (ui_accept).
+## This script detects when the player enters/exits the bed area, shows/hides a tooltip,
+## and emits signals for SleepController to handle.
 ##
-## When the player sleeps, it calls GameTimeManager.sleep_to_next_morning()
-## to advance time to the next day.
+## This script does NOT handle input - UiManager handles E key globally.
 
-var player_in_bed_area: bool = false
+# Signals emitted when player enters/exits bed area
+signal player_entered_bed_area(player: Node2D)
+signal player_exited_bed_area(player: Node2D)
+
 var tooltip: Label = null
 
 
@@ -41,31 +43,20 @@ func _on_body_entered(body: Node2D) -> void:
 	"""Called when a body enters the bed area"""
 	# Check if the body is the player
 	if _is_player(body):
-		player_in_bed_area = true
 		if tooltip:
 			tooltip.visible = true
+		# Emit signal for SleepController
+		player_entered_bed_area.emit(body)
 
 
 func _on_body_exited(body: Node2D) -> void:
 	"""Called when a body exits the bed area"""
 	# Check if the body is the player
 	if _is_player(body):
-		player_in_bed_area = false
 		if tooltip:
 			tooltip.visible = false
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	"""Handle input when player is in bed area"""
-	if player_in_bed_area and event.is_action_pressed("ui_accept"):
-		# Player pressed E while in bed area - go to sleep
-		if GameTimeManager:
-			if GameTimeManager.has_method("sleep_to_next_morning"):
-				GameTimeManager.sleep_to_next_morning()
-			else:
-				print("Error: GameTimeManager.sleep_to_next_morning() method not found")
-		else:
-			print("Error: GameTimeManager not found in bed_interaction.gd")
+		# Emit signal for SleepController
+		player_exited_bed_area.emit(body)
 
 
 func _is_player(body: Node2D) -> bool:

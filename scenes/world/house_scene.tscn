@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=4 uid="uid://cbji7jshgmul4"]
+[gd_scene load_steps=32 format=4 uid="uid://cbji7jshgmul4"]
 
 [ext_resource type="Script" uid="uid://culjkg6rx4qg5" path="res://scripts/scenes/house_scene.gd" id="1_aquta"]
 [ext_resource type="TileSet" uid="uid://dgf7c584pje4q" path="res://assets/tilesheets/HouseInterior.tres" id="1_fvgnd"]
@@ -12,7 +12,8 @@
 [ext_resource type="Texture2D" uid="uid://dgy6ybr2iabml" path="res://assets/tiles/interior full/furniture/tables_shadow.png" id="9_bp774"]
 [ext_resource type="Texture2D" uid="uid://xrxcq6861o1n" path="res://assets/tiles/interior full/basics/wallpapers.png" id="10_f6xk0"]
 [ext_resource type="Script" uid="uid://fnsfbmbg5a2x" path="res://scripts/game_systems/exit_zone.gd" id="11_dnpcd"]
-[ext_resource type="Script" uid="uid://bkcruo3a8jrcj" path="res://scripts/ui/bed_interaction.gd" id="13_cigt8"]
+[ext_resource type="Script" uid="uid://d2a36kr1whayk" path="res://scripts/interactions/bed_interaction.gd" id="13_cigt8"]
+[ext_resource type="Script" uid="uid://cj7is062qroqw" path="res://scripts/sleep/sleep_controller.gd" id="14_sleep"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_b6jyc"]
 texture = ExtResource("2_4bq14")
@@ -24935,5 +24936,10 @@ script = ExtResource("13_cigt8")
 position = Vector2(-1, -0.25)
 shape = SubResource("RectangleShape2D_4oa7v")
 
+[node name="SleepController" type="Node" parent="."]
+script = ExtResource("14_sleep")
+
 [connection signal="body_entered" from="ExitZone" to="ExitZone" method="_on_body_entered"]
 [connection signal="body_exited" from="ExitZone" to="ExitZone" method="_on_body_exited"]
+[connection signal="player_entered_bed_area" from="BedArea" to="SleepController" method="_on_player_entered_bed_area"]
+[connection signal="player_exited_bed_area" from="BedArea" to="SleepController" method="_on_player_exited_bed_area"]

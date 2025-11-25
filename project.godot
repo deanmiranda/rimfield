@@ -28,6 +28,7 @@ InteractionIndicator="*res://scripts/ui/interaction_indicator.gd"
 TransitionManager="*res://scripts/singletons/transition_manager.gd"
 GameTimeManager="*res://scripts/singletons/game_time_manager.gd"
 TimeTickManager="*res://scripts/singletons/time_tick_manager.gd"
+ScreenFadeManager="*res://scripts/singletons/screen_fade_manager.gd"
 
 [display]
 
