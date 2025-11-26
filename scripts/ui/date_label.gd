@@ -36,6 +36,7 @@ func _on_day_changed(day: int, season: int, year: int) -> void:
 		season: Season index (0-3: Spring, Summer, Fall, Winter)
 		year: Year number (1+)
 	"""
+	print("DateLabel: Received day_changed signal - Day: ", day, ", Season: ", season, ", Year: ", year)
 	_update_date_text(day, season, year)
 
 
@@ -58,4 +59,6 @@ func _update_date_text(day: int, season: int, year: int) -> void:
 	
 	# Format as "<Season> <Day>, Year <Year>"
 	# Examples: "Spring 1, Year 1" or "Summer 14, Year 2"
-	text = "%s %d, Year %d" % [season_name, day, year]
+	var new_text = "%s %d, Year %d" % [season_name, day, year]
+	text = new_text
+	print("DateLabel: Updated text to \"", new_text, "\"")

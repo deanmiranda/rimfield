@@ -157,6 +157,13 @@ func sleep_to_next_morning() -> void:
 	This method does NOT handle player movement, screen fading, or input.
 	Those are handled by the calling system (bed interaction, pass-out sequence).
 	"""
+	print("GameTimeManager: sleep_to_next_morning() called")
+	
+	# Store previous values for logging
+	var old_day = day
+	var old_season = season
+	var old_year = year
+	
 	# Advance day by 1
 	day += 1
 	
@@ -164,22 +171,38 @@ func sleep_to_next_morning() -> void:
 	if day > DAYS_PER_SEASON:
 		day = 1
 		season += 1
+		print("GameTimeManager: Season rollover - Season: ", old_season, " -> ", season)
 		
 		# Handle year rollover
 		if season >= SEASONS_PER_YEAR:
 			season = 0
 			year += 1
+			print("GameTimeManager: Year rollover - Year: ", old_year, " -> ", year)
+	
+	# Log day change
+	if day != old_day or season != old_season or year != old_year:
+		print("GameTimeManager: Day changed - Day: ", old_day, " -> ", day, ", Season: ", old_season, " -> ", season, ", Year: ", old_year, " -> ", year)
 	
 	# Reset time to morning (6:00 AM)
 	time_of_day = START_TIME_MINUTES
+	print("GameTimeManager: Time reset to morning (6:00 AM)")
 	
 	# Reset per-day flags for the new day
 	has_triggered_midnight_warning_today = false
 	has_triggered_pass_out_today = false
 	
 	# Emit signals so UI/listeners can sync
+	print("GameTimeManager: Emitting day_changed signal - Day: ", day, ", Season: ", season, ", Year: ", year)
 	day_changed.emit(day, season, year)
+	print("GameTimeManager: Emitting time_changed signal - Time: ", time_of_day, " minutes (", _format_time_for_log(time_of_day), ")")
 	time_changed.emit(time_of_day)
+
+
+func _format_time_for_log(minutes: int) -> String:
+	"""Helper to format time for logging"""
+	var hours = int(minutes / 60.0)
+	var mins = minutes % 60
+	return "%02d:%02d" % [hours, mins]
 
 
 func save_state() -> Dictionary:

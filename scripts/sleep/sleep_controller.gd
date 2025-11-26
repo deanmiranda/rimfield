@@ -98,16 +98,6 @@ func _find_bed_in_children(node: Node) -> Area2D:
 	return null
 
 
-func _on_player_entered_bed_area(_player: Node2D) -> void:
-	"""Called when player enters bed area"""
-	_is_player_in_bed_area = true
-
-
-func _on_player_exited_bed_area(_player: Node2D) -> void:
-	"""Called when player exits bed area"""
-	_is_player_in_bed_area = false
-
-
 func is_player_in_bed_area() -> bool:
 	"""Check if player is currently in bed area
 	
@@ -118,10 +108,10 @@ func is_player_in_bed_area() -> bool:
 
 
 func is_sleep_prompt_open() -> bool:
-	"""Check if sleep confirmation prompt is currently open
+	"""Check if sleep prompt is currently open
 	
 	Returns:
-		True if prompt is open, False otherwise
+		True if sleep prompt is open, False otherwise
 	"""
 	return _is_sleep_prompt_open
 
@@ -276,8 +266,10 @@ func _on_sleep_cancelled() -> void:
 
 
 func _execute_sleep_sequence() -> void:
-	"""Execute the full sleep sequence: fade out → advance time → fade in → teleport"""
+	"""Execute the full sleep sequence: fade out → hold black (update date) → fade in → teleport"""
+	print("SleepController: Sleep sequence started")
 	if _is_sleep_sequence_running:
+		print("SleepController: Sleep sequence already running, returning")
 		return
 	
 	_is_sleep_sequence_running = true
@@ -285,19 +277,66 @@ func _execute_sleep_sequence() -> void:
 	# Pause gameplay/time
 	if game_time_manager and game_time_manager.has_method("set_paused"):
 		game_time_manager.set_paused(true)
+		print("SleepController: Game paused")
 	
-	# Start fade out
-	if screen_fade_manager and screen_fade_manager.has_method("fade_out"):
-		screen_fade_manager.fade_out(func():
-			_on_fade_out_complete()
+	# Use fade_out_and_hold for sleep sequence (does NOT auto fade-in)
+	if screen_fade_manager and screen_fade_manager.has_method("fade_out_and_hold"):
+		print("SleepController: Starting fade_out_and_hold sequence")
+		screen_fade_manager.fade_out_and_hold(
+			2.0, # fade_out_duration: 2 seconds
+			2.0, # hold_duration: 2 seconds
+			_on_hold_period_callback # callback: called after hold period
 		)
 	else:
-		# Fallback if fade manager is not available
-		_on_fade_out_complete()
+		# Fallback if fade manager doesn't have new method
+		print("SleepController: WARNING - fade_out_and_hold not available, using fallback")
+		if screen_fade_manager and screen_fade_manager.has_method("fade_out"):
+			screen_fade_manager.fade_out(func():
+				_on_fade_out_complete()
+			)
+		else:
+			_on_fade_out_complete()
+
+
+func _on_hold_period_callback() -> void:
+	"""Called during the hold-black period to update date label"""
+	print("SleepController: Hold period callback - calling sleep_to_next_morning()")
+	# Advance to next morning (this will emit day_changed signal, updating date label)
+	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
+		game_time_manager.sleep_to_next_morning()
+		print("SleepController: sleep_to_next_morning() called, date label should update")
+		
+		# Show date popup with new date
+		if DatePopupManager and DatePopupManager.has_method("show_day_popup"):
+			var new_day = game_time_manager.day
+			var new_season = game_time_manager.season
+			var new_year = game_time_manager.year
+			print("SleepController: Showing date popup - Day: ", new_day)
+			DatePopupManager.show_day_popup(new_day, new_season, new_year)
+			
+			# Connect to popup completion signal (one-shot)
+			print("SleepController: Connecting to popup_sequence_finished")
+			if DatePopupManager.has_signal("popup_sequence_finished"):
+				if not DatePopupManager.popup_sequence_finished.is_connected(_on_date_popup_finished):
+					DatePopupManager.popup_sequence_finished.connect(_on_date_popup_finished, CONNECT_ONE_SHOT)
+					print("SleepController: Connected to popup_sequence_finished signal")
+				else:
+					print("SleepController: WARNING - Already connected to popup_sequence_finished")
+			else:
+				print("SleepController: ERROR - popup_sequence_finished signal not found")
+		else:
+			print("SleepController: WARNING - DatePopupManager not found or missing show_day_popup() method")
+			# Fallback: start fade-in immediately if popup manager not available
+			_on_date_popup_finished()
+	else:
+		print("SleepController: ERROR - sleep_to_next_morning() method not found")
+		# Fallback: start fade-in immediately if time manager not available
+		_on_date_popup_finished()
 
 
 func _on_fade_out_complete() -> void:
-	"""Called when fade out completes"""
+	"""Called when fade out completes (fallback method)"""
+	print("SleepController: _on_fade_out_complete() called (fallback)")
 	# Advance to next morning
 	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
 		game_time_manager.sleep_to_next_morning()
@@ -311,22 +350,51 @@ func _on_fade_out_complete() -> void:
 		_on_fade_in_complete()
 
 
+func _on_date_popup_finished() -> void:
+	"""Called when date popup sequence completes - starts fade-in"""
+	print("SleepController: Popup finished → starting fade-in now")
+	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):
+		screen_fade_manager.fade_in(func():
+			_on_fade_in_complete()
+		, 2.0)
+		print("SleepController: Fade-in started (2.0s duration)")
+	else:
+		print("SleepController: ERROR - ScreenFadeManager.fade_in() not available")
+		_on_fade_in_complete()
+
+
 func _on_fade_in_complete() -> void:
 	"""Called when fade in completes"""
+	print("SleepController: _on_fade_in_complete() called")
+	
+	# Delay player lookup by two frames to ensure player node exists
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("SleepController: Double frame delay complete, looking up player")
+	
 	# Teleport player to bed spawn
-	var player := _get_player()
-	if player and bed_spawn_point:
-		player.global_position = bed_spawn_point.global_position
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		if bed_spawn_point:
+			player.global_position = bed_spawn_point.global_position
+			print("SleepController: Player found → teleporting to bed spawn")
+		else:
+			print("SleepController: WARNING - Bed spawn point not found")
+	else:
+		print("SleepController: ERROR - Player still not found after 2-frame delay")
 	
 	# Unpause gameplay/time
 	if game_time_manager and game_time_manager.has_method("set_paused"):
 		game_time_manager.set_paused(false)
+		print("SleepController: Game unpaused")
 	
 	# Ensure scene tree is also unpaused
 	if get_tree().paused:
 		get_tree().paused = false
+		print("SleepController: Scene tree unpaused")
 	
 	_is_sleep_sequence_running = false
+	print("SleepController: Sleep sequence complete")
 
 
 func _get_player() -> Node2D:
@@ -347,3 +415,13 @@ func _on_pass_out() -> void:
 		return
 	# Do NOT open the prompt, just run the sequence directly
 	_execute_sleep_sequence()
+
+
+func _on_player_entered_bed_area(_player: Node2D) -> void:
+	"""Called when player enters bed area"""
+	_is_player_in_bed_area = true
+
+
+func _on_player_exited_bed_area(_player: Node2D) -> void:
+	"""Called when player exits bed area"""
+	_is_player_in_bed_area = false

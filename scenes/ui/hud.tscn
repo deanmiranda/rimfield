@@ -14,7 +14,8 @@
 
 [node name="HUD" type="CanvasLayer" parent="."]
 process_mode = 3
-layer = 11
+layer = 100
+follow_viewport_enable = false
 
 [node name="Energy" type="VBoxContainer" parent="HUD"]
 anchors_preset = 3

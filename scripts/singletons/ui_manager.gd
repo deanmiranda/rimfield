@@ -321,14 +321,14 @@ func _get_sleep_controller() -> Node:
 	
 	# Search for node with sleep_controller script
 	for child in current_scene.get_children():
-		var sc = _find_sleep_controller_in_children(child)
-		if sc:
-			return sc
+		var found_controller = _find_sleep_controller_in_children(child)
+		if found_controller:
+			return found_controller
 	
 	# Try direct node path
-	var sc = current_scene.get_node_or_null("SleepController")
-	if sc:
-		return sc
+	var direct_controller = current_scene.get_node_or_null("SleepController")
+	if direct_controller:
+		return direct_controller
 	
 	return null
 

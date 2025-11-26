@@ -66,7 +66,8 @@ func _setup_screen_space_tooltip() -> void:
 	# Create CanvasLayer for screen-space rendering
 	tooltip_canvas = CanvasLayer.new()
 	tooltip_canvas.name = "HouseTooltipCanvas"
-	tooltip_canvas.layer = 99 # Below interaction_indicator (100) but above most UI
+	tooltip_canvas.layer = 150 # Below date popup (200) but above HUD (100)
+	tooltip_canvas.follow_viewport_enable = false
 	tooltip_canvas.process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().root.add_child(tooltip_canvas)
 
