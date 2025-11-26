@@ -65,7 +65,12 @@ func fade_out(callback: Callable = Callable(), duration: float = 2.0) -> void:
 	if callback.is_valid():
 		_tween.tween_callback(func():
 			print("ScreenFadeManager: Fade out complete")
-			callback.call()
+			# Check if callback's bound object is still valid before calling
+			var callback_object = callback.get_object()
+			if callback_object and is_instance_valid(callback_object):
+				callback.call()
+			else:
+				print("ScreenFadeManager: WARNING - Callback object is null or invalid, skipping callback")
 		)
 	else:
 		await _tween.finished
@@ -99,7 +104,12 @@ func fade_in(callback: Callable = Callable(), duration: float = 2.0) -> void:
 			print("ScreenFadeManager: Fade in complete")
 			fade_finished.emit()
 			print("ScreenFadeManager: fade_finished signal emitted")
-			callback.call()
+			# Check if callback's bound object is still valid before calling
+			var callback_object = callback.get_object()
+			if callback_object and is_instance_valid(callback_object):
+				callback.call()
+			else:
+				print("ScreenFadeManager: WARNING - Callback object is null or invalid, skipping callback")
 		)
 	else:
 		await _tween.finished
@@ -148,9 +158,14 @@ func fade_out_and_hold(fadeout_seconds: float, hold_seconds: float, callback: Ca
 	_tween.tween_callback(func():
 		print("ScreenFadeManager: Phase 2 - Hold period complete, calling callback")
 		if callback.is_valid():
-			print("ScreenFadeManager: Callback is valid, executing now")
-			callback.call()
-			print("ScreenFadeManager: Callback execution completed")
+			# Check if callback's bound object is still valid before calling
+			var callback_object = callback.get_object()
+			if callback_object and is_instance_valid(callback_object):
+				print("ScreenFadeManager: Callback is valid, executing now")
+				callback.call()
+				print("ScreenFadeManager: Callback execution completed")
+			else:
+				print("ScreenFadeManager: WARNING - Callback object is null or invalid, skipping callback")
 		else:
 			print("ScreenFadeManager: WARNING - Callback is not valid!")
 	)

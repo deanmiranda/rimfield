@@ -47,8 +47,8 @@ func _format_time(minutes: int) -> String:
 		- 1439 minutes → "11:59 PM"
 	"""
 	# Calculate 24-hour format
-	var hour_24 = minutes / 60 # 0-23
-	var min = minutes % 60 # 0-59
+	var hour_24 = int(minutes / 60.0) # 0-23
+	var mins = minutes % 60 # 0-59
 	
 	# Convert to 12-hour format
 	var hour_12: int
@@ -72,4 +72,4 @@ func _format_time(minutes: int) -> String:
 		period = "AM"
 	
 	# Format as "H:MM AM/PM" with leading zero for minutes
-	return "%d:%02d %s" % [hour_12, min, period]
+	return "%d:%02d %s" % [hour_12, mins, period]

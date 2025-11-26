@@ -76,7 +76,6 @@ func _find_bed_interaction() -> void:
 		if bed_interaction.has_signal("player_exited_bed_area"):
 			if not bed_interaction.player_exited_bed_area.is_connected(_on_player_exited_bed_area):
 				bed_interaction.player_exited_bed_area.connect(_on_player_exited_bed_area)
-		print("SleepController: Connected to bed interaction")
 	else:
 		print("Warning: SleepController could not find bed interaction node")
 
@@ -127,26 +126,19 @@ func is_sleep_sequence_running() -> bool:
 
 func request_sleep_from_bed() -> void:
 	"""Called by UiManager when E is pressed and player is in bed area"""
-	print("SleepController: request_sleep_from_bed() called")
 	if _is_sleep_sequence_running:
-		print("SleepController: Sleep sequence already running, returning")
 		return
 	if _is_sleep_prompt_open:
-		print("SleepController: Sleep prompt already open, returning")
 		return
 	
 	# Retry finding SleepPromptUI if not found yet (HUD might not have been ready in _ready())
 	if not sleep_prompt_ui:
-		print("SleepController: sleep_prompt_ui is null, retrying search...")
 		_find_sleep_prompt_ui()
 	
 	_is_sleep_prompt_open = true
-	print("SleepController: _is_sleep_prompt_open set to true")
 	
 	if sleep_prompt_ui:
-		print("SleepController: sleep_prompt_ui reference exists")
 		if sleep_prompt_ui.has_method("show_prompt"):
-			print("SleepController: Calling sleep_prompt_ui.show_prompt()")
 			sleep_prompt_ui.show_prompt()
 		else:
 			print("SleepController: ERROR - sleep_prompt_ui does not have show_prompt() method")
@@ -158,18 +150,14 @@ func _find_sleep_prompt_ui() -> void:
 	"""Find SleepPromptUI in the scene tree"""
 	var current_scene = get_tree().current_scene
 	if not current_scene:
-		print("SleepController: No current scene found")
 		return
 	
-	print("SleepController: Searching for SleepPromptUI in scene: ", current_scene.name)
 	
 	# Search for SleepPromptUI in HUD
 	var hud = current_scene.get_node_or_null("Hud")
 	if hud:
-		print("SleepController: Found Hud node")
 		var hud_canvas = hud.get_node_or_null("HUD")
 		if hud_canvas:
-			print("SleepController: Found HUD CanvasLayer")
 			sleep_prompt_ui = hud_canvas.get_node_or_null("SleepPromptUI")
 			if sleep_prompt_ui:
 				print("SleepController: Found SleepPromptUI via direct path")
@@ -183,7 +171,6 @@ func _find_sleep_prompt_ui() -> void:
 		if HUD and HUD.has_method("get") and "hud_scene_instance" in HUD:
 			var hud_instance = HUD.get("hud_scene_instance")
 			if hud_instance:
-				print("SleepController: Attempting to find SleepPromptUI via HUD singleton")
 				var hud_canvas = hud_instance.get_node_or_null("HUD")
 				if hud_canvas:
 					sleep_prompt_ui = hud_canvas.get_node_or_null("SleepPromptUI")
@@ -192,11 +179,9 @@ func _find_sleep_prompt_ui() -> void:
 	
 	# Fallback 2: search recursively
 	if not sleep_prompt_ui:
-		print("SleepController: Attempting recursive search for SleepPromptUI")
 		for child in current_scene.get_children():
 			sleep_prompt_ui = _find_sleep_prompt_in_children(child)
 			if sleep_prompt_ui:
-				print("SleepController: Found SleepPromptUI via recursive search")
 				break
 	
 	if sleep_prompt_ui:
