@@ -198,6 +198,22 @@ func sleep_to_next_morning() -> void:
 	time_changed.emit(time_of_day)
 
 
+func get_date_string() -> String:
+	"""Get formatted date string in format "Spring 1, Year 1"
+	
+	Returns:
+		Formatted date string
+	"""
+	var season_names := ["Spring", "Summer", "Fall", "Winter"]
+	var season_name: String
+	if season >= 0 and season < season_names.size():
+		season_name = season_names[season]
+	else:
+		season_name = "Unknown"
+	
+	return "%s %d, Year %d" % [season_name, day, year]
+
+
 func _format_time_for_log(minutes: int) -> String:
 	"""Helper to format time for logging"""
 	var hours = int(minutes / 60.0)

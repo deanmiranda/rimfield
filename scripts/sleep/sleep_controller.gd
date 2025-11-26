@@ -279,6 +279,12 @@ func _execute_sleep_sequence() -> void:
 		game_time_manager.set_paused(true)
 		print("SleepController: Game paused")
 	
+	# Connect to fade_started signal to hide HUD
+	if screen_fade_manager and screen_fade_manager.has_signal("fade_started"):
+		if not screen_fade_manager.fade_started.is_connected(_on_fade_started):
+			screen_fade_manager.fade_started.connect(_on_fade_started, CONNECT_ONE_SHOT)
+			print("SleepController: Connected to fade_started signal")
+	
 	# Use fade_out_and_hold for sleep sequence (does NOT auto fade-in)
 	if screen_fade_manager and screen_fade_manager.has_method("fade_out_and_hold"):
 		print("SleepController: Starting fade_out_and_hold sequence")
@@ -393,6 +399,9 @@ func _on_fade_in_complete() -> void:
 		get_tree().paused = false
 		print("SleepController: Scene tree unpaused")
 	
+	# Show HUD again after fade-in completes
+	_show_hud()
+	
 	_is_sleep_sequence_running = false
 	print("SleepController: Sleep sequence complete")
 
@@ -425,3 +434,21 @@ func _on_player_entered_bed_area(_player: Node2D) -> void:
 func _on_player_exited_bed_area(_player: Node2D) -> void:
 	"""Called when player exits bed area"""
 	_is_player_in_bed_area = false
+
+
+func _on_fade_started() -> void:
+	"""Called when fade-out starts - hide HUD"""
+	print("SleepController: Fade started, hiding HUD")
+	_hide_hud()
+
+
+func _hide_hud() -> void:
+	for hud in get_tree().get_nodes_in_group("hud"):
+		hud.visible = false
+		print("SleepController: HIDING HUD ", hud)
+
+
+func _show_hud() -> void:
+	for hud in get_tree().get_nodes_in_group("hud"):
+		hud.visible = true
+		print("SleepController: SHOWING HUD ", hud)

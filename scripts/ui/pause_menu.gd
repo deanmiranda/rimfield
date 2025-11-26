@@ -105,9 +105,26 @@ func _ready() -> void:
 	# Update all UI elements
 	_update_ui()
 	
+	# Connect to GameTimeManager day_changed signal to update date label
+	if GameTimeManager:
+		if GameTimeManager.has_signal("day_changed"):
+			if not GameTimeManager.day_changed.is_connected(_on_day_changed):
+				GameTimeManager.day_changed.connect(_on_day_changed)
+				print("PauseMenu: Connected to GameTimeManager.day_changed signal")
+	
 	# Connect tab change signal for extensibility
 	if tab_container:
 		tab_container.tab_changed.connect(_on_tab_changed)
+
+
+func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
+	var date_label_path = "Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel"
+	var date_label_node = get_node_or_null(date_label_path)
+	if date_label_node:
+		date_label_node.text = GameTimeManager.get_date_string()
+		print("PauseMenu: Updated DateLabel text to ", date_label_node.text)
+	else:
+		push_error("PauseMenu: DateLabel not found at expected path!")
 		# Set default tab to Inventory (index 0)
 		tab_container.current_tab = 0
 	

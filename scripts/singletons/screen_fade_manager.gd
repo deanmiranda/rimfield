@@ -5,6 +5,10 @@ extends CanvasLayer
 ## Provides fade_out() and fade_in() methods with callback support.
 ## Uses a ColorRect overlay to fade the screen to/from black.
 
+# Signals for fade state changes
+signal fade_started
+signal fade_finished
+
 var fade_rect: ColorRect = null
 var _tween: Tween = null
 
@@ -93,11 +97,15 @@ func fade_in(callback: Callable = Callable(), duration: float = 2.0) -> void:
 	if callback.is_valid():
 		_tween.tween_callback(func():
 			print("ScreenFadeManager: Fade in complete")
+			fade_finished.emit()
+			print("ScreenFadeManager: fade_finished signal emitted")
 			callback.call()
 		)
 	else:
 		await _tween.finished
 		print("ScreenFadeManager: Fade in complete")
+		fade_finished.emit()
+		print("ScreenFadeManager: fade_finished signal emitted")
 
 
 func fade_out_and_hold(fadeout_seconds: float, hold_seconds: float, callback: Callable) -> void:
@@ -114,6 +122,10 @@ func fade_out_and_hold(fadeout_seconds: float, hold_seconds: float, callback: Ca
 		if callback.is_valid():
 			callback.call()
 		return
+	
+	# Emit fade_started signal before starting fade-out
+	fade_started.emit()
+	print("ScreenFadeManager: fade_started signal emitted")
 	
 	# Kill existing tween
 	if _tween and _tween.is_valid():
