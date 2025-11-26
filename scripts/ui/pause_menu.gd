@@ -117,6 +117,16 @@ func _ready() -> void:
 		tab_container.tab_changed.connect(_on_tab_changed)
 
 
+func refresh_date_label() -> void:
+	var path = "Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel"
+	var date_label_node = get_node_or_null(path)
+	if date_label_node:
+		date_label_node.text = GameTimeManager.get_date_string()
+		print("PauseMenu: refresh_date_label() called → ", date_label_node.text)
+	else:
+		push_error("PauseMenu: DateLabel path invalid: " + path)
+
+
 func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
 	var date_label_path = "Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel"
 	var date_label_node = get_node_or_null(date_label_path)
@@ -270,7 +280,8 @@ func _update_ui() -> void:
 func _update_date_display() -> void:
 	"""Update date display: 'Spring 1, Year 1' format"""
 	if date_label:
-		date_label.text = "%s %d, Year %d" % [current_season, current_day, current_year]
+		date_label.text = GameTimeManager.get_date_string()
+		print("PauseMenu: _update_date_display() updated label to ", date_label.text)
 
 
 func _update_money_display() -> void:
@@ -353,6 +364,8 @@ func _notification(what: int) -> void:
 				tab_container.current_tab = 0 # Inventory tab
 			# Update UI with latest game state
 			_update_ui()
+			# Force refresh date label when menu opens
+			refresh_date_label()
 
 
 func _input(event: InputEvent) -> void:

@@ -148,7 +148,11 @@ func fade_out_and_hold(fadeout_seconds: float, hold_seconds: float, callback: Ca
 	_tween.tween_callback(func():
 		print("ScreenFadeManager: Phase 2 - Hold period complete, calling callback")
 		if callback.is_valid():
+			print("ScreenFadeManager: Callback is valid, executing now")
 			callback.call()
+			print("ScreenFadeManager: Callback execution completed")
+		else:
+			print("ScreenFadeManager: WARNING - Callback is not valid!")
 	)
 
 

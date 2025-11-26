@@ -306,11 +306,12 @@ func _execute_sleep_sequence() -> void:
 
 func _on_hold_period_callback() -> void:
 	"""Called during the hold-black period to update date label"""
-	print("SleepController: Hold period callback - calling sleep_to_next_morning()")
+	print("SleepController: Hold period callback STARTED")
+	print("SleepController: Calling sleep_to_next_morning() FIRST")
 	# Advance to next morning (this will emit day_changed signal, updating date label)
 	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
 		game_time_manager.sleep_to_next_morning()
-		print("SleepController: sleep_to_next_morning() called, date label should update")
+		print("SleepController: sleep_to_next_morning() completed, date label should update")
 		
 		# Show date popup with new date
 		if DatePopupManager and DatePopupManager.has_method("show_day_popup"):
@@ -335,7 +336,7 @@ func _on_hold_period_callback() -> void:
 			# Fallback: start fade-in immediately if popup manager not available
 			_on_date_popup_finished()
 	else:
-		print("SleepController: ERROR - sleep_to_next_morning() method not found")
+		print("SleepController: ERROR - game_time_manager or sleep_to_next_morning() not available")
 		# Fallback: start fade-in immediately if time manager not available
 		_on_date_popup_finished()
 
