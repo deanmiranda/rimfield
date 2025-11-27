@@ -11,27 +11,9 @@ extends Area2D
 signal player_entered_bed_area(player: Node2D)
 signal player_exited_bed_area(player: Node2D)
 
-var tooltip: Label = null
-
 
 func _ready() -> void:
-	"""Initialize bed interaction and set up tooltip label"""
-	# Find existing Label child or create one
-	tooltip = get_node_or_null("Label")
-	
-	if not tooltip:
-		# Create tooltip label programmatically
-		tooltip = Label.new()
-		tooltip.name = "Label"
-		add_child(tooltip)
-		
-		# Configure tooltip appearance
-		tooltip.text = "Press E to Sleep"
-		tooltip.visible = false
-		tooltip.position = Vector2(0, -20) # Position above bed
-		tooltip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tooltip.add_theme_color_override("font_color", Color.WHITE)
-	
+	"""Initialize bed interaction"""
 	# Connect Area2D signals
 	if not body_entered.is_connected(_on_body_entered):
 		body_entered.connect(_on_body_entered)
@@ -43,8 +25,10 @@ func _on_body_entered(body: Node2D) -> void:
 	"""Called when a body enters the bed area"""
 	# Check if the body is the player
 	if _is_player(body):
-		if tooltip:
-			tooltip.visible = true
+		# Show tooltip via SleepController (SleepController is a scene node, not a singleton)
+		var sleep_controller = _find_sleep_controller()
+		if sleep_controller and sleep_controller.has_method("show_bed_tooltip"):
+			sleep_controller.show_bed_tooltip()
 		# Emit signal for SleepController
 		player_entered_bed_area.emit(body)
 
@@ -53,8 +37,10 @@ func _on_body_exited(body: Node2D) -> void:
 	"""Called when a body exits the bed area"""
 	# Check if the body is the player
 	if _is_player(body):
-		if tooltip:
-			tooltip.visible = false
+		# Hide tooltip via SleepController (SleepController is a scene node, not a singleton)
+		var sleep_controller = _find_sleep_controller()
+		if sleep_controller and sleep_controller.has_method("hide_bed_tooltip"):
+			sleep_controller.hide_bed_tooltip()
 		# Emit signal for SleepController
 		player_exited_bed_area.emit(body)
 
@@ -78,3 +64,44 @@ func _is_player(body: Node2D) -> bool:
 		return true
 	
 	return false
+
+
+func _find_sleep_controller() -> Node:
+	"""Find SleepController node in the current scene
+	SleepController is a scene node (not a singleton), so we search the current scene.
+	
+	Returns:
+		SleepController node if found, null otherwise
+	"""
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return null
+	
+	# Try direct node path first (SleepController is a direct child of scene root)
+	var sleep_controller = current_scene.get_node_or_null("SleepController")
+	if sleep_controller:
+		return sleep_controller
+	
+	# Fallback: search recursively for node with sleep_controller script
+	for child in current_scene.get_children():
+		var found = _find_sleep_controller_in_children(child)
+		if found:
+			return found
+	
+	return null
+
+
+func _find_sleep_controller_in_children(node: Node) -> Node:
+	"""Recursively search for node with sleep_controller script"""
+	var script = node.get_script()
+	if script:
+		var script_path = script.resource_path
+		if script_path and "sleep_controller" in script_path:
+			return node
+	
+	for child in node.get_children():
+		var result = _find_sleep_controller_in_children(child)
+		if result:
+			return result
+	
+	return null

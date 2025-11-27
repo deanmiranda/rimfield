@@ -434,6 +434,20 @@ script = ExtResource("7_h022r")
 
 [node name="SleepPromptUI" parent="HUD" instance=ExtResource("9_sleep_prompt")]
 
+[node name="BedTooltipLabel" type="Label" parent="HUD"]
+visible = false
+offset_right = 200.0
+offset_bottom = 20.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 14
+text = "Press E to Sleep"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="ToolSwitcher" type="Node" parent="."]
 script = ExtResource("8_d4ui7")
 

@@ -18,6 +18,7 @@ var bed_interaction: Area2D = null
 var game_time_manager: Node = null
 var screen_fade_manager: Node = null
 var sleep_prompt_ui: Control = null
+var bed_tooltip_label: Label = null
 var bed_spawn_point: Node2D = null
 
 
@@ -37,6 +38,12 @@ func _ready() -> void:
 		# HUD might not be ready yet, retry after a frame
 		call_deferred("_find_sleep_prompt_ui")
 	
+	# Find bed tooltip label in HUD (with deferred retry if not ready)
+	_find_bed_tooltip_label()
+	if not bed_tooltip_label:
+		# HUD might not be ready yet, retry after a frame
+		call_deferred("_find_bed_tooltip_label")
+	
 	# Find bed spawn point in scene
 	_find_bed_spawn_point()
 	
@@ -48,6 +55,9 @@ func _ready() -> void:
 	
 	# Connect to GameTimeManager pass_out signal
 	_connect_pass_out_signal()
+	
+	# Start with _process disabled (only update position when tooltip is visible)
+	set_process(false)
 
 
 func _find_bed_interaction() -> void:
@@ -205,6 +215,100 @@ func _find_sleep_prompt_in_children(node: Node) -> Control:
 			return result
 	
 	return null
+
+
+func _find_bed_tooltip_label() -> void:
+	"""Find BedTooltipLabel in the scene tree
+	Expected path: /root/UiManager/Hud/HUD/BedTooltipLabel
+	Current search: Resolves from root via UiManager, then Hud/HUD/BedTooltipLabel
+	"""
+	# Primary: Resolve from root via UiManager (most reliable, doesn't depend on current_scene)
+	var root := get_tree().root
+	var ui_manager := root.get_node_or_null("UiManager")
+	if ui_manager:
+		var hud_canvas := ui_manager.get_node_or_null("Hud")
+		if hud_canvas:
+			var hud_root := hud_canvas.get_node_or_null("HUD")
+			if hud_root:
+				bed_tooltip_label = hud_root.get_node_or_null("BedTooltipLabel")
+				if bed_tooltip_label:
+					print("SleepController: Found BedTooltipLabel via root path (path: ", bed_tooltip_label.get_path(), ")")
+					return
+	
+	# Fallback 1: Try via HUD singleton's hud_scene_instance if available
+	if HUD and HUD.hud_scene_instance != null:
+		var hud_instance = HUD.hud_scene_instance
+		if hud_instance:
+			var hud_root = hud_instance.get_node_or_null("HUD")
+			if hud_root:
+				bed_tooltip_label = hud_root.get_node_or_null("BedTooltipLabel")
+				if bed_tooltip_label:
+					print("SleepController: Found BedTooltipLabel via HUD singleton (path: ", bed_tooltip_label.get_path(), ")")
+					return
+	
+	# Fallback 2: Search in current scene
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		var hud = current_scene.get_node_or_null("Hud")
+		if hud:
+			var hud_root = hud.get_node_or_null("HUD")
+			if hud_root:
+				bed_tooltip_label = hud_root.get_node_or_null("BedTooltipLabel")
+				if bed_tooltip_label:
+					print("SleepController: Found BedTooltipLabel via current scene (path: ", bed_tooltip_label.get_path(), ")")
+					return
+	
+	if bed_tooltip_label:
+		print("SleepController: BedTooltipLabel reference set successfully")
+	else:
+		push_warning("SleepController: BedTooltipLabel not found at expected HUD path")
+
+
+func _find_bed_tooltip_in_children(node: Node) -> Label:
+	"""Recursively search for BedTooltipLabel"""
+	if node is Label and node.name == "BedTooltipLabel":
+		return node
+	
+	for child in node.get_children():
+		var result = _find_bed_tooltip_in_children(child)
+		if result:
+			return result
+	
+	return null
+
+
+func show_bed_tooltip() -> void:
+	"""Show the bed tooltip label"""
+	if bed_tooltip_label:
+		bed_tooltip_label.visible = true
+		set_process(true) # Start updating position
+		print("SleepController: show_bed_tooltip() - tooltip shown (label valid)")
+	else:
+		# Retry finding the label if not found yet
+		_find_bed_tooltip_label()
+		if bed_tooltip_label:
+			bed_tooltip_label.visible = true
+			set_process(true) # Start updating position
+			print("SleepController: show_bed_tooltip() - tooltip found and shown after retry")
+		else:
+			print("SleepController: show_bed_tooltip() called but BedTooltipLabel not found (label invalid)")
+
+
+func hide_bed_tooltip() -> void:
+	"""Hide the bed tooltip label"""
+	if bed_tooltip_label:
+		bed_tooltip_label.visible = false
+		set_process(false) # Stop updating position when hidden
+		print("SleepController: hide_bed_tooltip() - tooltip hidden (label valid)")
+	else:
+		# Retry finding the label if not found yet
+		_find_bed_tooltip_label()
+		if bed_tooltip_label:
+			bed_tooltip_label.visible = false
+			set_process(false) # Stop updating position when hidden
+			print("SleepController: hide_bed_tooltip() - tooltip found and hidden after retry")
+		else:
+			print("SleepController: hide_bed_tooltip() called but BedTooltipLabel not found (label invalid)")
 
 
 func _find_bed_spawn_point() -> void:
@@ -420,6 +524,39 @@ func _on_player_entered_bed_area(_player: Node2D) -> void:
 func _on_player_exited_bed_area(_player: Node2D) -> void:
 	"""Called when player exits bed area"""
 	_is_player_in_bed_area = false
+
+
+func _process(_delta: float) -> void:
+	"""Update tooltip position in screen space when visible"""
+	if not bed_tooltip_label or not bed_tooltip_label.visible:
+		return
+	
+	if not bed_interaction:
+		return
+	
+	# Convert bed world position to screen position
+	var bed_world_pos = bed_interaction.global_position
+	var screen_pos = _world_to_screen_position(bed_world_pos)
+	
+	# Position label above bed in screen space (centered horizontally, offset upward)
+	bed_tooltip_label.position = screen_pos + Vector2(-bed_tooltip_label.size.x / 2, -36)
+
+
+func _world_to_screen_position(world_pos: Vector2) -> Vector2:
+	"""Convert world position to screen position"""
+	var viewport = get_viewport()
+	if not viewport:
+		return Vector2.ZERO
+	
+	var camera = viewport.get_camera_2d()
+	if not camera:
+		return Vector2.ZERO
+	
+	# Use the camera's canvas transform which properly converts world to screen
+	var canvas_transform = camera.get_canvas_transform()
+	var screen_pos = canvas_transform * world_pos
+	
+	return screen_pos
 
 
 func _on_fade_started() -> void:
