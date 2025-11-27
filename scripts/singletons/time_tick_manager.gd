@@ -22,6 +22,7 @@ func _ready() -> void:
 	
 	# Create Timer node as child
 	time_timer = Timer.new()
+	time_timer.process_mode = Node.PROCESS_MODE_ALWAYS # Continue running even when scene tree is paused
 	add_child(time_timer)
 	
 	# Configure timer: 7 seconds per tick, repeating, auto-start
