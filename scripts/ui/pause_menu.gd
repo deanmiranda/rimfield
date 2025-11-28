@@ -118,15 +118,8 @@ func _ready() -> void:
 			# Don't return - continue anyway, methods will handle null gracefully
 	
 	if date_label:
-		var path_str: String
-		if is_inside_tree() and date_label.is_inside_tree():
-			path_str = date_label.get_path()
-		else:
-			path_str = "N/A (not in scene tree)"
-		print("PauseMenu: DateLabel reference found at path: ", path_str)
 		# Initialize with current date
 		date_label.text = GameTimeManager.get_date_string()
-		print("PauseMenu: DateLabel initialized to ", date_label.text)
 	
 	# Update all UI elements (after date_label is validated)
 	_update_ui()
@@ -136,7 +129,6 @@ func _ready() -> void:
 		if GameTimeManager.has_signal("day_changed"):
 			if not GameTimeManager.day_changed.is_connected(_on_day_changed):
 				GameTimeManager.day_changed.connect(_on_day_changed)
-				print("PauseMenu: Connected to GameTimeManager.day_changed signal")
 	
 	# Connect tab change signal for extensibility
 	if tab_container:
@@ -152,20 +144,9 @@ func refresh_date_label() -> void:
 	if date_label:
 		date_label.text = GameTimeManager.get_date_string()
 		# Only get path if node is in scene tree to avoid errors
-		var path_str: String
-		if is_inside_tree() and date_label.is_inside_tree():
-			path_str = date_label.get_path()
-		else:
-			path_str = "N/A"
-		print("PauseMenu: refresh_date_label() called → ", date_label.text, " (path: ", path_str, ")")
-	else:
-		# Silently skip if DateLabel is still not found (don't spam errors during gameplay)
-		print("PauseMenu: refresh_date_label() - DateLabel reference is null, skipping update")
-
 
 func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
 	"""Handle day_changed signal from GameTimeManager"""
-	print("PauseMenu: _on_day_changed() received - Day: ", _new_day, ", Season: ", _new_season, ", Year: ", _new_year)
 	refresh_date_label()
 	
 	# Hide save feedback initially
@@ -312,10 +293,6 @@ func _update_date_display() -> void:
 	
 	if date_label:
 		date_label.text = GameTimeManager.get_date_string()
-		print("PauseMenu: _update_date_display() updated label to ", date_label.text)
-	else:
-		# Silently skip if DateLabel is still not found (don't spam errors during gameplay)
-		print("PauseMenu: _update_date_display() - DateLabel reference is null, skipping update")
 
 
 func _update_money_display() -> void:
@@ -422,6 +399,9 @@ func _input(event: InputEvent) -> void:
 		# Close the menu
 		self.visible = false
 		get_tree().paused = false
+		# Unpause game time when menu closes
+		if GameTimeManager:
+			GameTimeManager.set_paused(false)
 		get_viewport().set_input_as_handled() # Prevent further processing
 
 
@@ -429,6 +409,9 @@ func _on_resume_button_pressed() -> void:
 	"""Resume game"""
 	self.visible = false
 	get_tree().paused = false
+	# Unpause game time when menu closes
+	if GameTimeManager:
+		GameTimeManager.set_paused(false)
 
 
 func _on_exit_button_pressed() -> void:
@@ -493,6 +476,9 @@ func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
 	# Unpause the game before switching to the main menu
 	get_tree().paused = false
+	# Unpause game time when menu closes
+	if GameTimeManager:
+		GameTimeManager.set_paused(false)
 	
 	# Assuming there's a SceneManager singleton that handles scene transitions
 	if SceneManager:
