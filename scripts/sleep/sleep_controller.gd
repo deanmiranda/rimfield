@@ -365,6 +365,11 @@ func _on_hold_period_callback() -> void:
 	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
 		game_time_manager.sleep_to_next_morning()
 		
+		# Restore energy and give happiness boost after sleeping
+		if PlayerStatsManager:
+			PlayerStatsManager.restore_energy_full()
+			PlayerStatsManager.modify_happiness(5) # Small happiness boost for good sleep
+		
 		# Show date popup with new date
 		if DatePopupManager and DatePopupManager.has_method("show_day_popup"):
 			var new_day = game_time_manager.day
@@ -389,6 +394,11 @@ func _on_fade_out_complete() -> void:
 	# Advance to next morning
 	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
 		game_time_manager.sleep_to_next_morning()
+	
+	# Restore energy and give happiness boost after sleeping
+	if PlayerStatsManager:
+		PlayerStatsManager.restore_energy_full()
+		PlayerStatsManager.modify_happiness(5) # Small happiness boost for good sleep
 	
 	# Start fade in
 	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):

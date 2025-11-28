@@ -6,16 +6,22 @@ const TILE_ID_GRASS = 0
 const TILE_ID_DIRT = 1
 const TILE_ID_TILLED = 2
 const TILE_ID_PLANTED = 3
-const TILE_ID_GROWN = 4  # Assuming "grown" is the next state after planting
+const TILE_ID_GROWN = 4 # Assuming "grown" is the next state after planting
+
+# Energy costs for tool usage
+const ENERGY_COST_HOE = 2
+const ENERGY_COST_TILL = 2
+const ENERGY_COST_PICKAXE = 3
+const ENERGY_COST_SEED = 1
 
 @export var farmable_layer_path: NodePath
-@export var farm_scene_path: NodePath  # Reference the farm scene
+@export var farm_scene_path: NodePath # Reference the farm scene
 
 var hud_instance: Node
 var hud_path: Node
 var farmable_layer: TileMapLayer
 var tool_switcher: Node
-var current_tool: String = "hoe"  # Default starting tool
+var current_tool: String = "hoe" # Default starting tool
 
 func _ready() -> void:
 	# Load shared Resources
@@ -43,12 +49,11 @@ func set_hud(hud_scene_instance: Node) -> void:
 		var _first_slot_tool = tool_switcher.get("current_tool")
 
 
-
 # Use shared ToolConfig Resource instead of duplicated tool mapping (follows .cursor/rules/godot.md)
 var tool_config: Resource = null
 # Use shared GameConfig Resource for magic numbers (follows .cursor/rules/godot.md)
 var game_config: Resource = null
-var interaction_distance: float = 250.0  # Default (will be overridden by GameConfig) - allows up to ~15 cell interaction range
+var interaction_distance: float = 250.0 # Default (will be overridden by GameConfig) - allows up to ~15 cell interaction range
 
 func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
 	"""Update current_tool based on tool texture - tools are identified by texture, not slot"""
@@ -120,7 +125,32 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		# Only perform tool actions if a valid tool is selected (not "unknown")
 		# This ensures empty slots don't perform tool actions
 		if current_tool == "unknown":
-			return  # No tool selected, don't perform any actions
+			return # No tool selected, don't perform any actions
+		
+		# Check energy before performing tool action
+		if PlayerStatsManager and PlayerStatsManager.energy <= 0:
+			return # No energy, cancel action
+		
+		# Determine energy cost based on tool type
+		var energy_cost = 0
+		match current_tool:
+			"hoe":
+				energy_cost = ENERGY_COST_HOE
+			"till":
+				energy_cost = ENERGY_COST_TILL
+			"pickaxe":
+				energy_cost = ENERGY_COST_PICKAXE
+			"seed":
+				energy_cost = ENERGY_COST_SEED
+			_:
+				energy_cost = 0 # Unknown tool, no cost
+		
+		# Consume energy - if insufficient, cancel action
+		if PlayerStatsManager and energy_cost > 0:
+			if not PlayerStatsManager.consume_energy(energy_cost):
+				return # Insufficient energy, cancel action
+			# Debug logging for energy consumption
+			print("[FarmingManager] Tool '%s' consumed %d energy (remaining: %d/%d)" % [current_tool, energy_cost, PlayerStatsManager.energy, PlayerStatsManager.max_energy])
 		
 		match current_tool:
 			"hoe":
@@ -140,7 +170,7 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 					# Pickaxe on dirt returns to grass
 					_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
 			"seed":
-				if is_tilled:  # Only allow planting on tilled soil
+				if is_tilled: # Only allow planting on tilled soil
 					_set_tile_custom_state(target_cell, TILE_ID_PLANTED, "planted")
 					#_start_growth_cycle(target_cell)
 
@@ -163,7 +193,6 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 		farm_scene.trigger_dust(cell, emitter_scene)
 
 func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
-
 	# Update the visual state
 	# In Godot 4, set_cell() automatically uses the custom_data from the TileSet source
 	# set_cell(coords, source_id, atlas_coords, alternative_tile)
