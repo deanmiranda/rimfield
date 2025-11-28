@@ -7,7 +7,7 @@ var current_scene: String = "farm_scene"
 var farm_state: Dictionary = {}
 
 # Current save file being used
-var current_save_file: String = ""  # No default save file to prevent initial save issues
+var current_save_file: String = "" # No default save file to prevent initial save issues
 
 # Signal to notify when a game is loaded successfully
 signal game_loaded
@@ -67,7 +67,7 @@ func save_game(file: String = "") -> void:
 						"slot_index": i,
 						"texture_path": slot_data["texture"].resource_path,
 						"count": slot_data["count"],
-						"weight": slot_data.get("weight", 0.0)  # Include weight in save
+						"weight": slot_data.get("weight", 0.0) # Include weight in save
 					}
 				)
 
@@ -82,7 +82,7 @@ func save_game(file: String = "") -> void:
 						"slot_index": i,
 						"texture_path": slot_data["texture"].resource_path,
 						"count": slot_data["count"],
-						"weight": slot_data.get("weight", 0.0)  # Include weight in save
+						"weight": slot_data.get("weight", 0.0) # Include weight in save
 					}
 				)
 
@@ -141,7 +141,7 @@ func load_game(file: String = "") -> bool:
 					var slot_index = item_data.get("slot_index", -1)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
-					var weight = item_data.get("weight", 0.0)  # Load weight if present, default to 0.0
+					var weight = item_data.get("weight", 0.0) # Load weight if present, default to 0.0
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
@@ -158,7 +158,7 @@ func load_game(file: String = "") -> bool:
 					var slot_index = item_data.get("slot_index", -1)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
-					var weight = item_data.get("weight", 0.0)  # Load weight if present, default to 0.0
+					var weight = item_data.get("weight", 0.0) # Load weight if present, default to 0.0
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
@@ -179,9 +179,9 @@ func load_game(file: String = "") -> bool:
 
 		emit_signal("game_loaded")
 
-		# Explicitly change to the loaded scene after loading
-		get_tree().paused = false  # Unpause the game if paused
-		change_scene(current_scene)
+		# Always start in house scene after loading (save data is already applied)
+		get_tree().paused = false # Unpause the game if paused
+		SceneManager.start_in_house(false)
 
 		return true
 	else:
@@ -233,14 +233,14 @@ func manage_save_files() -> void:
 func _extract_timestamp_from_filename(file_name: String) -> float:
 	var components = file_name.split("_")
 	if components.size() > 1:
-		return components[-1].to_float()  # Extract the last part and convert to float
+		return components[-1].to_float() # Extract the last part and convert to float
 	return 0.0
 
 
 # Clears the current game state and prepares a fresh start
 func new_game() -> void:
-	# Reset to the starting scene
-	current_scene = "farm_scene"
+	# Reset to the starting scene (house)
+	current_scene = "house_scene"
 
 	# Clear all tile states
 	farm_state.clear()

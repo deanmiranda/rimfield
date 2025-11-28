@@ -10,13 +10,18 @@ func _ready():
 	var player_instance = player_scene.instantiate()
 	add_child(player_instance)
 
-	# Use spawn position from SceneManager if set, otherwise default to entrance (far from exit)
+	# Use spawn position from SceneManager if set (e.g., entering from outside), otherwise default to bed (waking up)
 	if SceneManager and SceneManager.player_spawn_position != Vector2.ZERO:
 		player_instance.global_position = SceneManager.player_spawn_position
 		SceneManager.player_spawn_position = Vector2.ZERO # Reset after use
 	else:
-		# Default spawn: inside house, far from the exit doorway (exit is at y=86)
-		player_instance.global_position = Vector2(-8, 54)
+		# Default spawn: bed position (for waking up / new day)
+		var bed_spawn = get_node_or_null("BedSpawnPoint")
+		if bed_spawn:
+			player_instance.global_position = bed_spawn.global_position
+		else:
+			print("Warning: BedSpawnPoint not found, using fallback position")
+			player_instance.global_position = Vector2(-8, 54)
 
 	# Force camera to snap to player position immediately (no smooth transition)
 	# CRITICAL: Access PlayerCamera using two-step path to match actual player scene structure
@@ -28,14 +33,12 @@ func _ready():
 			camera.reset_smoothing()
 
 	# HUD setup - MUST load immediately for inventory/toolkit to work
-	print("HouseScene: Loading HUD...")
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
 		# Link HUD singleton
 		if HUD:
 			HUD.set_hud_scene_instance(hud_instance)
-			print("HouseScene: HUD loaded and linked")
 		else:
 			print("Warning: HUD singleton not found in house_scene.")
 	else:

@@ -102,17 +102,71 @@ func _ready() -> void:
 			player_info.visible = true
 			player_info.custom_minimum_size = Vector2(0, 200) # Force minimum size
 	
-	# Update all UI elements
+	# Validate and initialize date_label reference (after @onready variables are set)
+	if not date_label:
+		# Fallback: try to find DateLabel if @onready failed
+		date_label = get_node_or_null("CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel")
+		if date_label:
+			var path_str: String
+			if is_inside_tree() and date_label.is_inside_tree():
+				path_str = date_label.get_path()
+			else:
+				path_str = "N/A (not in scene tree)"
+			print("PauseMenu: DateLabel found via fallback lookup at path: ", path_str)
+		else:
+			push_error("PauseMenu: DateLabel reference is null! Check @onready path and scene structure.")
+			# Don't return - continue anyway, methods will handle null gracefully
+	
+	if date_label:
+		var path_str: String
+		if is_inside_tree() and date_label.is_inside_tree():
+			path_str = date_label.get_path()
+		else:
+			path_str = "N/A (not in scene tree)"
+		print("PauseMenu: DateLabel reference found at path: ", path_str)
+		# Initialize with current date
+		date_label.text = GameTimeManager.get_date_string()
+		print("PauseMenu: DateLabel initialized to ", date_label.text)
+	
+	# Update all UI elements (after date_label is validated)
 	_update_ui()
+	
+	# Connect to GameTimeManager day_changed signal to update date label
+	if GameTimeManager:
+		if GameTimeManager.has_signal("day_changed"):
+			if not GameTimeManager.day_changed.is_connected(_on_day_changed):
+				GameTimeManager.day_changed.connect(_on_day_changed)
+				print("PauseMenu: Connected to GameTimeManager.day_changed signal")
 	
 	# Connect tab change signal for extensibility
 	if tab_container:
 		tab_container.tab_changed.connect(_on_tab_changed)
-		# Set default tab to Inventory (index 0)
-		tab_container.current_tab = 0
+
+
+func refresh_date_label() -> void:
+	"""Refresh the date label using cached reference and GameTimeManager"""
+	if not date_label:
+		# Fallback: try to find DateLabel if reference is null
+		date_label = get_node_or_null("CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel")
 	
-	# Connect MainMenu tab button signals
-	_connect_main_menu_signals()
+	if date_label:
+		date_label.text = GameTimeManager.get_date_string()
+		# Only get path if node is in scene tree to avoid errors
+		var path_str: String
+		if is_inside_tree() and date_label.is_inside_tree():
+			path_str = date_label.get_path()
+		else:
+			path_str = "N/A"
+		print("PauseMenu: refresh_date_label() called → ", date_label.text, " (path: ", path_str, ")")
+	else:
+		# Silently skip if DateLabel is still not found (don't spam errors during gameplay)
+		print("PauseMenu: refresh_date_label() - DateLabel reference is null, skipping update")
+
+
+func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
+	"""Handle day_changed signal from GameTimeManager"""
+	print("PauseMenu: _on_day_changed() received - Day: ", _new_day, ", Season: ", _new_season, ", Year: ", _new_year)
+	refresh_date_label()
 	
 	# Hide save feedback initially
 	if save_feedback_label:
@@ -252,8 +306,16 @@ func _update_ui() -> void:
 
 func _update_date_display() -> void:
 	"""Update date display: 'Spring 1, Year 1' format"""
+	if not date_label:
+		# Fallback: try to find DateLabel if reference is null
+		date_label = get_node_or_null("CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/StatsContainer/DateLabel")
+	
 	if date_label:
-		date_label.text = "%s %d, Year %d" % [current_season, current_day, current_year]
+		date_label.text = GameTimeManager.get_date_string()
+		print("PauseMenu: _update_date_display() updated label to ", date_label.text)
+	else:
+		# Silently skip if DateLabel is still not found (don't spam errors during gameplay)
+		print("PauseMenu: _update_date_display() - DateLabel reference is null, skipping update")
 
 
 func _update_money_display() -> void:
@@ -336,6 +398,8 @@ func _notification(what: int) -> void:
 				tab_container.current_tab = 0 # Inventory tab
 			# Update UI with latest game state
 			_update_ui()
+			# Force refresh date label when menu opens
+			refresh_date_label()
 
 
 func _input(event: InputEvent) -> void:
@@ -349,17 +413,16 @@ func _input(event: InputEvent) -> void:
 		if scene_name == "Main_Menu" or (scene_file and scene_file.ends_with("main_menu.tscn")):
 			return
 	
-	# Handle ESC or E key to close menu (UiManager also handles this, but we ensure it works)
+	# Only handle input when menu is visible - let UiManager handle it when hidden
+	if not self.visible:
+		return
+	
+	# Handle ESC or E key to close menu when visible
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_interact"):
-		if self.visible:
-			# Close the menu
-			self.visible = false
-			get_tree().paused = false
-			get_viewport().set_input_as_handled() # Prevent further processing
-		elif not self.visible:
-			# When opening, set to Inventory tab by default
-			if tab_container:
-				tab_container.current_tab = 0 # Inventory tab
+		# Close the menu
+		self.visible = false
+		get_tree().paused = false
+		get_viewport().set_input_as_handled() # Prevent further processing
 
 
 func _on_resume_button_pressed() -> void:
