@@ -24,9 +24,6 @@ func _ready() -> void:
 
 	# Check current scene on startup
 	_on_scene_changed(get_tree().current_scene.name)
-	
-	# Enable input processing for debug keys
-	set_process_input(true)
 
 
 func _on_scene_changed(_new_scene_name: String) -> void:
@@ -229,10 +226,10 @@ func _update_bar_color(bar: ProgressBar, current: int, max_value: int) -> void:
 	var percent = float(current) / float(max_value)
 	if percent >= 0.2:
 		# Green for ≥20%
-		bar.modulate = Color(0.0, 1.0, 0.0, 1.0)  # Green
+		bar.modulate = Color(0.0, 1.0, 0.0, 1.0) # Green
 	else:
 		# Red for <20%
-		bar.modulate = Color(1.0, 0.0, 0.0, 1.0)  # Red
+		bar.modulate = Color(1.0, 0.0, 0.0, 1.0) # Red
 
 
 func _sync_stat_bars() -> void:
@@ -260,27 +257,3 @@ func _sync_stat_bars() -> void:
 		happiness_bar.max_value = PlayerStatsManager.max_happiness
 		happiness_bar.value = PlayerStatsManager.happiness
 		_update_bar_color(happiness_bar, PlayerStatsManager.happiness, PlayerStatsManager.max_happiness)
-
-
-func _input(event: InputEvent) -> void:
-	"""Handle debug input for testing stats (F5: drain energy, F6: restore energy)"""
-	# Only process in game scenes (not main menu)
-	if UiManager and UiManager._is_not_game_scene():
-		return
-	
-	# F5: Drain 10 energy
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_F5:
-			if PlayerStatsManager:
-				PlayerStatsManager.consume_energy(10)
-				print("[Debug] Drained 10 energy (remaining: %d/%d)" % [PlayerStatsManager.energy, PlayerStatsManager.max_energy])
-				get_viewport().set_input_as_handled()
-		
-		# F6: Restore 10 energy
-		elif event.keycode == KEY_F6:
-			if PlayerStatsManager:
-				var old_energy = PlayerStatsManager.energy
-				PlayerStatsManager.energy = min(PlayerStatsManager.max_energy, PlayerStatsManager.energy + 10)
-				PlayerStatsManager.energy_changed.emit(PlayerStatsManager.energy, PlayerStatsManager.max_energy)
-				print("[Debug] Restored 10 energy (%d -> %d/%d)" % [old_energy, PlayerStatsManager.energy, PlayerStatsManager.max_energy])
-				get_viewport().set_input_as_handled()
