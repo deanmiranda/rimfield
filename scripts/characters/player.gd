@@ -54,7 +54,20 @@ func _ready() -> void:
 	if farm_scene and farm_scene.has_node("FarmingManager"):
 		farming_manager = farm_scene.get_node("FarmingManager")
 	else:
-		farming_manager = null
+		# Fallback: try to find FarmingManager via scene tree search
+		var farming_managers = get_tree().get_nodes_in_group("farming_manager")
+		if farming_managers.size() > 0:
+			farming_manager = farming_managers[0]
+		else:
+			# Try to find it as a child of current scene
+			if farm_scene:
+				var found_manager = farm_scene.find_child("FarmingManager", true, false)
+				if found_manager:
+					farming_manager = found_manager
+				else:
+					farming_manager = null
+			else:
+				farming_manager = null
 
 
 func _physics_process(_delta: float) -> void:

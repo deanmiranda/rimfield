@@ -352,9 +352,7 @@ func _execute_sleep_sequence() -> void:
 	else:
 		# Fallback if fade manager doesn't have new method
 		if screen_fade_manager and screen_fade_manager.has_method("fade_out"):
-			screen_fade_manager.fade_out(func():
-				_on_fade_out_complete()
-			)
+			screen_fade_manager.fade_out(Callable(self, "_on_fade_out_complete"))
 		else:
 			_on_fade_out_complete()
 
@@ -402,9 +400,7 @@ func _on_fade_out_complete() -> void:
 	
 	# Start fade in
 	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):
-		screen_fade_manager.fade_in(func():
-			_on_fade_in_complete()
-		)
+		screen_fade_manager.fade_in(Callable(self, "_on_fade_in_complete"))
 	else:
 		_on_fade_in_complete()
 
@@ -412,9 +408,7 @@ func _on_fade_out_complete() -> void:
 func _on_date_popup_finished() -> void:
 	"""Called when date popup sequence completes - starts fade-in"""
 	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):
-		screen_fade_manager.fade_in(func():
-			_on_fade_in_complete()
-		, 2.0)
+		screen_fade_manager.fade_in(Callable(self, "_on_fade_in_complete"), 2.0)
 	else:
 		_on_fade_in_complete()
 
@@ -422,12 +416,18 @@ func _on_date_popup_finished() -> void:
 func _on_fade_in_complete() -> void:
 	"""Called when fade in completes"""
 	
+	# Get tree reference - check if it's valid
+	var tree = get_tree()
+	if not tree:
+		print("[SleepController] Error: get_tree() returned null in _on_fade_in_complete")
+		return
+	
 	# Delay player lookup by two frames to ensure player node exists
-	await get_tree().process_frame
-	await get_tree().process_frame
+	await tree.process_frame
+	await tree.process_frame
 	
 	# Teleport player to bed spawn
-	var player = get_tree().get_first_node_in_group("player")
+	var player = tree.get_first_node_in_group("player")
 	if player:
 		if bed_spawn_point:
 			player.global_position = bed_spawn_point.global_position

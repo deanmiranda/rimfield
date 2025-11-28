@@ -1171,9 +1171,30 @@ func _cancel_drag() -> void:
 	set_process(false)
 
 
+func _can_drop_to_world(texture: Texture) -> bool:
+	"""Check if item can be dropped to world (tools and seeds cannot)"""
+	if not texture:
+		return false
+	
+	var texture_path = texture.resource_path
+	# Tools cannot be dropped
+	if "tools/shovel.png" in texture_path or "tools/watering-can.png" in texture_path or "tools/pick-axe.png" in texture_path:
+		return false
+	# Seeds cannot be dropped
+	if "FartSnipSeeds.png" in texture_path:
+		return false
+	# Other items can be dropped
+	return true
+
+
 func _throw_to_world(_mouse_pos: Vector2) -> bool:
 	"""Throw dragged item(s) to world position with physics/bounce. Returns true if successful."""
 	if not is_dragging or not original_texture:
+		return false
+	
+	# Check if item can be dropped to world
+	if not _can_drop_to_world(original_texture):
+		print("[Inventory] Cannot drop %s to world (tool/seed)" % original_texture.resource_path)
 		return false
 	
 	# Get player position - items should scatter around the player, not at mouse position

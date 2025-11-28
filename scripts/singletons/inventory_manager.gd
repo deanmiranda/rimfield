@@ -540,7 +540,16 @@ func _sync_initial_toolkit_from_ui() -> void:
 
 			# Populate toolkit_slots with the found texture
 			if slot_texture:
-				toolkit_slots[i] = {"texture": slot_texture, "count": 1, "weight": 0.0}
+				# Check if this is a seed texture - set count to 10 for new games
+				var seed_texture_path = "res://assets/tilesets/full version/tiles/FartSnipSeeds.png"
+				var initial_count = 1
+				if slot_texture.resource_path == seed_texture_path:
+					initial_count = 10 # Starting seed count should be 10
+				toolkit_slots[i] = {"texture": slot_texture, "count": initial_count, "weight": 0.0}
+				
+				# Update UI to show correct count (especially for seeds with count 10)
+				if texture_button.has_method("set_item"):
+					texture_button.set_item(slot_texture, initial_count)
 
 
 func _sync_toolkit_from_ui() -> void:

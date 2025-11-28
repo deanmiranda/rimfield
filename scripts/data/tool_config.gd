@@ -5,7 +5,7 @@ class_name ToolConfig
 # Shared resource to avoid duplication (follows .cursor/rules/godot.md)
 var tool_map: Dictionary = {
 	preload("res://assets/tiles/tools/shovel.png"): "hoe",
-	preload("res://assets/tiles/tools/rototiller.png"): "till",
+	preload("res://assets/tiles/tools/watering-can.png"): "watering_can",
 	preload("res://assets/tiles/tools/pick-axe.png"): "pickaxe",
 	preload("res://assets/tilesets/full version/tiles/FartSnipSeeds.png"): "seed"
 }

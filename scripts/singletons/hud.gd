@@ -4,6 +4,7 @@ extends CanvasLayer
 signal tool_changed(slot_index: int, item_texture: Texture)
 
 var farming_manager: Node = null # Reference to FarmingManager
+var _farming_manager_error_logged: bool = false # Flag to prevent error spam
 
 # Cached references to avoid absolute path lookups (follows .cursor/rules/godot.md)
 var hud_scene_instance: Node = null # Injected reference to instantiated HUD scene
@@ -37,7 +38,9 @@ func setup_hud() -> void:
 	# Use cached references instead of absolute paths (follows .cursor/rules/godot.md)
 	# farming_manager should already be set via set_farming_manager() from farm_scene
 	if not farming_manager:
-		print("Error: FarmingManager not linked. Ensure set_farming_manager() is called.")
+		if not _farming_manager_error_logged:
+			print("Error: FarmingManager not linked. Ensure set_farming_manager() is called.")
+			_farming_manager_error_logged = true
 
 	# Connect to ToolSwitcher using cached reference
 	if tool_switcher:
@@ -108,6 +111,7 @@ func setup_hud() -> void:
 func set_farming_manager(farming_manager_instance: Node) -> void:
 	if farming_manager_instance:
 		farming_manager = farming_manager_instance # Save the reference
+		_farming_manager_error_logged = false # Reset error flag when manager is set
 	else:
 		print("Error: FarmingManager instance is null. Cannot link.")
 

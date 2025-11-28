@@ -198,6 +198,21 @@ func sleep_to_next_morning() -> void:
 	time_changed.emit(time_of_day)
 
 
+func get_absolute_day() -> int:
+	"""Get absolute day number (days since game start, accounting for years and seasons)
+	
+	This provides a consistent day count that can be used for comparisons across
+	season and year boundaries. Useful for tracking crop growth, watering, etc.
+	
+	Formula: (year - 1) * 112 + season * 28 + day
+	Where 112 = 4 seasons * 28 days per season
+	
+	Returns:
+		Absolute day number (starts at 1 for Spring 1, Year 1)
+	"""
+	return (year - 1) * 112 + season * 28 + day
+
+
 func get_date_string() -> String:
 	"""Get formatted date string in format "Spring 1, Year 1"
 	

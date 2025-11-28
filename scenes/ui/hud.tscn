@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://dcsuoeae6kf4a" path="res://scripts/ui/hud_slot.gd" id="2_muuh7"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_5va86"]
 [ext_resource type="Texture2D" uid="uid://b5vipdhn607jm" path="res://assets/tiles/tools/shovel.png" id="4_ahcmr"]
-[ext_resource type="Texture2D" uid="uid://cevvdhf2p5k2s" path="res://assets/tiles/tools/rototiller.png" id="5_g2ra6"]
+[ext_resource type="Texture2D" uid="uid://pvomfbirjwkh" path="res://assets/tiles/tools/watering-can.png" id="5_g2ra6"]
 [ext_resource type="Texture2D" uid="uid://dxnfv5aw2wdsu" path="res://assets/tiles/tools/pick-axe.png" id="6_wmhby"]
 [ext_resource type="Script" uid="uid://bhs3bktcaktft" path="res://scripts/ui/hud_clock.gd" id="7_h022r"]
 [ext_resource type="Texture2D" uid="uid://cfnt5tyopipyn" path="res://assets/tilesets/full version/tiles/FartSnipSeeds.png" id="7_t5p3x"]

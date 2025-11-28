@@ -1,18 +1,18 @@
 extends Control
 
-@export var dropdown: OptionButton  # Reference to the dropdown UI for load slots
-@export var confirmation_panel: Control  # Reference to a confirmation UI panel
-@export var load_button: Button  # Reference to the Load button
+@export var dropdown: OptionButton # Reference to the dropdown UI for load slots
+@export var confirmation_panel: Control # Reference to a confirmation UI panel
+@export var load_button: Button # Reference to the Load button
 
 # Dictionary to hold save metadata for quick access when selecting
 var save_metadata: Dictionary = {}
-var save_counts: Dictionary = {}  # Holds counts of saves by date for incrementing numbers
+var save_counts: Dictionary = {} # Holds counts of saves by date for incrementing numbers
 
 func _ready() -> void:
 	# Populate the dropdown with save files
 	_populate_load_slots()
-	confirmation_panel.visible = false  # Hide the confirmation panel initially
-	load_button.visible = dropdown.get_item_count() > 0  # Hide Load button if no saves
+	confirmation_panel.visible = false # Hide the confirmation panel initially
+	load_button.visible = dropdown.get_item_count() > 0 # Hide Load button if no saves
 
 	# Connect the dropdown selection signal
 	if dropdown and not dropdown.is_connected("item_selected", Callable(self, "_on_save_dropdown_item_selected")):
@@ -26,57 +26,128 @@ func _ready() -> void:
 
 # Populates the dropdown with available save files
 func _populate_load_slots() -> void:
-	dropdown.clear()  # Clear any existing options
-	save_metadata.clear()  # Clear previous metadata
-	save_counts.clear()  # Clear save counts for fresh population
+	dropdown.clear() # Clear any existing options
+	save_metadata.clear() # Clear previous metadata
+	save_counts.clear() # Clear save counts for fresh population
 	print("Populating load slots...")
 
-	dropdown.add_item("Select a Save Slot")  # Add a placeholder item to avoid preselection
-	save_metadata[-1] = ""  # Add an invalid save metadata entry to the placeholder
+	dropdown.add_item("Select a Save Slot") # Add a placeholder item to avoid preselection
+	save_metadata[-1] = "" # Add an invalid save metadata entry to the placeholder
 
 	var save_dir = DirAccess.open("user://")
 	if save_dir == null:
 		print("Error: Could not open save directory.")
 		return
 
-	save_dir.list_dir_begin()  # Begin listing files in the user directory
+	# First, collect all save files with their modification times
+	var save_files_with_metadata = []
+	save_dir.list_dir_begin() # Begin listing files in the user directory
 	var file_name = save_dir.get_next()
 	while file_name != "":
 		if file_name.begins_with("save_slot_") and file_name.ends_with(".json"):
-			# Load metadata for each save file
-			var timestamp = _extract_timestamp_from_filename(file_name)
-			var datetime = Time.get_datetime_dict_from_unix_time(timestamp)
-			var formatted_date = "%02d/%02d/%d" % [
-				datetime.month,
-				datetime.day,
-				datetime.year
-			]
-			var scene_name = _get_scene_name_from_save(file_name)
-			
-			# Update save count for the formatted date
-			var count = save_counts.get(formatted_date, 0)
-			save_counts[formatted_date] = count + 1
-
-			# Generate display text with increment if needed
-			var display_text = "%s - %s" % [formatted_date, scene_name]
-			if count > 0:
-				display_text += " (%d)" % count
-
-			print("Adding save file to dropdown:", display_text)
-			dropdown.add_item(display_text)  # Add save slot to dropdown
-			save_metadata[dropdown.get_item_count() - 1] = file_name  # Save metadata by dropdown index
+			var file_path = "user://" + file_name
+			if FileAccess.file_exists(file_path):
+				var mod_time = FileAccess.get_modified_time(file_path)
+				save_files_with_metadata.append({
+					"name": file_name,
+					"time": mod_time
+				})
 		file_name = save_dir.get_next()
 	save_dir.list_dir_end()
+	
+	# Sort by modification time (newest first - most recent at top)
+	save_files_with_metadata.sort_custom(
+		func(a, b):
+			return a.time > b.time # Descending order (newest first)
+	)
+	
+	# Now add sorted saves to dropdown
+	for save_info in save_files_with_metadata:
+		var file_name_sorted = save_info.name
+		# Load metadata for each save file
+		var formatted_date = _get_formatted_date_from_save(file_name_sorted)
+		var scene_name = _get_scene_name_from_save(file_name_sorted)
+		
+		# Update save count for the formatted date
+		var count = save_counts.get(formatted_date, 0)
+		save_counts[formatted_date] = count + 1
 
-	load_button.visible = dropdown.get_item_count() > 1  # Update visibility of the Load button (ignore placeholder)
+		# Generate display text with increment if needed
+		var display_text = "%s - %s" % [formatted_date, scene_name]
+		if count > 0:
+			display_text += " (%d)" % count
+
+		print("Adding save file to dropdown:", display_text)
+		dropdown.add_item(display_text) # Add save slot to dropdown
+		save_metadata[dropdown.get_item_count() - 1] = file_name_sorted # Save metadata by dropdown index
+
+	load_button.visible = dropdown.get_item_count() > 1 # Update visibility of the Load button (ignore placeholder)
 	print("Finished populating load slots. Load button visible:", load_button.visible)
 
-# Extracts the timestamp from the save file name
+# Extracts the timestamp from the save file name (legacy support)
 func _extract_timestamp_from_filename(file_name: String) -> int:
 	var components = file_name.split("_")
 	if components.size() > 1:
 		return components[-1].to_int()
 	return 0
+
+
+# Gets formatted date from save file (prefers game date, falls back to filename)
+# Format: "mm/dd/yyyy - {Season} X, Year X"
+func _get_formatted_date_from_save(file_name: String) -> String:
+	var file_path = "user://%s" % file_name
+	var system_date_str = ""
+	var game_date_str = ""
+	
+	# Get system date from file modification time
+	if FileAccess.file_exists(file_path):
+		var mod_time = FileAccess.get_modified_time(file_path)
+		var datetime = Time.get_datetime_dict_from_unix_time(mod_time)
+		system_date_str = "%02d/%02d/%d" % [datetime.month, datetime.day, datetime.year]
+	
+	var file_access = FileAccess.open(file_path, FileAccess.READ)
+	if file_access:
+		var json = JSON.new()
+		var parse_status = json.parse(file_access.get_as_text())
+		file_access.close()
+		
+		if parse_status == OK:
+			var save_data = json.data
+			# Try to get game date from save file
+			if save_data.has("game_time"):
+				var time_data = save_data["game_time"]
+				var day = time_data.get("day", 1)
+				var season = time_data.get("season", 0)
+				var year = time_data.get("year", 1)
+				var season_names = ["Spring", "Summer", "Fall", "Winter"]
+				game_date_str = "%s %d, Year %d" % [season_names[season], day, year]
+	
+	# Fallback: parse filename (new format: YEAR_SEASON_DAY_UNIXTIME)
+	if game_date_str == "":
+		var name_without_ext = file_name.replace("save_slot_", "").replace(".json", "")
+		var parts = name_without_ext.split("_")
+		if parts.size() >= 3:
+			var year = int(parts[0])
+			var season = int(parts[1])
+			var day = int(parts[2])
+			var season_names = ["Spring", "Summer", "Fall", "Winter"]
+			game_date_str = "%s %d, Year %d" % [season_names[season], day, year]
+	
+	# Legacy fallback: use system date for game date too
+	if game_date_str == "":
+		var timestamp = _extract_timestamp_from_filename(file_name)
+		if timestamp > 0:
+			var datetime = Time.get_datetime_dict_from_unix_time(timestamp)
+			game_date_str = "%02d/%02d/%d" % [datetime.month, datetime.day, datetime.year]
+		else:
+			game_date_str = "Unknown Date"
+	
+	# If we don't have system date, use game date fallback
+	if system_date_str == "":
+		system_date_str = game_date_str
+	
+	# Return format: "mm/dd/yyyy - {Season} X, Year X"
+	return "%s - %s" % [system_date_str, game_date_str]
 
 # Retrieves the scene name from the save file
 func _get_scene_name_from_save(file_name: String) -> String:
@@ -98,7 +169,7 @@ func _on_load_button_pressed() -> void:
 	var selected_index = dropdown.get_selected_id()
 	print("Load button pressed. Selected index:", selected_index)
 
-	if save_metadata.has(selected_index) and selected_index != 0:  # Ensure the placeholder item is not selected
+	if save_metadata.has(selected_index) and selected_index != 0: # Ensure the placeholder item is not selected
 		var file_name = save_metadata[selected_index]
 
 		# Generate a pretty date and scene name for the confirmation panel
@@ -131,14 +202,14 @@ func _set_confirmation_text(confirmation_text: String) -> void:
 func _on_yes_button_pressed() -> void:
 	var selected_index = dropdown.get_selected_id()
 	if save_metadata.has(selected_index):
-		GameState.load_game(save_metadata[selected_index])  # Load the selected save
-		self.queue_free()  # Hide and remove the load menu from the scene tree to clean up
-	confirmation_panel.visible = false  # Hide the confirmation panel
+		GameState.load_game(save_metadata[selected_index]) # Load the selected save
+		self.queue_free() # Hide and remove the load menu from the scene tree to clean up
+	confirmation_panel.visible = false # Hide the confirmation panel
 
 # Called when the player cancels the load action
 func _on_no_button_pressed() -> void:
-	confirmation_panel.visible = false  # Just hide the confirmation panel
+	confirmation_panel.visible = false # Just hide the confirmation panel
 
 # Called when the back button is pressed
 func _on_back_button_pressed() -> void:
-	self.visible = false  # Hide the load scene
+	self.visible = false # Hide the load scene
