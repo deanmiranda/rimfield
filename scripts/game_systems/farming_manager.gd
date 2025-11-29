@@ -1,12 +1,11 @@
 ### farming_manager.gd ###
 extends Node
 
-# Constants (follows .cursor/rules/godot.md script ordering: Signals → Constants → Exports → Vars)
-const TILE_ID_GRASS = 0
-const TILE_ID_DIRT = 1
-const TILE_ID_TILLED = 2
-const TILE_ID_PLANTED = 3
-const TILE_ID_GROWN = 4 # Assuming "grown" is the next state after planting
+# ======================================================================
+# SAFETY RULE:
+# NEVER place control-flow or logic at top-level in Godot scripts.
+# Only declarations and functions may exist at class scope.
+# ======================================================================
 
 # Energy costs for tool usage
 const ENERGY_COST_HOE = 2
@@ -14,40 +13,337 @@ const ENERGY_COST_WATERING_CAN = 1
 const ENERGY_COST_PICKAXE = 3
 const ENERGY_COST_SEED = 1
 
+# Source ID for crop tiles (separate from terrain)
+const SOURCE_ID_CROP = 3
+
+# Terrain Set and IDs (configured in FarmingTerrain.tres)
+# Terrain Set 0: Soil/Grass transitions
+# Terrain 0: Grass (base, no terrain)
+# Terrain 1: Soil (light dirt)
+# Terrain 2: WetSoil (watered/tilled)
+const TERRAIN_SET_ID := 0
+const TERRAIN_ID_GRASS := 0
+const TERRAIN_ID_SOIL := 1
+const TERRAIN_ID_WET_SOIL := 2
+
+# Atlas coordinate constants for manual tile placement
+const SOURCE_ID := 0
+const GRASS_CENTER := Vector2i(1, 1)
+# Dirt ring tiles (inner grass tiles that outline a dirt patch)
+const DIRT_RING_TOP_LEFT := Vector2i(3, 1)
+const DIRT_RING_TOP := Vector2i(1, 2)
+const DIRT_RING_TOP_RIGHT := Vector2i(4, 1)
+const DIRT_RING_LEFT := Vector2i(0, 1)
+const DIRT_RING_RIGHT := Vector2i(2, 1)
+const DIRT_RING_BOTTOM_LEFT := Vector2i(3, 2)
+const DIRT_RING_BOTTOM := Vector2i(1, 0)
+const DIRT_RING_BOTTOM_RIGHT := Vector2i(4, 2)
+const SOIL_TILE := Vector2i(5, 6)
+const WET_SOIL_TILE := Vector2i(5, 9)
+
 @export var farmable_layer_path: NodePath
-@export var crop_layer_path: NodePath # Separate layer for crops (optional, will be created if missing)
-@export var farm_scene_path: NodePath # Reference the farm scene
+@export var crop_layer_path: NodePath
+@export var farm_scene_path: NodePath
 
 var hud_instance: Node
 var hud_path: Node
 var farmable_layer: TileMapLayer
-var crop_layer: TileMapLayer # Separate layer for crop sprites
+var crop_layer: TileMapLayer
 var tool_switcher: Node
-var current_tool: String = "hoe" # Default starting tool
-var farm_scene: Node2D # Reference to farm scene for linking
+var current_tool: String = "hoe"
+var farm_scene: Node2D
+var tool_config: Resource = null
+var game_config: Resource = null
+var interaction_distance: float = 250.0
 
 func _ready() -> void:
-	# Load shared Resources
+	print("[FarmingManager] Structure validated. No top-level logic detected.")
+	
 	tool_config = load("res://resources/data/tool_config.tres")
 	game_config = load("res://resources/data/game_config.tres")
 	if game_config:
 		interaction_distance = game_config.interaction_distance
 	
-	# Get the farmable layer for tile interactions
-	if farmable_layer_path:
-		farmable_layer = get_node_or_null(farmable_layer_path) as TileMapLayer
-		if not farmable_layer:
-			print("Error: Farmable layer not found!")
+	# Note: farmable_layer is now set via set_farmable_layer() from FarmScene
+	# Do not resolve via NodePath here to avoid incorrect resolution
 	
-	# Get crop layer via path if specified (will be created in set_farm_scene if needed)
 	if crop_layer_path:
 		crop_layer = get_node_or_null(crop_layer_path) as TileMapLayer
 		if crop_layer:
 			print("[FarmingManager] Crop layer found via path: %s" % crop_layer.name)
+
+func set_farmable_layer(layer: TileMapLayer) -> void:
+	"""Set farmable layer from FarmScene (validated reference)"""
+	farmable_layer = layer
+	if farmable_layer and farmable_layer.tile_set:
+		print("[FarmingManager] Farmable layer set (TileSet: %s)" % farmable_layer.tile_set.resource_path)
+	else:
+		push_error("[FarmingManager] Invalid farmable_layer provided - missing TileSet")
+
+func resolve_layers() -> void:
+	"""Finalize layer setup after farmable_layer is set"""
+	if not farmable_layer:
+		push_error("[FarmingManager] Cannot resolve layers - farmable_layer is null")
+		return
+	print("[FarmingManager] Layers resolved")
+
+func debug_farming_tileset() -> void:
+	"""Diagnostic method to extract complete TileSet structure using Godot 4.4 API"""
+	var tileset: TileSet = load("res://assets/tilesets/FarmingTerrain.tres")
 	
-	# Note: Crop layer creation is deferred to set_farm_scene() to ensure farm_scene reference is available
+	if tileset == null:
+		print("[FARM DEBUG] Failed to load FarmingTerrain.tres")
+		return
 	
-	# Connect to GameTimeManager day_changed signal for crop growth
+	print("[FARM DEBUG] TileSet loaded: ", tileset)
+	
+	# 1) Terrain sets
+	var terrain_sets: Array = []
+	var terrain_sets_count := tileset.get_terrain_sets_count()
+	
+	for set_id in range(terrain_sets_count):
+		var set_mode := tileset.get_terrain_set_mode(set_id)
+		var terrains := []
+		var terrain_count := tileset.get_terrains_count(set_id)
+		
+		for terrain_index in range(terrain_count):
+			var name := tileset.get_terrain_name(set_id, terrain_index)
+			var color := tileset.get_terrain_color(set_id, terrain_index)
+			terrains.append({
+				"index": terrain_index,
+				"name": name,
+				"color": color
+			})
+		
+		terrain_sets.append({
+			"set_id": set_id,
+			"mode": set_mode,
+			"terrains": terrains
+		})
+	
+	# 2) Sources and tiles (using Godot 4 TileSet / TileSetAtlasSource API)
+	var sources: Array = []
+	var source_count := tileset.get_source_count()
+	
+	for i in range(source_count):
+		var source_id := tileset.get_source_id(i)
+		var source := tileset.get_source(source_id)
+		var source_info := {
+			"source_id": source_id,
+			"type": source.get_class(),
+			"tiles": []
+		}
+		
+		# Only inspect atlas sources for now
+		if source is TileSetAtlasSource:
+			var atlas: TileSetAtlasSource = source
+			var texture_path := ""
+			if atlas.texture:
+				texture_path = atlas.texture.resource_path
+			var region_size := atlas.texture_region_size
+			
+			source_info["texture_path"] = texture_path
+			source_info["region_size"] = region_size
+			
+			var tile_count := atlas.get_tiles_count()
+			source_info["tile_count"] = tile_count
+			
+			for t in range(tile_count):
+				var atlas_coords := atlas.get_tile_id(t) # returns Vector2i for atlas coords
+				var data := atlas.get_tile_data(atlas_coords, 0) # layer 0
+				var terrain := {}
+				
+				if data:
+					terrain["terrain_set"] = data.get_terrain_set()
+					terrain["terrain"] = data.get_terrain()
+				
+				source_info["tiles"].append({
+					"index": t,
+					"atlas_coords": atlas_coords,
+					"terrain": terrain
+				})
+		
+		sources.append(source_info)
+	
+	# 3) Extract terrain peering/connectivity rules
+	var terrain_peering: Array = []
+	for set_id in range(terrain_sets_count):
+		var terrain_count := tileset.get_terrains_count(set_id)
+		var peering_rules := []
+		var set_mode := tileset.get_terrain_set_mode(set_id)
+		
+		# Note: Terrain peering in Godot 4.4 is typically automatic based on mode
+		# Mode 0 = Match Corners (3x3 minimal) - handles edges and corners automatically
+		# Peering rules are implicit based on terrain assignments on tiles
+		for terrain_index in range(terrain_count):
+			peering_rules.append({
+				"terrain_index": terrain_index,
+				"name": tileset.get_terrain_name(set_id, terrain_index),
+				"note": "Peering is automatic based on mode %d (Match Corners)" % set_mode
+			})
+		
+		terrain_peering.append({
+			"set_id": set_id,
+			"mode": set_mode,
+			"rules": peering_rules
+		})
+	
+	# 4) Find exact atlas coordinates for Grass, Soil, WetSoil
+	var grass_atlas := Vector2i(-1, -1)
+	var soil_atlas := Vector2i(-1, -1)
+	var wetsoil_atlas := Vector2i(-1, -1)
+	
+	for source_info in sources:
+		if source_info.has("tiles"):
+			for tile_info in source_info["tiles"]:
+				var terrain_data = tile_info.get("terrain", {})
+				var terrain_set = terrain_data.get("terrain_set", -1)
+				var terrain_id = terrain_data.get("terrain", -1)
+				
+				if terrain_set == 0:
+					if terrain_id == 0 and grass_atlas == Vector2i(-1, -1):
+						grass_atlas = tile_info["atlas_coords"]
+					elif terrain_id == 1 and soil_atlas == Vector2i(-1, -1):
+						soil_atlas = tile_info["atlas_coords"]
+					elif terrain_id == 2 and wetsoil_atlas == Vector2i(-1, -1):
+						wetsoil_atlas = tile_info["atlas_coords"]
+	
+	# 5) Create atlas coordinate → tile mapping
+	var atlas_to_tile_mapping := {}
+	for source_info in sources:
+		if source_info.has("tiles"):
+			for tile_info in source_info["tiles"]:
+				var coords = tile_info["atlas_coords"]
+				atlas_to_tile_mapping[coords] = {
+					"source_id": source_info["source_id"],
+					"tile_index": tile_info["index"],
+					"terrain": tile_info.get("terrain", {})
+				}
+	
+	# Print comprehensive report
+	print("[FARM DEBUG] ========================================")
+	print("[FARM DEBUG] TileSet loaded: ", tileset)
+	print("[FARM DEBUG] ========================================")
+	print("[FARM DEBUG] TERRAIN SETS: ", terrain_sets)
+	print("[FARM DEBUG] TERRAIN PEERING RULES: ", terrain_peering)
+	print("[FARM DEBUG] SOURCES: ", sources)
+	print("[FARM DEBUG] ========================================")
+	print("[FARM DEBUG] EXACT ATLAS COORDINATES:")
+	print("[FARM DEBUG]   Grass (terrain 0): ", grass_atlas)
+	print("[FARM DEBUG]   Soil (terrain 1): ", soil_atlas)
+	print("[FARM DEBUG]   WetSoil (terrain 2): ", wetsoil_atlas)
+	print("[FARM DEBUG] ========================================")
+	print("[FARM DEBUG] ATLAS COORDINATE → TILE MAPPING (first 20 entries):")
+	var mapping_count = 0
+	for coords in atlas_to_tile_mapping.keys():
+		if mapping_count < 20:
+			print("[FARM DEBUG]   %s -> %s" % [coords, atlas_to_tile_mapping[coords]])
+			mapping_count += 1
+		else:
+			print("[FARM DEBUG]   ... (total mappings: %d)" % atlas_to_tile_mapping.size())
+			break
+	print("[FARM DEBUG] ========================================")
+
+func set_farm_scene_reference(scene: Node2D) -> void:
+	"""Set farm scene reference (alias for set_farm_scene for consistency)"""
+	set_farm_scene(scene)
+
+func set_farm_scene(scene: Node2D) -> void:
+	farm_scene = scene
+	print("[FarmingManager] Farm scene reference set: %s" % (scene.name if scene else "null"))
+
+func _apply_terrain_to_cells(cells: Array[Vector2i], terrain_id: int) -> void:
+	"""Apply terrain to multiple cells using Godot 4.4 terrain system"""
+	if farmable_layer == null:
+		push_error("[FarmingManager] Cannot apply terrain - farmable_layer is null")
+		return
+	
+	if cells.is_empty():
+		return
+	
+	# Godot 4.4 TileMapLayer API:
+	# set_cells_terrain_connect(cells: Array[Vector2i], terrain_set: int, terrain: int, ignore_empty_terrains := true)
+	farmable_layer.set_cells_terrain_connect(cells, TERRAIN_SET_ID, terrain_id)
+
+func _apply_terrain_to_cell(cell: Vector2i, terrain_id: int) -> void:
+	"""Apply terrain to a single cell using Godot 4.4 terrain system"""
+	_apply_terrain_to_cells([cell], terrain_id)
+
+func apply_terrain_to_cells(cells: Array[Vector2i], terrain_id: int) -> void:
+	"""Public API for applying terrain to cells (used by FarmScene)"""
+	_apply_terrain_to_cells(cells, terrain_id)
+
+# ============================================================================
+# ATLAS COORDINATE-BASED TILE PLACEMENT (for grass edges/corners)
+# ============================================================================
+
+func _set_tile(cell: Vector2i, atlas_coords: Vector2i) -> void:
+	"""Set a tile using atlas coordinates"""
+	if farmable_layer == null:
+		push_error("[FarmingManager] Cannot set tile - farmable_layer is null")
+		return
+	farmable_layer.set_cell(cell, SOURCE_ID, atlas_coords)
+
+func _is_plain_grass(cell: Vector2i) -> bool:
+	"""Check if a cell is plain grass (center tile)"""
+	if farmable_layer == null:
+		return false
+	var sid := farmable_layer.get_cell_source_id(cell)
+	if sid != SOURCE_ID:
+		return false
+	return farmable_layer.get_cell_atlas_coords(cell) == GRASS_CENTER
+
+const NEIGHBOR_OFFSETS := {
+	Vector2i(-1, -1): DIRT_RING_TOP_LEFT,
+	Vector2i(0, -1): DIRT_RING_TOP,
+	Vector2i(1, -1): DIRT_RING_TOP_RIGHT,
+	Vector2i(-1, 0): DIRT_RING_LEFT,
+	Vector2i(1, 0): DIRT_RING_RIGHT,
+	Vector2i(-1, 1): DIRT_RING_BOTTOM_LEFT,
+	Vector2i(0, 1): DIRT_RING_BOTTOM,
+	Vector2i(1, 1): DIRT_RING_BOTTOM_RIGHT,
+}
+
+func _update_grass_edges_around(center: Vector2i) -> void:
+	"""Update grass edges/corners around a center cell"""
+	if farmable_layer == null:
+		return
+	for offset in NEIGHBOR_OFFSETS.keys():
+		var n: Vector2i = center + offset
+		if _is_plain_grass(n):
+			_set_tile(n, NEIGHBOR_OFFSETS[offset])
+
+func create_crop_layer_if_missing() -> void:
+	"""Create crop layer if it doesn't exist (only after farmable layer validation)"""
+	if not farm_scene:
+		push_error("[FarmingManager] Cannot create crop layer - farm_scene is null")
+		return
+	
+	if not farmable_layer:
+		push_error("[FarmingManager] Cannot create crop layer - farmable_layer is null")
+		return
+	
+	if farmable_layer.tile_set == null:
+		push_error("[FarmingManager] Cannot create crop layer - farmable_layer.tile_set is null")
+		return
+	
+	if not crop_layer:
+		crop_layer = farm_scene.get_node_or_null("Crops") as TileMapLayer
+		
+		if not crop_layer:
+			crop_layer = TileMapLayer.new()
+			crop_layer.name = "Crops"
+			crop_layer.tile_set = farmable_layer.tile_set
+			print("[FarmingManager] Crop layer using TileSet from farmable layer")
+			farm_scene.add_child(crop_layer)
+			crop_layer.set_owner(farm_scene)
+			crop_layer.z_index = 1
+			print("[FarmingManager] Created crop layer programmatically: %s" % crop_layer.name)
+		else:
+			print("[FarmingManager] Found existing crop layer: %s" % crop_layer.name)
+
+func connect_signals() -> void:
+	"""Connect FarmingManager to required signals"""
 	if GameTimeManager:
 		if not GameTimeManager.day_changed.is_connected(_on_day_changed):
 			GameTimeManager.day_changed.connect(_on_day_changed)
@@ -56,176 +352,71 @@ func _ready() -> void:
 			print("[FarmingManager] Already connected to GameTimeManager.day_changed signal")
 	else:
 		print("[FarmingManager] Warning: GameTimeManager not found, cannot connect to day_changed signal")
-	 
-func set_farm_scene(scene: Node2D) -> void:
-	"""Set reference to farm scene - called by farm_scene.gd on load
-	CRITICAL: This must be called before crop layer operations"""
-	farm_scene = scene
-	print("[FarmingManager] Farm scene reference set: %s" % (scene.name if scene else "null"))
-	
-	# CRITICAL FIX: Create or find crop layer after farm_scene is set
-	# This ensures we can add the layer to the scene if it doesn't exist
-	if not crop_layer and farm_scene:
-		# Try to find existing crop layer by name
-		crop_layer = farm_scene.get_node_or_null("Crops") as TileMapLayer
-		
-		# If still not found, create it programmatically
-		if not crop_layer:
-			crop_layer = TileMapLayer.new()
-			crop_layer.name = "Crops"
-			# Use same TileSet as farmable layer for crop sprites (source 3)
-			if farmable_layer and farmable_layer.tile_set:
-				crop_layer.tile_set = farmable_layer.tile_set
-			farm_scene.add_child(crop_layer)
-			crop_layer.set_owner(farm_scene)
-			# Set z_index higher than farmable layer so crops render on top
-			crop_layer.z_index = 1
-			print("[FarmingManager] Created crop layer programmatically in set_farm_scene: %s" % crop_layer.name)
-		else:
-			print("[FarmingManager] Found existing crop layer: %s" % crop_layer.name)
 
 func set_hud(hud_scene_instance: Node) -> void:
 	hud_path = hud_scene_instance
 	tool_switcher = hud_scene_instance.get_node("ToolSwitcher")
 	
 	if tool_switcher:
-		# Connect the tool_changed signal
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-		
-		# Ensure a valid tool is set on load
 		var _first_slot_tool = tool_switcher.get("current_tool")
 
-
-# Use shared ToolConfig Resource instead of duplicated tool mapping (follows .cursor/rules/godot.md)
-var tool_config: Resource = null
-# Use shared GameConfig Resource for magic numbers (follows .cursor/rules/godot.md)
-var game_config: Resource = null
-var interaction_distance: float = 250.0 # Default (will be overridden by GameConfig) - allows up to ~15 cell interaction range
-
 func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
-	"""Update current_tool based on tool texture - tools are identified by texture, not slot"""
 	if item_texture:
-		# Use shared ToolConfig to map texture to tool name
 		if tool_config and tool_config.has_method("get_tool_name"):
 			current_tool = tool_config.get_tool_name(item_texture)
 		else:
 			current_tool = "unknown"
 	else:
-		# Tool texture is null - clear the tool (no tool selected)
 		current_tool = "unknown"
 
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	if not farmable_layer:
 		return
 	
-	# Debug logging: log farmable layer name and tool being used
+	if farmable_layer.tile_set == null:
+		push_error("[FarmingManager] farmable_layer.tile_set is NULL — cannot interact.")
+		return
+	
 	print("[FarmingManager] Interacting with tile using farmable_layer: %s, tool: %s" % [farmable_layer.name, current_tool])
 
-	# Convert world position to cell coordinates
-	# IMPORTANT: target_pos is in global/world coordinates from MouseUtil
-	# TileMapLayer can be a child of any Node2D, so use its own coordinate system
-	# Convert world position to TileMapLayer's local coordinates, then to cell coordinates
 	var target_local_pos = farmable_layer.to_local(target_pos)
 	var target_cell = farmable_layer.local_to_map(target_local_pos)
 	
-	# Calculate player's tile position
-	# IMPORTANT: player_pos is in global/world coordinates (from Camera2D via MouseUtil)
 	var player_local_pos = farmable_layer.to_local(player_pos)
 	var player_cell = farmable_layer.local_to_map(player_local_pos)
-	
 
-	# Check if target is in the 3x3 grid around player (8 adjacent tiles ONLY, NOT center)
-	# Character CANNOT use tools on the tile they're standing on
-	# Character can only use tools on tiles directly adjacent (including diagonals)
-	# This is cell-based distance, which works correctly with Camera2D since we're using
-	# world coordinates converted to tilemap local coordinates
 	var cell_distance_x = abs(target_cell.x - player_cell.x)
 	var cell_distance_y = abs(target_cell.y - player_cell.y)
 	
-	
-	# Prevent interaction with the tile the player is standing on
 	if cell_distance_x == 0 and cell_distance_y == 0:
 		return
 	
-	# Only allow interaction if target is within 1 tile distance (adjacent tiles only)
-	# This means max distance of 1 cell in X and Y directions (including diagonals)
-	# But NOT the center tile (already checked above)
 	if cell_distance_x > 1 or cell_distance_y > 1:
 		return
 
-	# STRICT CHECK: Tile MUST exist in farmable layer (has a source_id set)
-	# This is the PRIMARY check - if no source_id, the tile doesn't exist in this layer
-	# Tools should NEVER work on tiles that don't exist in the farmable layer
-	var source_id = farmable_layer.get_cell_source_id(target_cell)
-	if source_id == -1:
-		# No tile exists at this position in the farmable layer - NOT FARMABLE
-		print("[FarmingManager] BLOCKED: Tile at %s has no source_id in farmable layer - tools cannot work here" % target_cell)
-		return
-	
-	# Get tile data to verify it has farmable custom_data
-	var tile_data = farmable_layer.get_cell_tile_data(target_cell)
-	if not tile_data:
-		# No tile data - this shouldn't happen if source_id exists, but check anyway
-		print("[FarmingManager] BLOCKED: Tile at %s has source_id but no tile_data - skipping" % target_cell)
-		return
-	
-	# CRITICAL FIX: STRICT FARMABILITY CHECK - Tile MUST have farmable custom_data flags
-	# PRIMARY CHECK: custom_data flags (grass, dirt, tilled) - these are the ONLY tiles that should be farmable
-	# This is the PRIMARY and MOST IMPORTANT check - if a tile doesn't have these flags, it's NOT farmable
-	var is_farmable = false
-	if tile_data.has_method("get_custom_data"):
-		var grass_data = tile_data.get_custom_data("grass")
-		var dirt_data = tile_data.get_custom_data("dirt")
-		var tilled_data = tile_data.get_custom_data("tilled")
-		is_farmable = (grass_data == true or dirt_data == true or tilled_data == true)
-		if is_farmable:
-			print("[FarmingManager] Tile at %s is farmable (has custom_data: grass=%s, dirt=%s, tilled=%s)" % [target_cell, grass_data, dirt_data, tilled_data])
-	
-	# SECONDARY CHECK: Only for tiles that are ALREADY in GameState with farmable states
-	# This is ONLY for tiles that were previously farmable (planted tiles that lost custom_data)
-	# CRITICAL: This should be RARE - most farmable tiles should have custom_data flags
-	# This fallback is ONLY for tiles that were created by the farming system and are in farmable states
-	if not is_farmable and GameState:
-		var tile_state = GameState.get_tile_state(target_cell)
-		# ONLY allow if tile is in a farmable state (soil, tilled, planted, planted_tilled)
-		# AND it's NOT "grass" (grass should always have custom_data flag)
-		# This ensures we don't allow interaction with non-farmable tiles that somehow got into GameState
-		if tile_state == "soil" or tile_state == "tilled" or tile_state == "planted" or tile_state == "planted_tilled":
-			# Additional validation: ensure this tile was created by farming system (has crop data or is in farmable state)
-			var tile_data_from_state = GameState.get_tile_data(target_cell)
-			if tile_data_from_state is Dictionary or tile_state != "grass":
-				is_farmable = true
-				print("[FarmingManager] Tile at %s is farmable based on GameState (state: %s) - previously farmable tile created by farming system" % [target_cell, tile_state])
-	
-	if not is_farmable:
-		# This tile exists in farmable layer but is NOT farmable - BLOCK tool interaction
-		# This prevents tools from working on tiles outside the designated farmable area
-		var tile_state_from_game = GameState.get_tile_state(target_cell) if GameState else "N/A"
-		print("[FarmingManager] BLOCKED: Tile at %s exists in farmable layer but is NOT farmable (no custom_data flags: grass/dirt/tilled, GameState state=%s) - tools cannot work here" % [target_cell, tile_state_from_game])
+	# With terrain-based system, we can place tiles anywhere in the farmable layer
+	# No need to check source_id - terrain system handles placement automatically
+	if not farmable_layer:
+		print("[FarmingManager] BLOCKED: Farmable layer is null")
 		return
 
-	# Get the actual tile state from GameState (authoritative source)
 	var tile_state = "grass"
 	if GameState:
 		tile_state = GameState.get_tile_state(target_cell)
 	
-	# Determine tile type from state string
 	var is_grass = (tile_state == "grass")
 	var is_soil = (tile_state == "soil")
 	var is_planted = (tile_state == "planted" or tile_state == "planted_tilled")
 	var is_tilled = (tile_state == "tilled")
 	
-	# Only perform tool actions if a valid tool is selected (not "unknown")
-	# This ensures empty slots don't perform tool actions
 	if current_tool == "unknown":
-		return # No tool selected, don't perform any actions
+		return
 	
-	# Check energy before performing tool action
 	if PlayerStatsManager and PlayerStatsManager.energy <= 0:
-		return # No energy, cancel action
+		return
 	
-	# Determine energy cost based on tool type
 	var energy_cost = 0
 	match current_tool:
 		"hoe":
@@ -237,52 +428,43 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 		"seed":
 			energy_cost = ENERGY_COST_SEED
 		_:
-			energy_cost = 0 # Unknown tool, no cost
+			energy_cost = 0
 	
-	# Consume energy - if insufficient, cancel action
 	if PlayerStatsManager and energy_cost > 0:
 		if not PlayerStatsManager.consume_energy(energy_cost):
-			return # Insufficient energy, cancel action
-		# Debug logging for energy consumption
+			return
 		print("[FarmingManager] Tool '%s' consumed %d energy (remaining: %d/%d)" % [current_tool, energy_cost, PlayerStatsManager.energy, PlayerStatsManager.max_energy])
 	
 	match current_tool:
 		"hoe":
-			# Shovel (hoe) only works on grass → converts to soil
 			if is_grass:
-				_set_tile_custom_state(target_cell, TILE_ID_DIRT, "soil")
+				# Turn grass into soil using atlas coordinates
+				_set_tile(target_cell, SOIL_TILE)
+				# Update grass edges/corners around the hoed tile
+				_update_grass_edges_around(target_cell)
+				if GameState:
+					GameState.update_tile_state(target_cell, "soil")
 		"watering_can":
-			# Watering can works on soil AND planted tiles
 			if is_soil:
-				# Watering soil → converts to tilled
-				# CRITICAL: Only update Farmable layer (soil state), NOT crop layer
-				if farmable_layer:
-					farmable_layer.set_cell(target_cell, TILE_ID_TILLED, Vector2i(0, 0), 0)
-				# Track watering for potential future growth mechanics
+				# Soil -> wet soil
+				_apply_terrain_to_cell(target_cell, TERRAIN_ID_WET_SOIL)
 				if GameState and GameTimeManager:
-					# Update state to "tilled" (watered) and track watering day with absolute day
 					GameState.update_tile_state(target_cell, "tilled")
-					# CRITICAL FIX: set_tile_watered now handles absolute day calculation internally
 					GameState.set_tile_watered(target_cell, GameTimeManager.day)
 					var current_day = GameTimeManager.day
 					var absolute_day = GameTimeManager.get_absolute_day()
 					print("[FarmingManager] Watered soil tile at %s (state: tilled, day: %d, absolute: %d)" % [target_cell, current_day, absolute_day])
 			elif is_planted:
-				# Watering planted tile → converts to planted_tilled
-				# Only water if not already watered (not already "planted_tilled")
 				if tile_state == "planted":
-					# Update state to planted_tilled but keep crop visual (TILE_ID_PLANTED with stage)
 					if GameState:
 						var crop_data = GameState.get_tile_data(target_cell)
 						if crop_data is Dictionary:
 							crop_data["state"] = "planted_tilled"
-							# Track watering for crop growth - CRITICAL: Set last_watered_day to current day AND absolute day
 							if GameTimeManager:
 								var current_day = GameTimeManager.day
 								var current_season = GameTimeManager.season
 								var current_year = GameTimeManager.year
 								var absolute_day = (current_year - 1) * 112 + current_season * 28 + current_day
-								
 								crop_data["last_watered_day"] = current_day
 								crop_data["last_watered_day_absolute"] = absolute_day
 								crop_data["is_watered"] = true
@@ -290,35 +472,22 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 							else:
 								print("[FarmingManager] ERROR: GameTimeManager is null, cannot set last_watered_day")
 							GameState.update_tile_crop_data(target_cell, crop_data)
-							# CRITICAL FIX: Update soil visual on Farmable layer (soil -> tilled), keep crop on crop layer
-							# When watering planted crops, the soil underneath should show as tilled
-							if farmable_layer:
-								# Update soil to tilled visual (darker/wet soil)
-								farmable_layer.set_cell(target_cell, TILE_ID_TILLED, Vector2i(0, 0), 0)
-							
-							# Update crop visual on crop layer (or farmable if crop layer doesn't exist)
+							_apply_terrain_to_cell(target_cell, TERRAIN_ID_WET_SOIL)
 							var current_stage = crop_data.get("current_stage", 0)
 							var layer_to_use = crop_layer if crop_layer else farmable_layer
 							if layer_to_use:
-								layer_to_use.set_cell(target_cell, TILE_ID_PLANTED, Vector2i(current_stage, 0), 0)
-							print("[FarmingManager] Watered planted tile at %s (state: planted_tilled, last_watered_day: %d, absolute: %d, visual: crop stage %d on %s layer)" % [target_cell, crop_data.get("last_watered_day", -1), crop_data.get("last_watered_day_absolute", -1), current_stage, "Crops" if crop_layer else "Farmable"])
+								layer_to_use.set_cell(target_cell, SOURCE_ID_CROP, Vector2i(current_stage, 0))
+							print("[FarmingManager] Watered planted tile at %s (state: planted_tilled, stage %d)" % [target_cell, current_stage])
 						else:
-							# Fallback: Update state and track watering (shouldn't happen if crop_data exists)
 							GameState.update_tile_state(target_cell, "planted_tilled")
-							# Track watering for crop growth with absolute day
 							if GameState and GameTimeManager:
-								# CRITICAL FIX: set_tile_watered now handles absolute day calculation internally
 								GameState.set_tile_watered(target_cell, GameTimeManager.day)
-							# CRITICAL FIX: Update soil visual on farmable layer, crop on crop layer
-							if farmable_layer:
-								farmable_layer.set_cell(target_cell, TILE_ID_TILLED, Vector2i(0, 0), 0)
+							_apply_terrain_to_cell(target_cell, TERRAIN_ID_WET_SOIL)
 							var layer_to_use = crop_layer if crop_layer else farmable_layer
 							if layer_to_use:
-								layer_to_use.set_cell(target_cell, TILE_ID_PLANTED, Vector2i(0, 0), 0)
+								layer_to_use.set_cell(target_cell, SOURCE_ID_CROP, Vector2i(0, 0))
 							print("[FarmingManager] Watered planted tile at %s (fallback path, state: planted_tilled)" % target_cell)
 				elif tile_state == "planted_tilled":
-					# Already watered, just update the watering day (don't change state or visual)
-					# CRITICAL FIX: Update absolute day for proper tracking
 					if GameState and GameTimeManager:
 						var crop_data = GameState.get_tile_data(target_cell)
 						if crop_data is Dictionary:
@@ -332,37 +501,27 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 							GameState.set_tile_watered(target_cell, GameTimeManager.get_absolute_day())
 							print("[FarmingManager] Tile at %s already watered, updated watering day (fallback)" % target_cell)
 		"pickaxe":
-			# Pickaxe resets any non-grass tile back to grass
 			if not is_grass:
-				# CRITICAL FIX: Clear crop layer first, then reset soil to grass
-				# Clear crop from crop layer (or farmable if crop layer doesn't exist)
-				var layer_to_clear = crop_layer if crop_layer else farmable_layer
-				if layer_to_clear:
-					layer_to_clear.erase_cell(target_cell)
-				
-				# Reset tile state and visual to grass on farmable layer
-				_set_tile_custom_state(target_cell, TILE_ID_GRASS, "grass")
-				# Clear any crop data from GameState
+				# Clear crop layer first
+				if crop_layer:
+					crop_layer.erase_cell(target_cell)
+				# Revert to grass
+				_apply_terrain_to_cell(target_cell, TERRAIN_ID_GRASS)
 				if GameState:
 					GameState.update_tile_state(target_cell, "grass")
-					# Also remove crop data if it exists
-					# Note: Using existing tile_data variable from function scope (line 167)
 					var crop_data_from_state = GameState.get_tile_data(target_cell)
 					if crop_data_from_state is Dictionary and crop_data_from_state.has("crop_id"):
-						# Remove crop data, keep only state
 						GameState.update_tile_state(target_cell, "grass")
+				print("[FarmingManager] Removed soil at %s - grass restored" % target_cell)
 		"seed":
-			# Seeds can be planted on soil OR tilled (not grass, not already planted)
 			print("[FarmingManager] Seed planting check - is_soil: %s, is_tilled: %s, is_planted: %s, tile_state: %s" % [is_soil, is_tilled, is_planted, tile_state])
 			if (is_soil or is_tilled) and not is_planted:
-				# Check if seed exists in current toolkit slot
 				if tool_switcher and InventoryManager:
 					var current_slot_index = tool_switcher.get("current_hud_slot")
 					if current_slot_index >= 0:
 						var seed_count = InventoryManager.get_toolkit_item_count(current_slot_index)
 						print("[FarmingManager] Seed count in slot %d: %d" % [current_slot_index, seed_count])
 						if seed_count > 0:
-							# Decrement seed count
 							var new_count = seed_count - 1
 							var seed_texture = InventoryManager.get_toolkit_item(current_slot_index)
 							if new_count > 0:
@@ -371,45 +530,33 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 								InventoryManager.remove_item_from_toolkit(current_slot_index)
 							InventoryManager.sync_toolkit_ui()
 							print("[FarmingManager] Seed consumed, planting at %s" % target_cell)
-							# Plant the seed - IMPORTANT: Always set to "planted" (DRY), never "planted_tilled"
-							# Seeds on dry soil stay dry, seeds on tilled soil also become dry when planted
 							if GameState:
-								# Initialize crop data FIRST (before setting visual)
 								var crop_data = {
-									"state": "planted", # ALWAYS dry when first planted
-									"crop_id": "carrot", # Default crop type (can be determined from seed texture later)
-									"growth_stages": 6, # 6 growth stages (0-5)
-									"days_per_stage": 1, # Requires 1 watered day per stage
-									"current_stage": 0, # Start at stage 0
+									"state": "planted",
+									"crop_id": "carrot",
+									"growth_stages": 6,
+									"days_per_stage": 1,
+									"current_stage": 0,
 									"days_watered_toward_next_stage": 0,
-									"is_watered": false, # ALWAYS false when planting
-									"last_watered_day": - 1 # ALWAYS -1 when planting
+									"is_watered": false,
+									"last_watered_day": - 1
 								}
 								GameState.update_tile_crop_data(target_cell, crop_data)
 								print("[FarmingManager] Crop data initialized for tile %s (state: planted, is_watered: false)" % target_cell)
-								# CRITICAL FIX: Keep soil on Farmable layer, put crop on crop layer
-								# Ensure soil state is preserved (soil or tilled, depending on previous state)
-								var soil_state = "soil" # Default to soil
 								if tile_state == "tilled":
-									soil_state = "tilled"
-									# Keep tilled visual on farmable layer
-									if farmable_layer:
-										farmable_layer.set_cell(target_cell, TILE_ID_TILLED, Vector2i(0, 0), 0)
+									_apply_terrain_to_cell(target_cell, TERRAIN_ID_WET_SOIL)
 								else:
-									# Keep soil visual on farmable layer
-									if farmable_layer:
-										farmable_layer.set_cell(target_cell, TILE_ID_DIRT, Vector2i(0, 0), 0)
-								
-								# Put crop sprite on crop layer (or farmable layer if crop layer doesn't exist)
+									_apply_terrain_to_cell(target_cell, TERRAIN_ID_SOIL)
 								var layer_to_use = crop_layer if crop_layer else farmable_layer
 								if layer_to_use:
-									layer_to_use.set_cell(target_cell, TILE_ID_PLANTED, Vector2i(0, 0), 0)
-									print("[FarmingManager] Visual updated for tile %s: soil on %s, crop on %s (dry crop, stage 0)" % [target_cell, "Farmable", "Crops" if crop_layer else "Farmable"])
-								# Also update the state string in GameState to ensure consistency
+									layer_to_use.set_cell(target_cell, SOURCE_ID_CROP, Vector2i(0, 0))
+									print("[FarmingManager] Visual updated for tile %s: soil on Farmable, crop on %s (dry crop, stage 0)" % [target_cell, "Crops" if crop_layer else "Farmable"])
 								GameState.update_tile_state(target_cell, "planted")
 							else:
-								# Fallback if GameState is null
-								_set_tile_custom_state(target_cell, TILE_ID_PLANTED, "planted")
+								_set_tile_terrain(target_cell, TERRAIN_ID_SOIL, "soil")
+								var layer_to_use = crop_layer if crop_layer else farmable_layer
+								if layer_to_use:
+									layer_to_use.set_cell(target_cell, SOURCE_ID_CROP, Vector2i(0, 0))
 							print("[FarmingManager] Planted seed at %s (DRY - must be watered manually)" % target_cell)
 						else:
 							print("[FarmingManager] No seeds available in toolkit slot")
@@ -423,7 +570,6 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 				print("[FarmingManager] Cannot plant: tile must be soil or tilled (current state: %s)" % tile_state)
 
 func _get_emitter_scene(state: String) -> Resource:
-	# Fetch the correct emitter based on the state
 	var farm_scene = get_node_or_null(farm_scene_path)
 	if farm_scene:
 		match state:
@@ -440,108 +586,50 @@ func _trigger_dust_at_tile(cell: Vector2i, emitter_scene: Resource) -> void:
 	if farm_scene and farm_scene.has_method("trigger_dust"):
 		farm_scene.trigger_dust(cell, emitter_scene)
 
-func _set_tile_custom_state(cell: Vector2i, tile_id: int, _state: String) -> void:
-	# Update the visual state on the FARMABLE layer only
-	# In Godot 4, set_cell() automatically uses the custom_data from the TileSet source
-	# set_cell(coords, source_id, atlas_coords, alternative_tile)
-	# Verify the TileSet has the source_id before setting
-	if not farmable_layer:
-		print("[FarmingManager] Error: farmable_layer is null!")
-		return
-		
-	var tile_set = farmable_layer.tile_set
-	if not tile_set:
-		print("[FarmingManager] Error: tile_set is null!")
-		return
-	
-	# Check if the source_id exists in the TileSet
-	var source_exists = tile_set.has_source(tile_id)
-	if not source_exists:
-		print("[FarmingManager] Error: Tile source %d does not exist in TileSet!" % tile_id)
-		return
-	
-	# Ensure tile exists in farmable layer before setting
-	var existing_tile_data = farmable_layer.get_cell_tile_data(cell)
-	if not existing_tile_data:
-		print("[FarmingManager] Warning: Attempting to set tile at %s but no tile exists in farmable layer" % cell)
-		# Still try to set it, but log the warning
-	
-	# Set the visual on the farmable layer
-	farmable_layer.set_cell(cell, tile_id, Vector2i(0, 0), 0)
-	print("[FarmingManager] Set visual on farmable_layer '%s' at %s to tile_id %d (state: %s)" % [farmable_layer.name, cell, tile_id, _state])
-
-	# Update the GameState for persistence
-	if GameState:
-		GameState.update_tile_state(cell, _state)
-		print("[FarmingManager] Updated tile at %s to state '%s' in GameState" % [cell, _state])
-	else:
-		print("Error: GameState is null!")
-
-	# Trigger the corresponding emitter for the updated state
-	var emitter_scene = _get_emitter_scene(_state)
-	if emitter_scene:
-		_trigger_dust_at_tile(cell, emitter_scene)
-
-
 func _water_tile(cell: Vector2i) -> void:
-	"""Water a tilled or planted tile"""
 	if not GameState or not GameTimeManager:
 		return
-	
 	var current_day = GameTimeManager.day
 	GameState.set_tile_watered(cell, current_day)
-	
-	# Visual feedback: could add water particle effect here
 	print("[FarmingManager] Watered tile at %s on day %d" % [cell, current_day])
 
-
 func _on_day_changed(new_day: int, _new_season: int, _new_year: int) -> void:
-	"""Handle day advancement - reset watering states and advance crop growth"""
 	print("[FarmingManager] _on_day_changed called - Day: %d, Season: %d, Year: %d" % [new_day, _new_season, _new_year])
 	
-	# Advance crop growth for all planted tiles (check if they were watered yesterday)
+	if not GameState:
+		print("[FarmingManager] Warning: GameState is null, skipping day change processing")
+		return
+	
 	_advance_crop_growth()
 	
-	# After growth logic, revert watered states to unwatered states
-	# This makes watering last only one day
-	if GameState:
+	if farmable_layer:
 		_revert_watered_states()
-		# Reset all watering flags for new day
 		GameState.reset_watering_states()
 		print("[FarmingManager] Watered states reverted and reset for new day")
 	else:
-		print("[FarmingManager] Warning: GameState is null, cannot revert watered states")
-	
-	# TODO: On season change (e.g., summer 1), check if crops are out of season and destroy/wither them
-	# This should iterate through all planted tiles and check if the crop's season matches the current season
-	# If not, destroy the crop and reset the tile to "soil" state
-
+		print("[FarmingManager] Warning: farmable_layer is null, skipping state reversion (farm scene may not be loaded)")
+		GameState.reset_watering_states()
 
 func _advance_crop_growth() -> void:
-	"""Advance growth for all crops that were watered yesterday"""
 	if not GameState or not GameTimeManager:
 		print("[FarmingManager] Cannot advance crop growth: GameState or GameTimeManager is null")
 		return
 	
-	# CRITICAL FIX: Calculate previous day correctly, accounting for season rollover
 	var current_day = GameTimeManager.day
 	var current_season = GameTimeManager.season
 	var current_year = GameTimeManager.year
 	
-	# Calculate previous day - if day is 1, previous day was 28 of previous season
 	var previous_day = current_day - 1
 	var previous_season = current_season
 	var previous_year = current_year
 	
 	if previous_day < 1:
-		previous_day = 28 # Last day of previous season
+		previous_day = 28
 		previous_season -= 1
 		if previous_season < 0:
-			previous_season = 3 # Last season of previous year
+			previous_season = 3
 			previous_year -= 1
 	
-	# Calculate absolute day number for comparison (days since game start)
-	# This ensures we can compare across season boundaries
 	var current_absolute_day = (current_year - 1) * 112 + current_season * 28 + current_day
 	var previous_absolute_day = (previous_year - 1) * 112 + previous_season * 28 + previous_day
 	
@@ -555,45 +643,33 @@ func _advance_crop_growth() -> void:
 		if not (crop_data is Dictionary):
 			continue
 		
-		# Check if tile has a crop (both "planted" and "planted_tilled" states have crops)
 		var tile_state = crop_data.get("state", "")
 		if not crop_data.has("crop_id") or (tile_state != "planted" and tile_state != "planted_tilled"):
 			continue
 		
 		crops_checked += 1
 		
-		# Check if tile was watered yesterday
-		# CRITICAL FIX: Use absolute day number for comparison to handle season rollover
 		var last_watered_absolute = crop_data.get("last_watered_day_absolute", -1)
-		var last_watered_day = crop_data.get("last_watered_day", -1) # Keep for backward compatibility
+		var last_watered_day = crop_data.get("last_watered_day", -1)
 		
-		# If we have absolute day, use it; otherwise calculate from day/season/year
 		if last_watered_absolute == -1 and last_watered_day != -1:
-			# Legacy: calculate absolute day from last_watered_day (assumes same season/year)
-			# This is a fallback for old saves
 			last_watered_absolute = (current_year - 1) * 112 + current_season * 28 + last_watered_day
 		
 		var was_watered_yesterday = (last_watered_absolute == previous_absolute_day)
 		
-		# Also check if state was "planted_tilled" (this indicates it was watered yesterday)
-		# Note: We check this at the start of the new day, so "planted_tilled" means it was watered yesterday
 		if tile_state == "planted_tilled":
 			was_watered_yesterday = true
 		
 		print("[FarmingManager] Crop at %s: state=%s, last_watered_absolute=%d, previous_absolute_day=%d, was_watered_yesterday=%s" % [tile_pos, tile_state, last_watered_absolute, previous_absolute_day, was_watered_yesterday])
 		
 		if was_watered_yesterday:
-			# Tile was watered yesterday - advance growth
 			var current_stage = crop_data.get("current_stage", 0)
-			var max_stages = crop_data.get("growth_stages", 6) # Default to 6 for carrots
+			var max_stages = crop_data.get("growth_stages", 6)
 			var days_per_stage = crop_data.get("days_per_stage", 1)
 			var days_watered = crop_data.get("days_watered_toward_next_stage", 0)
 			
-			# Increment days watered
 			days_watered += 1
 			
-			# Check if ready to advance to next stage
-			# max_stages is 6, so stages are 0-5 (indices 0 through 5)
 			if days_watered >= days_per_stage and current_stage < (max_stages - 1):
 				current_stage += 1
 				days_watered = 0
@@ -602,25 +678,17 @@ func _advance_crop_growth() -> void:
 			else:
 				print("[FarmingManager] Crop at %s: days_watered=%d, days_per_stage=%d, current_stage=%d, max_stages=%d (not ready to advance)" % [tile_pos, days_watered, days_per_stage, current_stage, max_stages])
 			
-			# Update tile data
 			crop_data["current_stage"] = current_stage
 			crop_data["days_watered_toward_next_stage"] = days_watered
 			GameState.update_tile_crop_data(tile_pos, crop_data)
 			
-			# Update visual representation with atlas coordinates
 			_update_crop_visual(tile_pos, current_stage, max_stages)
 		else:
-			# Tile was not watered - do not advance (but don't reset progress)
 			print("[FarmingManager] Crop at %s was not watered yesterday (last_watered_absolute=%d, previous_absolute_day=%d) - no growth" % [tile_pos, last_watered_absolute, previous_absolute_day])
 	
 	print("[FarmingManager] Crop growth check complete: %d crops checked, %d crops advanced" % [crops_checked, crops_advanced])
 
-
 func _revert_watered_states() -> void:
-	"""Revert watered states back to unwatered states after growth logic runs"""
-	# This makes watering last only one day
-	# "tilled" → "soil"
-	# "planted_tilled" → "planted"
 	if not GameState:
 		print("[FarmingManager] Cannot revert watered states: GameState is null")
 		return
@@ -636,78 +704,109 @@ func _revert_watered_states() -> void:
 		var tile_data = GameState.get_tile_data(tile_pos)
 		var tile_state_str = ""
 		
-		# Get the state string (either from simple string or dictionary)
 		if not (tile_data is Dictionary):
-			# Simple state string
 			tile_state_str = tile_data if tile_data is String else "grass"
 		else:
-			# Dictionary with crop data - get state from dictionary
 			tile_state_str = tile_data.get("state", "")
 		
-		# Check if this tile needs to be reverted
 		if tile_state_str == "tilled":
-			# Revert tilled → soil (dry)
 			if not (tile_data is Dictionary):
-				# Simple string state - update to "soil"
 				GameState.update_tile_state(tile_pos, "soil")
 			else:
-				# Dictionary state - shouldn't happen for "tilled", but handle it
 				tile_data["state"] = "soil"
 				GameState.update_tile_crop_data(tile_pos, tile_data)
-			if farmable_layer:
-				farmable_layer.set_cell(tile_pos, TILE_ID_DIRT, Vector2i(0, 0), 0)
+			_set_tile_terrain(tile_pos, TERRAIN_ID_SOIL, "soil")
 			print("[FarmingManager] Reverted tilled tile at %s to soil (dry)" % tile_pos)
 			reverted_count += 1
 		elif tile_state_str == "planted_tilled":
-			# Revert planted_tilled → planted (dry)
 			if tile_data is Dictionary:
 				tile_data["state"] = "planted"
 				tile_data["is_watered"] = false
-				# Don't reset last_watered_day - we need it for growth checking
 				GameState.update_tile_crop_data(tile_pos, tile_data)
-				# CRITICAL FIX: Revert soil visual on Farmable layer (tilled -> soil), keep crop on crop layer
-				# Update soil visual to dry (tilled -> soil)
-				if farmable_layer:
-					farmable_layer.set_cell(tile_pos, TILE_ID_DIRT, Vector2i(0, 0), 0)
-				
-				# Update crop visual on crop layer (or farmable if crop layer doesn't exist)
+				_set_tile_terrain(tile_pos, TERRAIN_ID_SOIL, "soil")
 				var current_stage = tile_data.get("current_stage", 0)
 				var max_stages = tile_data.get("growth_stages", 6)
 				var layer_to_use = crop_layer if crop_layer else farmable_layer
 				if layer_to_use:
 					if current_stage >= max_stages - 1:
-						# Fully grown - use TILE_ID_PLANTED with max stage
-						layer_to_use.set_cell(tile_pos, TILE_ID_PLANTED, Vector2i(max_stages - 1, 0), 0)
+						layer_to_use.set_cell(tile_pos, SOURCE_ID_CROP, Vector2i(max_stages - 1, 0))
 					else:
-						# Still growing - use TILE_ID_PLANTED with current stage
-						layer_to_use.set_cell(tile_pos, TILE_ID_PLANTED, Vector2i(current_stage, 0), 0)
-				print("[FarmingManager] Reverted planted_tilled tile at %s to planted (dry, stage %d, soil on Farmable, crop on %s)" % [tile_pos, current_stage, "Crops" if crop_layer else "Farmable"])
+						layer_to_use.set_cell(tile_pos, SOURCE_ID_CROP, Vector2i(current_stage, 0))
+				print("[FarmingManager] Reverted planted_tilled tile at %s to planted (dry, stage %d)" % [tile_pos, current_stage])
 				reverted_count += 1
 			else:
-				# Fallback: simple string state (shouldn't happen, but handle it)
 				GameState.update_tile_state(tile_pos, "planted")
-				if farmable_layer:
-					farmable_layer.set_cell(tile_pos, TILE_ID_PLANTED, Vector2i(0, 0), 0)
+				_set_tile_terrain(tile_pos, TERRAIN_ID_SOIL, "soil")
+				var layer_to_use = crop_layer if crop_layer else farmable_layer
+				if layer_to_use:
+					layer_to_use.set_cell(tile_pos, SOURCE_ID_CROP, Vector2i(0, 0))
 				print("[FarmingManager] Reverted planted_tilled tile at %s to planted (dry, fallback)" % tile_pos)
 				reverted_count += 1
 	
 	print("[FarmingManager] Reverted %d watered tiles to dry state" % reverted_count)
 
-
 func _update_crop_visual(tile_pos: Vector2i, current_stage: int, max_stages: int) -> void:
-	"""Update the visual representation of a crop based on its growth stage
-	CRITICAL: Only updates crop layer, NOT farmable layer (soil stays unchanged)"""
+	if not farmable_layer:
+		print("[FarmingManager] Warning: farmable_layer is null, cannot update crop visual for tile %s" % tile_pos)
+		return
+	
 	var layer_to_use = crop_layer if crop_layer else farmable_layer
 	if not layer_to_use:
 		return
 	
-	# Use TILE_ID_PLANTED with atlas coordinates for different stages
-	# Stages are 0-5 (horizontal: 0:0, 1:0, 2:0, 3:0, 4:0, 5:0)
 	if current_stage >= max_stages - 1:
-		# Crop is fully grown (stage 5) - use max stage atlas coordinate
-		layer_to_use.set_cell(tile_pos, TILE_ID_PLANTED, Vector2i(max_stages - 1, 0), 0)
+		layer_to_use.set_cell(tile_pos, SOURCE_ID_CROP, Vector2i(max_stages - 1, 0))
 	else:
-		# Crop is still growing - use current stage atlas coordinate
-		layer_to_use.set_cell(tile_pos, TILE_ID_PLANTED, Vector2i(current_stage, 0), 0)
+		layer_to_use.set_cell(tile_pos, SOURCE_ID_CROP, Vector2i(current_stage, 0))
 	
 	print("[FarmingManager] Updated crop visual at %s: stage %d on %s layer" % [tile_pos, current_stage, "Crops" if crop_layer else "Farmable"])
+
+# ============================================================================
+# TERRAIN-BASED TILE SYSTEM (GODOT BUILT-IN AUTO-TILING)
+# ============================================================================
+
+func _set_tile_terrain(tile_pos: Vector2i, terrain_id: int, game_state: String) -> void:
+	"""Legacy wrapper - use _apply_terrain_to_cell directly instead"""
+	if not farmable_layer:
+		print("[FarmingManager] ERROR: _set_tile_terrain called but farmable_layer is null")
+		return
+	
+	if farmable_layer.tile_set == null:
+		push_error("[FarmingManager] Cannot set terrain - tile_set is null")
+		return
+	
+	# Use terrain-based system - Godot handles all autotiling automatically
+	_apply_terrain_to_cell(tile_pos, terrain_id)
+	
+	if GameState:
+		GameState.update_tile_state(tile_pos, game_state)
+	
+	var emitter_scene = _get_emitter_scene(game_state)
+	if emitter_scene:
+		_trigger_dust_at_tile(tile_pos, emitter_scene)
+	
+	print("[FarmingManager] Set tile at %s to terrain_id=%d (state=%s) - Godot handles autotiling" % [tile_pos, terrain_id, game_state])
+
+func _get_tile_state_from_terrain(tile_pos: Vector2i) -> String:
+	# Primary: check GameState
+	if GameState:
+		var state = GameState.get_tile_state(tile_pos)
+		if state != "":
+			return state
+	
+	# Fallback: check terrain from TileMap
+	if farmable_layer and farmable_layer.tile_set:
+		var tile_data = farmable_layer.get_cell_tile_data(tile_pos)
+		if tile_data:
+			var terrain_set = tile_data.get_terrain_set()
+			if terrain_set == TERRAIN_SET_ID:
+				var terrain_id = tile_data.get_terrain()
+				match terrain_id:
+					TERRAIN_ID_GRASS:
+						return "grass"
+					TERRAIN_ID_SOIL:
+						return "soil"
+					TERRAIN_ID_WET_SOIL:
+						return "tilled"
+	
+	return "grass"

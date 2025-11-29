@@ -73,6 +73,12 @@ func _get_actual_tile_size() -> Vector2:
 	# PRIORITY 1: Get texture_region_size from TileSetAtlasSource
 	# This tells us the size of each tile in the atlas (in pixels)
 	var tile_set = farmable_layer.tile_set
+	if tile_set == null:
+		# TileSet not yet assigned - use fallback
+		cached_tile_size = tile_size
+		tile_size_initialized = true
+		return cached_tile_size
+	
 	if tile_set:
 		var source_count = tile_set.get_source_count()
 		if source_count > 0:
@@ -127,6 +133,12 @@ func _process(_delta: float) -> void:
 		return
 
 	if not highlight_sprite:
+		return
+	
+	# Check if tile_set is available - if not, wait for it to be assigned
+	var tile_set = farmable_layer.tile_set
+	if tile_set == null:
+		highlight_sprite.visible = false
 		return
 
 	# Restrict to viewport

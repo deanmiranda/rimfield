@@ -5669,6 +5669,7 @@ tile_set = SubResource("TileSet_pbhlv")
 [node name="FarmingManager" type="Node" parent="."]
 script = ExtResource("6_kjwtr")
 farmable_layer_path = NodePath("../Farmable")
+crop_layer_path = null
 farm_scene_path = NodePath("..")
 
 [node name="TileHighlighter" type="Sprite2D" parent="."]

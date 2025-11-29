@@ -14,8 +14,15 @@ var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 # Reference to the inventory instance
 var inventory_instance: Control = null
 
+# Reference to FarmingManager (set during initialization)
+var farming_manager: Node = null
+
 
 func _ready() -> void:
+	# Temporary test: Verify FarmingTerrain.tres loads
+	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
+	print("[TEST] FarmingTerrain load result: ", test_tileset)
+	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()
@@ -49,50 +56,13 @@ func _ready() -> void:
 	else:
 		print("Error: UiManager singleton not found.")
 
-	# Get FarmingManager reference - CRITICAL: Must be set before any farming operations
-	var farming_manager = get_node_or_null(farming_manager_path)
-	if not farming_manager:
-		print("Error: FarmingManager not found at path: %s" % farming_manager_path)
-		return
+	# Defer farming initialization to allow TileSet to load asynchronously
+	call_deferred("_initialize_farming")
 	
-	# CRITICAL FIX: Set FarmingManager reference immediately so it's available for all operations
-	# This ensures no "FarmingManager not linked" errors AND crop layer is created
-	if farming_manager.has_method("set_farm_scene"):
-		farming_manager.set_farm_scene(self)
-	
-	# CRITICAL FIX: Load farm state AFTER set_farm_scene() so crop layer exists
-	_load_farm_state()
-	
-	# Ensure FarmingManager is connected to day_changed signal and check for missed crop growth
-	if farming_manager and GameTimeManager:
-		# Reconnect to day_changed signal (in case scene was reloaded)
-		if not GameTimeManager.day_changed.is_connected(farming_manager._on_day_changed):
-			GameTimeManager.day_changed.connect(farming_manager._on_day_changed)
-			print("[FarmScene] Connected FarmingManager to day_changed signal")
-		
-		# Check for crop growth if we're loading into a new day (in case we missed the signal)
-		# This ensures crops grow even if FarmingManager wasn't in scene when day changed
-		if farming_manager.has_method("_advance_crop_growth"):
-			farming_manager._advance_crop_growth()
-			# Also revert watered states if needed
-			if farming_manager.has_method("_revert_watered_states") and GameState:
-				farming_manager._revert_watered_states()
-				GameState.reset_watering_states()
-	
-	# Instantiate and add the HUD
+	# Instantiate and add the HUD (can happen immediately, linking happens in _initialize_farming)
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
-		# Pass HUD instance to the farming manager
-		if farming_manager and hud_instance:
-			if HUD:
-				HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
-				HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
-				farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
-			else:
-				print("Error: hud_instance is not an instance of HUD script.")
-		else:
-			print("Error: Could not link FarmingManager and HUD.")
 	else:
 		print("Error: HUD scene not assigned!")
 
@@ -148,6 +118,118 @@ func _get_random_farm_position() -> Vector2:
 	return Vector2(random_x, random_y)
 
 
+func _initialize_farming() -> void:
+	"""Deferred farming initialization - waits for TileSet to load"""
+	# Link FarmingManager first
+	link_farming_manager()
+	if not farming_manager:
+		return
+	
+	# Run diagnostic to extract TileSet structure (once only)
+	if not has_meta("_debug_tileset_run"):
+		set_meta("_debug_tileset_run", true)
+		farming_manager.debug_farming_tileset()
+	
+	# Resolve farmable layer
+	var farmable_layer := get_node_or_null(tilemap_layer) as TileMapLayer
+	if farmable_layer == null:
+		push_error("[FarmScene] Farmable TileMapLayer not found at path: %s" % tilemap_layer)
+		return
+	
+	# Wait for TileSet to load (max 2 frames)
+	var wait_frames = 0
+	const MAX_WAIT_FRAMES = 2
+	
+	while farmable_layer.tile_set == null and wait_frames < MAX_WAIT_FRAMES:
+		await get_tree().process_frame
+		wait_frames += 1
+		print("[FarmScene] Waiting for TileSet to load... (frame %d/%d)" % [wait_frames, MAX_WAIT_FRAMES])
+	
+	# Validate TileSet after waiting
+	if farmable_layer.tile_set == null:
+		push_error("[FarmScene] Farmable TileMapLayer TileSet still null after deferred load")
+		return
+	
+	print("[FarmScene] Farmable layer validated: TileSet loaded (path: %s)" % farmable_layer.tile_set.resource_path)
+	
+	# Verification diagnostics
+	print("[VERIFY] Farmable TileSet at runtime: ", farmable_layer.tile_set)
+	if farmable_layer.tile_set:
+		print("[VERIFY] Farmable TileSet path: ", farmable_layer.tile_set.resource_path)
+	
+	# Pass validated layer to FarmingManager
+	farming_manager.set_farmable_layer(farmable_layer)
+	
+	# Initialize default terrain (auto-grass)
+	initialize_default_terrain(farmable_layer)
+	
+	# Complete FarmingManager setup
+	farming_manager.set_farm_scene_reference(self)
+	farming_manager.resolve_layers()
+	farming_manager.connect_signals()
+	farming_manager.create_crop_layer_if_missing()
+	
+	# Load saved state (overwrites grass where needed)
+	_load_farm_state()
+	
+	# Check for missed crop growth if we're loading into a new day
+	if farming_manager and GameTimeManager:
+		if farming_manager.has_method("_advance_crop_growth"):
+			farming_manager._advance_crop_growth()
+			# Also revert watered states if needed
+			if farming_manager.has_method("_revert_watered_states") and GameState:
+				farming_manager._revert_watered_states()
+				GameState.reset_watering_states()
+	
+	# Link HUD to FarmingManager (after farming_manager is set)
+	if hud_instance and farming_manager:
+		if HUD:
+			HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
+			HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
+			farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
+		else:
+			print("Error: hud_instance is not an instance of HUD script.")
+	else:
+		if not hud_instance:
+			print("Error: HUD instance not created")
+		if not farming_manager:
+			print("Error: FarmingManager not linked")
+
+func link_farming_manager() -> void:
+	"""Get and validate FarmingManager reference"""
+	farming_manager = get_node_or_null(farming_manager_path)
+	if not farming_manager:
+		push_error("[FarmScene] FarmingManager not found at path: %s" % farming_manager_path)
+		return
+	print("[FarmScene] FarmingManager linked: %s" % farming_manager.name)
+
+func initialize_default_terrain(farmable_layer: TileMapLayer) -> void:
+	"""Paint all used cells with grass terrain (only if no saved state)"""
+	if farmable_layer == null:
+		return
+	
+	if GameState and GameState.farm_state.size() > 0:
+		print("[FarmScene] Saved farm state exists - skipping auto-grass")
+		return
+	
+	if farming_manager == null:
+		return
+	
+	var used_cells: Array[Vector2i] = farmable_layer.get_used_cells()
+	print("[FarmScene] Auto-grass: initializing ", used_cells.size(), " cells")
+	
+	if used_cells.is_empty():
+		return
+	
+	farming_manager.apply_terrain_to_cells(used_cells, farming_manager.TERRAIN_ID_GRASS)
+	
+	# Keep the GameState sync
+	if GameState:
+		for cell in used_cells:
+			GameState.update_tile_state(cell, "grass")
+	
+	print("[FarmScene] Auto-grass initialized: %d cells painted" % used_cells.size())
+
 func _on_game_loaded() -> void:
 	_load_farm_state() # Apply loaded state when notified
 
@@ -183,20 +265,8 @@ func _load_farm_state() -> void:
 			print("Warning: Invalid tile position format (skipping):", tile_position)
 			continue
 		
-		# Validate tile exists in tilemap before loading state
-		var tile_data = tilemap.get_cell_tile_data(tile_position)
-		if not tile_data:
-			# Skip tiles that don't exist in tilemap (may have been removed or are out of bounds)
-			continue
-		
-		# Add farmability check - tile must have grass, dirt, or tilled custom_data
-		var is_grass = tile_data.get_custom_data("grass") == true
-		var is_dirt = tile_data.get_custom_data("dirt") == true
-		var is_tilled = tile_data.get_custom_data("tilled") == true
-		if not (is_grass or is_dirt or is_tilled):
-			# Tile is not farmable - skip loading state
-			print("Warning: Skipping non-farmable tile at %s" % tile_position)
-			continue
+		# With terrain-based system, we can place tiles anywhere in the farmable layer
+		# No need to check custom_data - terrain system handles visuals
 		
 		# Get the state and set the tile
 		var state = GameState.get_tile_state(tile_position)
@@ -204,52 +274,50 @@ func _load_farm_state() -> void:
 		
 		match state:
 			"soil":
-				# CRITICAL FIX: Soil state goes on Farmable layer only
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_DIRT, Vector2i(0, 0))
+				# Use terrain-based system - Godot handles auto-tiling
+				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_SOIL)
 				# Clear crop layer if it exists (no crop on soil-only tiles)
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"tilled":
-				# CRITICAL FIX: Tilled state goes on Farmable layer only
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_TILLED, Vector2i(0, 0))
+				# Use terrain-based system - Godot handles auto-tiling
+				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_WET_SOIL)
 				# Clear crop layer if it exists (no crop on tilled-only tiles)
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"planted":
-				# CRITICAL FIX: Soil stays on Farmable layer, crop goes on crop layer
-				# Keep soil visual on farmable layer (soil, not tilled - it's dry)
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_DIRT, Vector2i(0, 0))
+				# Use terrain-based system for soil visual
+				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_SOIL)
 				# Put crop on crop layer (or farmable if crop layer doesn't exist)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				if crop_data is Dictionary:
 					var current_stage = crop_data.get("current_stage", 0)
 					var max_stages = crop_data.get("growth_stages", 6)
 					if current_stage >= max_stages - 1:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(max_stages - 1, 0), 0)
+						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(max_stages - 1, 0))
 					else:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(current_stage, 0), 0)
+						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(current_stage, 0))
 				else:
 					# Fallback for old saves without crop data
-					crop_layer_to_use.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0), 0)
+					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
 			"planted_tilled":
-				# CRITICAL FIX: Tilled soil on Farmable layer, crop on crop layer
-				# Soil shows as tilled (watered) on farmable layer
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_TILLED, Vector2i(0, 0))
+				# Use terrain-based system for tilled soil visual
+				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_WET_SOIL)
 				# Put crop on crop layer (or farmable if crop layer doesn't exist)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				if crop_data is Dictionary:
 					var current_stage = crop_data.get("current_stage", 0)
 					var max_stages = crop_data.get("growth_stages", 6)
 					if current_stage >= max_stages - 1:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(max_stages - 1, 0), 0)
+						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(max_stages - 1, 0))
 					else:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(current_stage, 0), 0)
+						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(current_stage, 0))
 				else:
 					# Fallback if no crop data, just show crop on crop layer
-					crop_layer_to_use.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0), 0)
+					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
 			"dirt":
-				# Legacy support: "dirt" maps to "soil" (TILE_ID_DIRT)
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_DIRT, Vector2i(0, 0))
+				# Legacy support: "dirt" maps to "soil"
+				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_SOIL)
 				# Update state to "soil" for consistency
 				if GameState:
 					GameState.update_tile_state(tile_position, "soil")
