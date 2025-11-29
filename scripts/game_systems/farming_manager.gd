@@ -26,20 +26,84 @@ const TERRAIN_ID_GRASS := 0
 const TERRAIN_ID_SOIL := 1
 const TERRAIN_ID_WET_SOIL := 2
 
-# Atlas coordinate constants for manual tile placement
+# ============================================================================
+# ADJACENCY-BASED SOIL AUTOTILING SYSTEM
+# ============================================================================
+# Approach: Singles, straight paths (N-S / E-W), and 2×2 centers.
+# Designed to be extended later with corners, T-junctions, etc.
+# Each soil tile's visual is determined by checking its 4 cardinal neighbors.
+# ============================================================================
+
+# Atlas coordinate constants for manual tile placement (16×16 grid in tiles.png)
 const SOURCE_ID := 0
 const GRASS_CENTER := Vector2i(1, 1)
-# Dirt ring tiles (inner grass tiles that outline a dirt patch)
-const DIRT_RING_TOP_LEFT := Vector2i(3, 1)
-const DIRT_RING_TOP := Vector2i(1, 2)
-const DIRT_RING_TOP_RIGHT := Vector2i(4, 1)
-const DIRT_RING_LEFT := Vector2i(0, 1)
-const DIRT_RING_RIGHT := Vector2i(2, 1)
-const DIRT_RING_BOTTOM_LEFT := Vector2i(3, 2)
-const DIRT_RING_BOTTOM := Vector2i(1, 0)
-const DIRT_RING_BOTTOM_RIGHT := Vector2i(4, 2)
-const SOIL_TILE := Vector2i(5, 6)
 const WET_SOIL_TILE := Vector2i(5, 9)
+
+# Soil shape types for adjacency-based autotiling
+enum SoilShape {
+	SINGLE, # Isolated patch, no soil neighbors
+	VERT_MIDDLE, # Vertical path middle (soil above & below)
+	VERT_END_TOP, # Vertical path end at top (soil only below)
+	VERT_END_BOTTOM, # Vertical path end at bottom (soil only above)
+	HORZ_MIDDLE, # Horizontal path middle (soil left & right)
+	HORZ_END_LEFT, # Horizontal path end pointing left (soil only right)
+	HORZ_END_RIGHT, # Horizontal path end pointing right (soil only left)
+	T_UP, # T-junction: horizontal bar with leg pointing down (up+left+right)
+	T_RIGHT, # T-junction: vertical bar with leg pointing left (up+down+left)
+	T_DOWN, # T-junction: horizontal bar with leg pointing up (down+left+right)
+	T_LEFT, # T-junction: vertical bar with leg pointing right (up+down+right)
+	CORNER_UP_RIGHT, # 90° corner: path goes up and right
+	CORNER_UP_LEFT, # 90° corner: path goes up and left
+	CORNER_DOWN_RIGHT, # 90° corner: path goes down and right
+	CORNER_DOWN_LEFT, # 90° corner: path goes down and left
+	CROSS, # 4-way path cross (all 4 neighbors are soil)
+	BLOCK_CENTER # Center of 2×2+ area (interior of large soil patches)
+}
+
+# Soil tile atlas coordinates (mapped to SoilShape enum)
+# Based on FarmingTerrain.tres atlas source 0 at res://assets/tilesets/full version/tiles/tiles.png
+const SOIL_SINGLE := Vector2i(8, 9) # Isolated single patch with grass halo
+const SOIL_BLOCK_CENTER := Vector2i(5, 6) # Flat center for 2×2+ areas (no grass)
+
+# Vertical path tiles (column at x=13, y=6-11)
+const SOIL_VERT_MIDDLE := Vector2i(13, 8) # Vertical middle (grass left/right, soil up/down)
+const SOIL_VERT_END_TOP := Vector2i(13, 6) # Vertical end cap at top of column
+const SOIL_VERT_END_BOTTOM := Vector2i(13, 11) # Vertical end cap at bottom of column
+
+# Horizontal path tiles
+const SOIL_HORZ_MIDDLE := Vector2i(10, 9) # Horizontal middle (grass up/down, soil left/right)
+const SOIL_HORZ_END_LEFT := Vector2i(10, 6) # Horizontal end cap pointing left (same tile as T_UP, different usage)
+const SOIL_HORZ_END_RIGHT := Vector2i(9, 6) # Horizontal end cap pointing right
+
+# T-junction tiles (currently only dry art exists for T_UP; map others to it for now)
+const SOIL_T_UP := Vector2i(10, 6) # dry T with horizontal bar and leg pointing down
+const SOIL_T_UP_WET := Vector2i(11, 6) # wet version (TODO: used by watering, not now)
+const SOIL_T_DOWN := SOIL_T_UP # TEMP: reuse until rotated art exists
+const SOIL_T_LEFT := SOIL_T_UP # TEMP: reuse until rotated art exists
+const SOIL_T_RIGHT := SOIL_T_UP # TEMP: reuse until rotated art exists
+
+# Corner tiles (90° turns)
+const SOIL_CORNER_UP_RIGHT := Vector2i(13, 12) # Path goes up and right
+const SOIL_CORNER_UP_LEFT := Vector2i(13, 15) # Path goes up and left
+const SOIL_CORNER_DOWN_RIGHT := Vector2i(13, 12) # Path goes down and right (may need different tile - verify)
+const SOIL_CORNER_DOWN_LEFT := Vector2i(10, 15) # Path goes down and left
+
+# Four-way cross (plus sign) - confirmed at atlas (13, 17) in FarmingTerrain.tres
+const SOIL_CROSS := Vector2i(13, 17) # 4-way path intersection
+
+# Debug toggle for soil shape logging
+const DEBUG_SHOW_SOIL_SHAPES := true # Enabled for testing - set to false when confirmed working
+
+# Offsets to check when retiling soil (self + 4 cardinals)
+const SOIL_NEIGHBOR_OFFSETS := [
+	Vector2i(0, 0), # self
+	Vector2i(0, -1), # up
+	Vector2i(0, 1), # down
+	Vector2i(-1, 0), # left
+	Vector2i(1, 0) # right
+]
+
+# (Old tilling stages and edge/corner constants removed - using SoilShape system now)
 
 @export var farmable_layer_path: NodePath
 @export var crop_layer_path: NodePath
@@ -71,7 +135,7 @@ func _ready() -> void:
 		crop_layer = get_node_or_null(crop_layer_path) as TileMapLayer
 		if crop_layer:
 			print("[FarmingManager] Crop layer found via path: %s" % crop_layer.name)
-
+	
 func set_farmable_layer(layer: TileMapLayer) -> void:
 	"""Set farmable layer from FarmScene (validated reference)"""
 	farmable_layer = layer
@@ -251,7 +315,7 @@ func set_farm_scene_reference(scene: Node2D) -> void:
 func set_farm_scene(scene: Node2D) -> void:
 	farm_scene = scene
 	print("[FarmingManager] Farm scene reference set: %s" % (scene.name if scene else "null"))
-
+	
 func _apply_terrain_to_cells(cells: Array[Vector2i], terrain_id: int) -> void:
 	"""Apply terrain to multiple cells using Godot 4.4 terrain system"""
 	if farmable_layer == null:
@@ -277,41 +341,282 @@ func apply_terrain_to_cells(cells: Array[Vector2i], terrain_id: int) -> void:
 # ATLAS COORDINATE-BASED TILE PLACEMENT (for grass edges/corners)
 # ============================================================================
 
-func _set_tile(cell: Vector2i, atlas_coords: Vector2i) -> void:
-	"""Set a tile using atlas coordinates"""
+func _set_farm_cell(cell: Vector2i, atlas_coords: Vector2i, source_id: int = SOURCE_ID) -> void:
+	"""
+	Helper to set a farmable layer tile with correct Godot 4.4 TileMapLayer API.
+	Signature: set_cell(cell: Vector2i, source_id: int, atlas_coords: Vector2i, alternative_tile := 0)
+	"""
 	if farmable_layer == null:
-		push_error("[FarmingManager] Cannot set tile - farmable_layer is null")
+		push_error("[FarmingManager] farmable_layer is null in _set_farm_cell")
 		return
-	farmable_layer.set_cell(cell, SOURCE_ID, atlas_coords)
+	farmable_layer.set_cell(cell, source_id, atlas_coords)
 
-func _is_plain_grass(cell: Vector2i) -> bool:
-	"""Check if a cell is plain grass (center tile)"""
+# ============================================================================
+# SOIL AUTOTILING HELPERS
+# ============================================================================
+
+func _is_soil_cell(cell: Vector2i) -> bool:
+	"""
+	Check if a cell contains any soil tile (any SoilShape variant).
+	Returns true for all soil shapes, false for grass or other tiles.
+	"""
 	if farmable_layer == null:
 		return false
+	
 	var sid := farmable_layer.get_cell_source_id(cell)
 	if sid != SOURCE_ID:
 		return false
-	return farmable_layer.get_cell_atlas_coords(cell) == GRASS_CENTER
+	
+	var atlas := farmable_layer.get_cell_atlas_coords(cell)
+	
+	# Treat any of our soil tiles as "soil" (dry + wet variants)
+	# Using a comprehensive set of all soil atlas coordinates
+	var soil_atlas_coords: Array[Vector2i] = [
+		# Single and block
+		SOIL_SINGLE,
+		SOIL_BLOCK_CENTER,
+		# Vertical path tiles
+		SOIL_VERT_MIDDLE,
+		SOIL_VERT_END_TOP,
+		SOIL_VERT_END_BOTTOM,
+		# Horizontal path tiles
+		SOIL_HORZ_MIDDLE,
+		SOIL_HORZ_END_LEFT,
+		SOIL_HORZ_END_RIGHT,
+		# T-junctions
+		SOIL_T_UP,
+		SOIL_T_DOWN,
+		SOIL_T_LEFT,
+		SOIL_T_RIGHT,
+		# Corners
+		SOIL_CORNER_UP_RIGHT,
+		SOIL_CORNER_UP_LEFT,
+		SOIL_CORNER_DOWN_RIGHT,
+		SOIL_CORNER_DOWN_LEFT,
+		# Cross
+		SOIL_CROSS,
+		# Wet soil variants
+		Vector2i(5, 9), # WET_SOIL_TILE
+		Vector2i(11, 6) # SOIL_T_UP_WET
+	]
+	return atlas in soil_atlas_coords
 
-const NEIGHBOR_OFFSETS := {
-	Vector2i(-1, -1): DIRT_RING_TOP_LEFT,
-	Vector2i(0, -1): DIRT_RING_TOP,
-	Vector2i(1, -1): DIRT_RING_TOP_RIGHT,
-	Vector2i(-1, 0): DIRT_RING_LEFT,
-	Vector2i(1, 0): DIRT_RING_RIGHT,
-	Vector2i(-1, 1): DIRT_RING_BOTTOM_LEFT,
-	Vector2i(0, 1): DIRT_RING_BOTTOM,
-	Vector2i(1, 1): DIRT_RING_BOTTOM_RIGHT,
-}
+func _compute_soil_shape(cell: Vector2i) -> int:
+	"""
+	Determine which SoilShape to use for this tile based on 4-way neighbors.
+	
+	Neighbors:
+	  up    = (0, -1)
+	  down  = (0,  1)
+	  left  = (-1, 0)
+	  right = (1,  0)
+	
+	Rules (checked in order):
+	  1. 0 neighbors → SINGLE
+	  2. 4 neighbors → CROSS
+	  3. 3 neighbors → T-junction (T_UP, T_DOWN, T_LEFT, T_RIGHT)
+	  4. 2 neighbors:
+		 - Same axis (up+down or left+right) → VERT_MIDDLE or HORZ_MIDDLE
+		 - Corners (up+right, up+left, down+right, down+left) → CORNER_*
+	  5. 1 neighbor → appropriate END piece
+	  6. Fallback → SINGLE with warning
+	"""
+	var has_up: bool = _is_soil_cell(cell + Vector2i(0, -1))
+	var has_down: bool = _is_soil_cell(cell + Vector2i(0, 1))
+	var has_left: bool = _is_soil_cell(cell + Vector2i(-1, 0))
+	var has_right: bool = _is_soil_cell(cell + Vector2i(1, 0))
+	
+	var neighbor_count: int = 0
+	if has_up:
+		neighbor_count += 1
+	if has_down:
+		neighbor_count += 1
+	if has_left:
+		neighbor_count += 1
+	if has_right:
+		neighbor_count += 1
+	
+	# 1) neighbor_count == 0 → SINGLE
+	if neighbor_count == 0:
+		return SoilShape.SINGLE
+	
+	# 2) neighbor_count == 4 → CROSS
+	if neighbor_count == 4:
+		return SoilShape.CROSS
+	
+	# 3) neighbor_count == 3 → T junctions
+	if neighbor_count == 3:
+		# If NOT has_up → T_UP (open upward)
+		if not has_up:
+			return SoilShape.T_UP
+		# If NOT has_right → T_RIGHT
+		if not has_right:
+			return SoilShape.T_RIGHT
+		# If NOT has_down → T_DOWN
+		if not has_down:
+			return SoilShape.T_DOWN
+		# If NOT has_left → T_LEFT
+		if not has_left:
+			return SoilShape.T_LEFT
+	
+	# 4) neighbor_count == 2
+	if neighbor_count == 2:
+		# 4a) Straight vertical: has_up and has_down and NOT has_left and NOT has_right
+		if has_up and has_down and not has_left and not has_right:
+			return SoilShape.VERT_MIDDLE
+		
+		# 4b) Straight horizontal: has_left and has_right and NOT has_up and NOT has_down
+		if has_left and has_right and not has_up and not has_down:
+			return SoilShape.HORZ_MIDDLE
+		
+		# 4c) Corners / 90° turns
+		# if has_up and has_right and NOT has_down and NOT has_left
+		if has_up and has_right and not has_down and not has_left:
+			return SoilShape.CORNER_UP_RIGHT
+		
+		# if has_up and has_left and NOT has_down and NOT has_right
+		if has_up and has_left and not has_down and not has_right:
+			return SoilShape.CORNER_UP_LEFT
+		
+		# if has_down and has_right and NOT has_up and NOT has_left
+		if has_down and has_right and not has_up and not has_left:
+			return SoilShape.CORNER_DOWN_RIGHT
+		
+		# if has_down and has_left and NOT has_up and NOT has_right
+		if has_down and has_left and not has_up and not has_right:
+			return SoilShape.CORNER_DOWN_LEFT
+	
+	# 5) neighbor_count == 1 → end caps
+	if neighbor_count == 1:
+		# if has_up and NOT (has_right or has_down or has_left)
+		# This cell is the **bottom end** of a vertical segment
+		if has_up and not has_right and not has_down and not has_left:
+			return SoilShape.VERT_END_BOTTOM
+		
+		# if has_down and NOT (has_up or has_right or has_left)
+		# This cell is the **top end** of a vertical segment
+		if has_down and not has_up and not has_right and not has_left:
+			return SoilShape.VERT_END_TOP
+		
+		# if has_left and NOT (has_up or has_right or has_down)
+		# This cell is the **right end** of a horizontal segment
+		if has_left and not has_up and not has_right and not has_down:
+			return SoilShape.HORZ_END_RIGHT
+		
+		# if has_right and NOT (has_up or has_left or has_down)
+		# This cell is the **left end** of a horizontal segment
+		if has_right and not has_up and not has_left and not has_down:
+			return SoilShape.HORZ_END_LEFT
+	
+	# 6) neighbor_count > 0 but no branch matched (fallback)
+	var pattern: String = ""
+	if has_up:
+		pattern += "U"
+	if has_right:
+		pattern += "R"
+	if has_down:
+		pattern += "D"
+	if has_left:
+		pattern += "L"
+	if pattern == "":
+		pattern = "none"
+	push_warning("[SOIL] Unmatched neighbor pattern at %s: pattern=%s count=%d" % [cell, pattern, neighbor_count])
+	return SoilShape.SINGLE
 
-func _update_grass_edges_around(center: Vector2i) -> void:
-	"""Update grass edges/corners around a center cell"""
+func _soil_shape_to_atlas(shape: int) -> Vector2i:
+	"""Map a SoilShape enum value to its atlas coordinates."""
+	match shape:
+		SoilShape.SINGLE:
+			return SOIL_SINGLE
+		SoilShape.VERT_MIDDLE:
+			return SOIL_VERT_MIDDLE
+		SoilShape.VERT_END_TOP:
+			return SOIL_VERT_END_TOP
+		SoilShape.VERT_END_BOTTOM:
+			return SOIL_VERT_END_BOTTOM
+		SoilShape.HORZ_MIDDLE:
+			return SOIL_HORZ_MIDDLE
+		SoilShape.HORZ_END_LEFT:
+			return SOIL_HORZ_END_LEFT
+		SoilShape.HORZ_END_RIGHT:
+			return SOIL_HORZ_END_RIGHT
+		SoilShape.T_UP:
+			return SOIL_T_UP
+		SoilShape.T_RIGHT:
+			return SOIL_T_RIGHT
+		SoilShape.T_DOWN:
+			return SOIL_T_DOWN
+		SoilShape.T_LEFT:
+			return SOIL_T_LEFT
+		SoilShape.CORNER_UP_RIGHT:
+			return SOIL_CORNER_UP_RIGHT
+		SoilShape.CORNER_UP_LEFT:
+			return SOIL_CORNER_UP_LEFT
+		SoilShape.CORNER_DOWN_RIGHT:
+			return SOIL_CORNER_DOWN_RIGHT
+		SoilShape.CORNER_DOWN_LEFT:
+			return SOIL_CORNER_DOWN_LEFT
+		SoilShape.CROSS:
+			return SOIL_CROSS
+		SoilShape.BLOCK_CENTER:
+			return SOIL_BLOCK_CENTER
+		_:
+			return SOIL_SINGLE
+
+func _retile_soil_around(cell: Vector2i) -> void:
+	"""
+	Update soil tiles around the given cell (self + 4 cardinals).
+	For each soil tile in the area, recompute its shape based on neighbors
+	and update its visual accordingly.
+	"""
 	if farmable_layer == null:
 		return
-	for offset in NEIGHBOR_OFFSETS.keys():
-		var n: Vector2i = center + offset
-		if _is_plain_grass(n):
-			_set_tile(n, NEIGHBOR_OFFSETS[offset])
+	
+	for offset in SOIL_NEIGHBOR_OFFSETS:
+		var c: Vector2i = cell + offset
+		
+		# Only retile if this cell is already soil
+		if not _is_soil_cell(c):
+			continue
+		
+		# Compute the appropriate shape for this cell
+		var shape := _compute_soil_shape(c)
+		var atlas := _soil_shape_to_atlas(shape)
+		
+		# Update the tile
+		_set_farm_cell(c, atlas)
+		
+		# Optional debug logging
+		if DEBUG_SHOW_SOIL_SHAPES:
+			var shape_name: String = SoilShape.keys()[shape]
+			var up_neighbor: bool = _is_soil_cell(c + Vector2i(0, -1))
+			var down_neighbor: bool = _is_soil_cell(c + Vector2i(0, 1))
+			var left_neighbor: bool = _is_soil_cell(c + Vector2i(-1, 0))
+			var right_neighbor: bool = _is_soil_cell(c + Vector2i(1, 0))
+			var pattern: String = ""
+			if up_neighbor:
+				pattern += "U"
+			if right_neighbor:
+				pattern += "R"
+			if down_neighbor:
+				pattern += "D"
+			if left_neighbor:
+				pattern += "L"
+			if pattern == "":
+				pattern = "none"
+			print("[SOIL] retile at (%s) shape=%s atlas=%s neighbors=%s" % [c, shape_name, atlas, pattern])
+
+# ============================================================================
+# OLD HELPERS - Removed (replaced by SoilShape autotiling system)
+# ============================================================================
+# - _apply_single_soil_patch() - replaced by _set_farm_cell + _retile_soil_around
+# - _get_tilled_stage() - no longer needed
+# - _set_tilled_stage() - no longer needed  
+# - _has_tilled_neighbor() - replaced by _is_soil_cell checks in _compute_soil_shape
+# - _rebuild_dirt_cluster_around() - replaced by _retile_soil_around
+# ============================================================================
+
+# (Old _rebuild_dirt_cluster_around removed - replaced by simpler _retile_soil_around)
 
 func create_crop_layer_if_missing() -> void:
 	"""Create crop layer if it doesn't exist (only after farmable layer validation)"""
@@ -437,13 +742,30 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	
 	match current_tool:
 		"hoe":
-			if is_grass:
-				# Turn grass into soil using atlas coordinates
-				_set_tile(target_cell, SOIL_TILE)
-				# Update grass edges/corners around the hoed tile
-				_update_grass_edges_around(target_cell)
+			print("[HOE] target cell: %s" % target_cell)
+			
+			# Check if this is a valid grass tile to hoe (re-check actual tile, not just GameState)
+			var current_atlas := farmable_layer.get_cell_atlas_coords(target_cell)
+			is_grass = (current_atlas == GRASS_CENTER) # Reuse existing is_grass variable
+			var is_already_soil := _is_soil_cell(target_cell)
+			
+			if is_grass or is_already_soil:
+				# Place initial soil tile (use SINGLE as starting point)
+				_set_farm_cell(target_cell, SOIL_SINGLE)
+				
+				# Update GameState for save/load compatibility
 				if GameState:
 					GameState.update_tile_state(target_cell, "soil")
+				
+				# Retile this cell and its neighbors using adjacency-based autotiling
+				# This handles: singles, straight paths (N-S/E-W), and 2×2 centers
+				_retile_soil_around(target_cell)
+				
+				if DEBUG_SHOW_SOIL_SHAPES:
+					print("[HOE] Applied soil at ", target_cell, " and retiled neighbors")
+			else:
+				# Not a valid tile to hoe (rock, water, etc.)
+				print("[HOE] Cannot hoe tile at ", target_cell, " - not grass or soil")
 		"watering_can":
 			if is_soil:
 				# Soil -> wet soil
@@ -501,6 +823,10 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 							GameState.set_tile_watered(target_cell, GameTimeManager.get_absolute_day())
 							print("[FarmingManager] Tile at %s already watered, updated watering day (fallback)" % target_cell)
 		"pickaxe":
+			# TODO(Dean): Pickaxe on soil tiles should reverse the shape logic:
+			# - remove one arm of the path
+			# - then re-run _retile_soil_around on this cell + neighbors
+			# to keep paths visually correct when digging up tiles.
 			if not is_grass:
 				# Clear crop layer first
 				if crop_layer:
