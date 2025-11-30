@@ -258,33 +258,59 @@ func _load_farm_state() -> void:
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"planted":
-				# Draw dry soil visual
-				farming_manager.set_dry_soil_visual(tile_position)
-				# Recreate crop from GameState
+				# Draw soil visual (dry or wet) depending on is_watered
+				var is_watered = false
+				if crop_data is Dictionary:
+					is_watered = crop_data.get("is_watered", false)
+				
+				if is_watered:
+					farming_manager.set_wet_soil_visual(tile_position)
+				else:
+					farming_manager.set_dry_soil_visual(tile_position)
+				
+				# Recreate crop from GameState on crop layer
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
+				var crop_source_id = farming_manager.CROP_SOURCE_DRY
+				if is_watered:
+					crop_source_id = farming_manager.CROP_SOURCE_WET
+				
+				# CRITICAL: Use single-cell set_cell() only - no bulk operations
 				if crop_data is Dictionary:
 					var current_stage = crop_data.get("current_stage", 0)
 					var max_stages = crop_data.get("growth_stages", 6)
-					if current_stage >= max_stages - 1:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(max_stages - 1, 0))
-					else:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(current_stage, 0))
+					# Clamp stage to valid range (0 to max_stages-1)
+					var stage_to_show = current_stage
+					if stage_to_show < 0:
+						stage_to_show = 0
+					if stage_to_show >= max_stages - 1:
+						stage_to_show = max_stages - 1
+					# Ensure Y coordinate is always 0 (only X changes with stage)
+					var atlas_coords := Vector2i(stage_to_show, 0)
+					crop_layer_to_use.set_cell(tile_position, crop_source_id, atlas_coords)
 				else:
-					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
+					# Default to stage 0
+					crop_layer_to_use.set_cell(tile_position, crop_source_id, Vector2i(0, 0))
 			"planted_tilled":
 				# Draw wet soil visual
 				farming_manager.set_wet_soil_visual(tile_position)
-				# Recreate crop from GameState
+				# Recreate crop from GameState on crop layer (wet row)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
+				# CRITICAL: Use single-cell set_cell() only - no bulk operations
 				if crop_data is Dictionary:
 					var current_stage = crop_data.get("current_stage", 0)
 					var max_stages = crop_data.get("growth_stages", 6)
-					if current_stage >= max_stages - 1:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(max_stages - 1, 0))
-					else:
-						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(current_stage, 0))
+					# Clamp stage to valid range (0 to max_stages-1)
+					var stage_to_show = current_stage
+					if stage_to_show < 0:
+						stage_to_show = 0
+					if stage_to_show >= max_stages - 1:
+						stage_to_show = max_stages - 1
+					# Ensure Y coordinate is always 0 (only X changes with stage)
+					var atlas_coords := Vector2i(stage_to_show, 0)
+					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, atlas_coords)
 				else:
-					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
+					# Default to stage 0
+					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, Vector2i(0, 0))
 			"dirt":
 				# Legacy support: "dirt" maps to "soil"
 				farming_manager.set_dry_soil_visual(tile_position)
