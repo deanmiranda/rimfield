@@ -132,11 +132,6 @@ func _initialize_farming() -> void:
 	if not farming_manager:
 		return
 	
-	# Run diagnostic to extract TileSet structure (once only)
-	if not has_meta("_debug_tileset_run"):
-		set_meta("_debug_tileset_run", true)
-		farming_manager.debug_farming_tileset()
-	
 	# Resolve farmable layer
 	var farmable_layer := get_node_or_null(tilemap_layer) as TileMapLayer
 	if farmable_layer == null:
@@ -167,14 +162,9 @@ func _initialize_farming() -> void:
 	# Pass validated layer to FarmingManager
 	farming_manager.set_farmable_layer(farmable_layer)
 	
-	# Initialize default terrain (auto-grass)
-	initialize_default_terrain(farmable_layer)
-	
 	# Complete FarmingManager setup
-	farming_manager.set_farm_scene_reference(self)
-	farming_manager.resolve_layers()
+	farming_manager.set_farm_scene(self)
 	farming_manager.connect_signals()
-	farming_manager.create_crop_layer_if_missing()
 	
 	# Load saved state (overwrites grass where needed)
 	_load_farm_state()
@@ -210,32 +200,7 @@ func link_farming_manager() -> void:
 		return
 	print("[FarmScene] FarmingManager linked: %s" % farming_manager.name)
 
-func initialize_default_terrain(farmable_layer: TileMapLayer) -> void:
-	"""Paint all used cells with grass terrain (only if no saved state)"""
-	if farmable_layer == null:
-		return
-	
-	if GameState and GameState.farm_state.size() > 0:
-		print("[FarmScene] Saved farm state exists - skipping auto-grass")
-		return
-	
-	if farming_manager == null:
-		return
-	
-	var used_cells: Array[Vector2i] = farmable_layer.get_used_cells()
-	print("[FarmScene] Auto-grass: initializing ", used_cells.size(), " cells")
-	
-	if used_cells.is_empty():
-		return
-	
-	farming_manager.apply_terrain_to_cells(used_cells, farming_manager.TERRAIN_ID_GRASS)
-	
-	# Keep the GameState sync
-	if GameState:
-		for cell in used_cells:
-			GameState.update_tile_state(cell, "grass")
-	
-	print("[FarmScene] Auto-grass initialized: %d cells painted" % used_cells.size())
+# Auto-grass initialization removed - farmable area is defined by painted tiles only
 
 func _on_game_loaded() -> void:
 	_load_farm_state() # Apply loaded state when notified
@@ -281,21 +246,21 @@ func _load_farm_state() -> void:
 		
 		match state:
 			"soil":
-				# Use explicit atlas coordinates for dry soil
-				farming_manager._set_dry_soil_visual(tile_position)
-				# Clear crop layer if it exists (no crop on soil-only tiles)
+				# Draw dry soil atlas
+				farming_manager.set_dry_soil_visual(tile_position)
+				# Clear crop layer if it exists
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"tilled":
-				# Use explicit atlas coordinates for wet soil
-				farming_manager._set_wet_soil_visual(tile_position)
-				# Clear crop layer if it exists (no crop on tilled-only tiles)
+				# Draw wet soil atlas (legacy "tilled" state)
+				farming_manager.set_wet_soil_visual(tile_position)
+				# Clear crop layer if it exists
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"planted":
-				# Use explicit atlas coordinates for dry soil visual
-				farming_manager._set_dry_soil_visual(tile_position)
-				# Put crop on crop layer (or farmable if crop layer doesn't exist)
+				# Draw dry soil visual
+				farming_manager.set_dry_soil_visual(tile_position)
+				# Recreate crop from GameState
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				if crop_data is Dictionary:
 					var current_stage = crop_data.get("current_stage", 0)
@@ -305,12 +270,11 @@ func _load_farm_state() -> void:
 					else:
 						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(current_stage, 0))
 				else:
-					# Fallback for old saves without crop data
 					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
 			"planted_tilled":
-				# Use explicit atlas coordinates for wet soil visual
-				farming_manager._set_wet_soil_visual(tile_position)
-				# Put crop on crop layer (or farmable if crop layer doesn't exist)
+				# Draw wet soil visual
+				farming_manager.set_wet_soil_visual(tile_position)
+				# Recreate crop from GameState
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				if crop_data is Dictionary:
 					var current_stage = crop_data.get("current_stage", 0)
@@ -320,17 +284,17 @@ func _load_farm_state() -> void:
 					else:
 						crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(current_stage, 0))
 				else:
-					# Fallback if no crop data, just show crop on crop layer
 					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
 			"dirt":
 				# Legacy support: "dirt" maps to "soil"
-				farming_manager._set_dry_soil_visual(tile_position)
-				# Update state to "soil" for consistency
+				farming_manager.set_dry_soil_visual(tile_position)
 				if GameState:
 					GameState.update_tile_state(tile_position, "soil")
 			_:
-				# No state or unknown state - restore farm base tile
-				farming_manager._restore_farm_base_tile(tile_position)
+				# No state or unknown state - check if farmable layer has farm tile
+				# If not, leave it unchanged (non-farmable area)
+				# If yes, leave it as farm tile (already correct)
+				pass
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
