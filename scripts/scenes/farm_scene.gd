@@ -281,20 +281,20 @@ func _load_farm_state() -> void:
 		
 		match state:
 			"soil":
-				# Use terrain-based system - Godot handles auto-tiling
-				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_SOIL)
+				# Use explicit atlas coordinates for dry soil
+				farming_manager._set_dry_soil_visual(tile_position)
 				# Clear crop layer if it exists (no crop on soil-only tiles)
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"tilled":
-				# Use terrain-based system - Godot handles auto-tiling
-				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_WET_SOIL)
+				# Use explicit atlas coordinates for wet soil
+				farming_manager._set_wet_soil_visual(tile_position)
 				# Clear crop layer if it exists (no crop on tilled-only tiles)
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"planted":
-				# Use terrain-based system for soil visual
-				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_SOIL)
+				# Use explicit atlas coordinates for dry soil visual
+				farming_manager._set_dry_soil_visual(tile_position)
 				# Put crop on crop layer (or farmable if crop layer doesn't exist)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				if crop_data is Dictionary:
@@ -308,8 +308,8 @@ func _load_farm_state() -> void:
 					# Fallback for old saves without crop data
 					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
 			"planted_tilled":
-				# Use terrain-based system for tilled soil visual
-				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_WET_SOIL)
+				# Use explicit atlas coordinates for wet soil visual
+				farming_manager._set_wet_soil_visual(tile_position)
 				# Put crop on crop layer (or farmable if crop layer doesn't exist)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				if crop_data is Dictionary:
@@ -324,10 +324,13 @@ func _load_farm_state() -> void:
 					crop_layer_to_use.set_cell(tile_position, farming_manager.SOURCE_ID_CROP, Vector2i(0, 0))
 			"dirt":
 				# Legacy support: "dirt" maps to "soil"
-				farming_manager._apply_terrain_to_cell(tile_position, farming_manager.TERRAIN_ID_SOIL)
+				farming_manager._set_dry_soil_visual(tile_position)
 				# Update state to "soil" for consistency
 				if GameState:
 					GameState.update_tile_state(tile_position, "soil")
+			_:
+				# No state or unknown state - restore farm base tile
+				farming_manager._restore_farm_base_tile(tile_position)
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
