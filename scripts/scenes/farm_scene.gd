@@ -17,11 +17,18 @@ var inventory_instance: Control = null
 # Reference to FarmingManager (set during initialization)
 var farming_manager: Node = null
 
+# Background music player
+var farm_music_player: AudioStreamPlayer = null
+
 
 func _ready() -> void:
 	# Temporary test: Verify FarmingTerrain.tres loads
 	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
 	print("[TEST] FarmingTerrain load result: ", test_tileset)
+	
+	# Setup background music - randomly select one of three farm tracks
+	# Call immediately - _setup_farm_music will handle async operations
+	_setup_farm_music()
 	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
@@ -337,3 +344,108 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
+
+func _setup_farm_music() -> void:
+	"""Setup and play random farm background music (no loop)."""
+	# Aggressively stop ALL audio players first
+	_stop_all_music()
+	
+	# Create AudioStreamPlayer node if it doesn't exist
+	if farm_music_player == null:
+		farm_music_player = AudioStreamPlayer.new()
+		farm_music_player.name = "FarmMusic"
+		farm_music_player.add_to_group("music") # Add to music group for easy management
+		add_child(farm_music_player)
+		print("[FarmScene] Created FarmMusic AudioStreamPlayer")
+	
+	# List of available farm music tracks
+	var farm_tracks: Array[String] = [
+		"res://assets/audio/Farm-1.mp3",
+		"res://assets/audio/Farm-2.mp3",
+		"res://assets/audio/Farm-3.mp3"
+	]
+	
+	# Randomly select one track
+	var random_index = randi() % farm_tracks.size()
+	var selected_track = farm_tracks[random_index]
+	
+	print("[FarmScene] Selected farm track: %s (index %d)" % [selected_track, random_index])
+	
+	# Load the selected track
+	var audio_stream = load(selected_track)
+	if audio_stream == null:
+		push_error("[FarmScene] CRITICAL: Failed to load farm music file: %s" % selected_track)
+		push_error("[FarmScene] File exists check: %s" % ResourceLoader.exists(selected_track))
+		return
+	
+	print("[FarmScene] Successfully loaded audio stream: %s (type: %s)" % [selected_track, audio_stream.get_class()])
+	
+	# Ensure the stream doesn't loop
+	if audio_stream is AudioStreamMP3:
+		audio_stream.loop = false
+		print("[FarmScene] Set loop = false on AudioStreamMP3")
+	
+	# Set the stream and volume
+	farm_music_player.stream = audio_stream
+	farm_music_player.volume_db = 0.0
+	
+	print("[FarmScene] Stream assigned to player. Stream is null: %s" % (farm_music_player.stream == null))
+	
+	# Wait a frame to ensure everything is set up, then play
+	call_deferred("_play_farm_music", selected_track)
+
+func _play_farm_music(track_path: String) -> void:
+	"""Play the farm music (called deferred to ensure node is ready)."""
+	if farm_music_player == null:
+		push_error("[FarmScene] Cannot play farm music - player is null")
+		return
+	
+	if farm_music_player.stream == null:
+		push_error("[FarmScene] Cannot play farm music - stream is null")
+		return
+	
+	# Stop any existing playback
+	farm_music_player.stop()
+	
+	# Ensure we're in the scene tree
+	if not is_inside_tree():
+		push_error("[FarmScene] Cannot play farm music - not in scene tree")
+		return
+	
+	# Play the music
+	farm_music_player.play()
+	print("[FarmScene] Playing farm music: %s (playing: %s)" % [track_path, farm_music_player.playing])
+
+func _stop_all_music() -> void:
+	"""Stop all music players in the scene tree (safety check)."""
+	# Stop all AudioStreamPlayer nodes in the entire scene tree
+	var all_nodes = get_tree().get_nodes_in_group("")
+	var music_nodes = []
+	
+	# Find all AudioStreamPlayer nodes recursively
+	_find_audio_players_recursive(self, music_nodes)
+	
+	# Also check the scene tree
+	if is_inside_tree():
+		var audio_players = get_tree().get_nodes_in_group("music")
+		for player in audio_players:
+			if player is AudioStreamPlayer and not player in music_nodes:
+				music_nodes.append(player)
+	
+	# Stop all found music players
+	for player in music_nodes:
+		if player is AudioStreamPlayer:
+			player.stop()
+			print("[FarmScene] Stopped music player: %s" % player.name)
+	
+	# Explicitly stop farm music player if it exists
+	if farm_music_player and farm_music_player.playing:
+		farm_music_player.stop()
+
+func _find_audio_players_recursive(node: Node, result: Array) -> void:
+	"""Recursively find all AudioStreamPlayer nodes."""
+	if node is AudioStreamPlayer:
+		result.append(node)
+	
+	for child in node.get_children():
+		_find_audio_players_recursive(child, result)

@@ -65,13 +65,13 @@ enum SoilShape {
 const SOIL_SINGLE := Vector2i(8, 9) # Isolated single patch with grass halo
 const SOIL_BLOCK_CENTER := Vector2i(5, 6) # Flat center for 2×2+ areas (no grass)
 
-# Vertical path tiles (column at x=13, y=6-11)
-const SOIL_VERT_MIDDLE := Vector2i(13, 8) # Vertical middle (grass left/right, soil up/down)
+# Vertical path tiles (column at x=12-13, y=6-11)
+const SOIL_VERT_MIDDLE := Vector2i(12, 8) # Vertical middle (straight vertical path tile)
 const SOIL_VERT_END_TOP := Vector2i(13, 6) # Vertical end cap at top of column
 const SOIL_VERT_END_BOTTOM := Vector2i(13, 11) # Vertical end cap at bottom of column
 
 # Horizontal path tiles
-const SOIL_HORZ_MIDDLE := Vector2i(10, 9) # Horizontal middle (grass up/down, soil left/right)
+const SOIL_HORZ_MIDDLE := Vector2i(12, 9) # Horizontal middle (straight horizontal path tile)
 const SOIL_HORZ_END_LEFT := Vector2i(10, 6) # Horizontal end cap pointing left (same tile as T_UP, different usage)
 const SOIL_HORZ_END_RIGHT := Vector2i(9, 6) # Horizontal end cap pointing right
 
@@ -413,7 +413,9 @@ func _compute_soil_shape(cell: Vector2i) -> int:
 	
 	Rules (checked in order):
 	  1. 0 neighbors → SINGLE
-	  2. 4 neighbors → CROSS
+	  2. 4 neighbors:
+		 - If all 4 diagonals are also soil → BLOCK_CENTER (solid field interior)
+		 - Otherwise → CROSS (true 4-way path intersection)
 	  3. 3 neighbors → T-junction (T_UP, T_DOWN, T_LEFT, T_RIGHT)
 	  4. 2 neighbors:
 		 - Same axis (up+down or left+right) → VERT_MIDDLE or HORZ_MIDDLE
@@ -440,9 +442,35 @@ func _compute_soil_shape(cell: Vector2i) -> int:
 	if neighbor_count == 0:
 		return SoilShape.SINGLE
 	
-	# 2) neighbor_count == 4 → CROSS
+	# 2) neighbor_count == 4 → CROSS or BLOCK_CENTER
+	# Check diagonals to distinguish path intersections from solid field interiors
 	if neighbor_count == 4:
-		return SoilShape.CROSS
+		var has_up_left: bool = _is_soil_cell(cell + Vector2i(-1, -1))
+		var has_up_right: bool = _is_soil_cell(cell + Vector2i(1, -1))
+		var has_down_left: bool = _is_soil_cell(cell + Vector2i(-1, 1))
+		var has_down_right: bool = _is_soil_cell(cell + Vector2i(1, 1))
+		
+		# If all four diagonals are also soil, this is an interior cell of a solid field
+		if has_up_left and has_up_right and has_down_left and has_down_right:
+			if DEBUG_SHOW_SOIL_SHAPES:
+				print("[SOIL] 4-neighbor cell at %s: all diagonals=soil → BLOCK_CENTER" % cell)
+			return SoilShape.BLOCK_CENTER
+		else:
+			# True 4-way path intersection (diagonals are grass)
+			if DEBUG_SHOW_SOIL_SHAPES:
+				var diag_pattern: String = ""
+				if has_up_left:
+					diag_pattern += "UL"
+				if has_up_right:
+					diag_pattern += "UR"
+				if has_down_left:
+					diag_pattern += "DL"
+				if has_down_right:
+					diag_pattern += "DR"
+				if diag_pattern == "":
+					diag_pattern = "none"
+				print("[SOIL] 4-neighbor cell at %s: diagonals=%s → CROSS" % [cell, diag_pattern])
+			return SoilShape.CROSS
 	
 	# 3) neighbor_count == 3 → T junctions
 	if neighbor_count == 3:
