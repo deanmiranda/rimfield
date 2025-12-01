@@ -221,11 +221,9 @@ func _use_watering_can(cell: Vector2i) -> void:
 				stage_to_show = max_stages - 1
 			# Ensure Y coordinate is always 0 (only X changes with stage)
 			var atlas_coords := Vector2i(stage_to_show, 0)
+			print("[WATER DEBUG] Writing crop at ", cell, " source=", CROP_SOURCE_WET, " atlas=", atlas_coords, " stage_to_show=", stage_to_show, " max_stages=", max_stages)
 			crop_layer.set_cell(cell, CROP_SOURCE_WET, atlas_coords)
-		
-		# Update state to "planted_tilled" if planted
-		if tile_state == "planted":
-			GameState.update_tile_state(cell, "planted_tilled")
+			print("[CROP_LAYER] After set_cell, cell=", cell, " used_atlas=", atlas_coords, " source_id=", CROP_SOURCE_WET)
 	
 	if GameTimeManager:
 		GameState.set_tile_watered(cell, GameTimeManager.day)
@@ -571,7 +569,9 @@ func _update_crop_visual(tile_pos: Vector2i, current_stage: int, max_stages: int
 	# CRITICAL: Ensure Y coordinate is always 0 (only X changes with stage)
 	# Use explicit Vector2i to avoid any coordinate confusion
 	var atlas_coords := Vector2i(stage_to_show, 0)
+	print("[UPDATE_CROP_VISUAL] Writing crop at ", tile_pos, " source=", crop_source_id, " atlas=", atlas_coords, " stage_to_show=", stage_to_show, " max_stages=", max_stages)
 	crop_layer.set_cell(tile_pos, crop_source_id, atlas_coords)
+	print("[CROP_LAYER] After set_cell, cell=", tile_pos, " used_atlas=", atlas_coords, " source_id=", crop_source_id)
 
 # ============================================================================
 # SAVE/LOAD HELPERS (for FarmScene)

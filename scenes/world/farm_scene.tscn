@@ -18,16 +18,20 @@
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_pbhlv"]
 texture = ExtResource("7_5fkjj")
 0:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+5:0/0 = 0
+1:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_fwc5g"]
+texture = ExtResource("8_0dol0")
+0:0/0 = 0
 1:0/0 = 0
 2:0/0 = 0
 3:0/0 = 0
 4:0/0 = 0
 5:0/0 = 0
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_fwc5g"]
-texture = ExtResource("8_0dol0")
-0:0/size_in_atlas = Vector2i(6, 1)
-0:0/0 = 0
 
 [sub_resource type="TileSet" id="TileSet_psyy3"]
 sources/1 = SubResource("TileSetAtlasSource_pbhlv")
