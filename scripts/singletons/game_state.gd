@@ -4,7 +4,22 @@ extends Node
 var current_scene: String = "farm_scene"
 
 # Tracks the state of farm tiles by position
+# Format: {Vector2i: String} for simple states ("grass", "soil", "tilled", "planted", "planted_tilled")
+# OR {Vector2i: Dictionary} for tiles with crop data:
+# {
+#   "state": "planted",
+#   "is_watered": bool,
+#   "last_watered_day": int,
+#   "crop_id": String (e.g., "seed_basic"),
+#   "growth_stages": int,
+#   "days_per_stage": int,
+#   "current_stage": int,
+#   "days_watered_toward_next_stage": int
+# }
 var farm_state: Dictionary = {}
+
+# Crop data structure for planted tiles
+# This extends farm_state with crop-specific information
 
 # Current save file being used
 var current_save_file: String = "" # No default save file to prevent initial save issues
@@ -15,12 +30,87 @@ signal game_loaded
 
 # Updates the state of a specific tile at a given position
 func update_tile_state(position: Vector2i, state: String) -> void:
-	farm_state[position] = state
+	# Ensure position is Vector2i (not string) for consistent key format
+	var key: Vector2i = position
+	
+	# If tile already has crop data, preserve it and update state
+	if farm_state.has(key) and farm_state[key] is Dictionary:
+		var tile_data = farm_state[key] as Dictionary
+		tile_data["state"] = state
+		farm_state[key] = tile_data
+	else:
+		# Simple state update (no crop data)
+		farm_state[key] = state
 
 
 # Retrieves the state of a specific tile; defaults to "grass" if not set
 func get_tile_state(position: Vector2i) -> String:
+	var tile_data = farm_state.get(position, "grass")
+	if tile_data is Dictionary:
+		return tile_data.get("state", "grass")
+	return tile_data if tile_data is String else "grass"
+
+
+# Gets full tile data (including crop info) or returns simple state string
+func get_tile_data(position: Vector2i) -> Variant:
 	return farm_state.get(position, "grass")
+
+
+# Updates tile with crop data
+func update_tile_crop_data(position: Vector2i, crop_data: Dictionary) -> void:
+	var key: Vector2i = position
+	var existing_data = farm_state.get(key, {})
+	
+	if existing_data is Dictionary:
+		# Merge with existing crop data
+		for k in crop_data:
+			existing_data[k] = crop_data[k]
+		farm_state[key] = existing_data
+	else:
+		# Convert simple state to dictionary
+		var new_data = {"state": existing_data if existing_data is String else "grass"}
+		for k in crop_data:
+			new_data[k] = crop_data[k]
+		farm_state[key] = new_data
+
+
+# Sets tile as watered
+func set_tile_watered(position: Vector2i, day: int) -> void:
+	var key: Vector2i = position
+	var tile_data = farm_state.get(key, {})
+	
+	if not (tile_data is Dictionary):
+		# Convert simple state to dictionary
+		var old_state = tile_data if tile_data is String else "grass"
+		tile_data = {"state": old_state}
+	
+	# Preserve existing state if it exists, otherwise keep current state
+	# This ensures we don't overwrite the state that was set by update_tile_state
+	if not tile_data.has("state"):
+		tile_data["state"] = "grass" # Default fallback
+	
+	# CRITICAL FIX: Store both day and absolute day for proper tracking across season boundaries
+	tile_data["is_watered"] = true
+	# Note: 'day' parameter is now expected to be the absolute day (for consistency)
+	# But we also store the regular day for backwards compatibility
+	if GameTimeManager:
+		tile_data["last_watered_day"] = GameTimeManager.day
+		tile_data["last_watered_day_absolute"] = GameTimeManager.get_absolute_day()
+	else:
+		# Fallback if GameTimeManager not available
+		tile_data["last_watered_day"] = day
+		tile_data["last_watered_day_absolute"] = day
+	farm_state[key] = tile_data
+	print("[GameState] Tile at %s marked as watered (day: %d, absolute: %d). Current state: %s" % [position, tile_data.get("last_watered_day", -1), tile_data.get("last_watered_day_absolute", -1), tile_data.get("state", "N/A")])
+
+
+# Resets watering state for all tiles (called on new day)
+func reset_watering_states() -> void:
+	for key in farm_state.keys():
+		var tile_data = farm_state[key]
+		if tile_data is Dictionary:
+			tile_data["is_watered"] = false
+			farm_state[key] = tile_data
 
 
 # Changes the active scene in the game
@@ -42,10 +132,23 @@ func save_game(file: String = "") -> void:
 	if file != "":
 		set_save_file(file)
 	else:
-		# Generate a human-readable and unique timestamp for the save file name
-		var now = Time.get_datetime_dict_from_system()
-		var timestamp = "%d%02d%02d_%02d%02d" % [now.year, now.month, now.day, now.hour, now.minute]
-		current_save_file = "user://save_slot_%s.json" % timestamp
+		# Generate save file name using in-game date + system time for uniqueness
+		# Format: save_slot_YEAR_SEASON_DAY_UNIXTIME.json
+		# Using unix time ensures proper sorting and uniqueness
+		if GameTimeManager:
+			var game_day = GameTimeManager.day
+			var game_season = GameTimeManager.season
+			var game_year = GameTimeManager.year
+			var unix_time = Time.get_unix_time_from_system()
+			# Combine game date with unix timestamp for proper sorting
+			var timestamp = "%d_%d_%d_%d" % [game_year, game_season, game_day, unix_time]
+			current_save_file = "user://save_slot_%s.json" % timestamp
+		else:
+			# Fallback to system date + unix time if GameTimeManager not available
+			var now = Time.get_datetime_dict_from_system()
+			var unix_time = Time.get_unix_time_from_system()
+			var timestamp = "%d%02d%02d_%d" % [now.year, now.month, now.day, unix_time]
+			current_save_file = "user://save_slot_%s.json" % timestamp
 
 	if current_save_file == "":
 		print("Error: No save file path provided.")
@@ -56,6 +159,7 @@ func save_game(file: String = "") -> void:
 	var inventory_items = []
 
 	if InventoryManager:
+		print("[GameState] Saving inventory - toolkit_slots size: %d, inventory_slots size: %d" % [InventoryManager.toolkit_slots.size(), InventoryManager.inventory_slots.size()])
 		# Save toolkit slots with stack counts and weight
 		for i in range(InventoryManager.max_toolkit_slots):
 			var slot_data = InventoryManager.toolkit_slots.get(
@@ -86,11 +190,42 @@ func save_game(file: String = "") -> void:
 					}
 				)
 
+	# Convert farm_state to JSON-serializable format
+	# Vector2i keys need to be converted to strings for JSON
+	var serialized_farm_state = {}
+	for key in farm_state.keys():
+		var key_str = "%d,%d" % [key.x, key.y]
+		var tile_data = farm_state[key]
+		if tile_data is Dictionary:
+			serialized_farm_state[key_str] = tile_data
+		else:
+			serialized_farm_state[key_str] = tile_data
+	
+	# Debug: Log how many tiles are being saved
+	print("[GameState] Saving %d farm tiles" % farm_state.size())
+	
+	# Get player position from current scene
+	# Player structure: scene root -> "Player" (Node2D) -> "Player" (CharacterBody2D)
+	var player_position = Vector2.ZERO
+	var current_scene_node = get_tree().current_scene
+	if current_scene_node:
+		var player_root = current_scene_node.get_node_or_null("Player")
+		if player_root:
+			var player_body = player_root.get_node_or_null("Player")
+			if player_body:
+				player_position = player_body.global_position
+	
 	var save_data = {
-		"farm_state": farm_state,
+		"farm_state": serialized_farm_state,
 		"current_scene": current_scene,
+		"player_position": {"x": player_position.x, "y": player_position.y},
 		"toolkit_items": toolkit_items,
-		"inventory_items": inventory_items
+		"inventory_items": inventory_items,
+		"game_time": {
+			"day": GameTimeManager.day if GameTimeManager else 1,
+			"season": GameTimeManager.season if GameTimeManager else 0,
+			"year": GameTimeManager.year if GameTimeManager else 1
+		}
 	}
 
 	var file_access = FileAccess.open(current_save_file, FileAccess.WRITE)
@@ -101,6 +236,10 @@ func save_game(file: String = "") -> void:
 	file_access.store_string(JSON.stringify(save_data))
 	file_access.close()
 	print("Game saved to:", current_save_file)
+	print("[GameState] Saved %d toolkit items and %d inventory items" % [toolkit_items.size(), inventory_items.size()])
+	
+	# Auto-manage save files: delete oldest saves, keeping only the most recent ones
+	manage_save_files()
 
 
 # Loads the game state from a specified save file
@@ -123,8 +262,39 @@ func load_game(file: String = "") -> bool:
 
 	if parse_status == OK:
 		var save_data = json.data
-		farm_state = save_data.get("farm_state", {})
+		
+		# Deserialize farm_state (convert string keys back to Vector2i)
+		var loaded_farm_state = save_data.get("farm_state", {})
+		print("[GameState] Save file contains farm_state with %d entries" % loaded_farm_state.size())
+		if loaded_farm_state.size() > 0:
+			print("[GameState] Sample farm_state keys: %s" % str(loaded_farm_state.keys().slice(0, 5)))
+		
+		farm_state.clear()
+		for key_str in loaded_farm_state.keys():
+			var key_parts = key_str.split(",")
+			if key_parts.size() == 2:
+				var key = Vector2i(int(key_parts[0]), int(key_parts[1]))
+				farm_state[key] = loaded_farm_state[key_str]
+			else:
+				print("[GameState] Warning: Invalid key format in save file: %s" % key_str)
+		
+		# Debug: Log how many tiles were loaded
+		print("[GameState] Loaded %d farm tiles from save file" % farm_state.size())
+		
 		current_scene = save_data.get("current_scene", "farm_scene")
+		
+		# Restore game time if present
+		if save_data.has("game_time") and GameTimeManager:
+			var time_data = save_data["game_time"]
+			GameTimeManager.day = time_data.get("day", 1)
+			GameTimeManager.season = time_data.get("season", 0)
+			GameTimeManager.year = time_data.get("year", 1)
+		
+		# Restore player position if present
+		if save_data.has("player_position") and SceneManager:
+			var pos_data = save_data["player_position"]
+			SceneManager.player_spawn_position = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
+		
 		print("Game loaded successfully from:", current_save_file)
 
 		# Restore toolkit and inventory to InventoryManager
@@ -169,13 +339,23 @@ func load_game(file: String = "") -> bool:
 						else:
 							print("Warning: Could not load texture:", texture_path)
 
-			print(
-				"Loaded ",
-				save_data.get("toolkit_items", []).size(),
-				" toolkit items and ",
-				save_data.get("inventory_items", []).size(),
-				" inventory items."
-			)
+			var toolkit_count = save_data.get("toolkit_items", []).size()
+			var inventory_count = save_data.get("inventory_items", []).size()
+			print("Loaded %d toolkit items and %d inventory items." % [toolkit_count, inventory_count])
+			
+			# Debug: Log what items were loaded
+			if toolkit_count > 0:
+				print("[GameState] Toolkit items loaded:")
+				for item in save_data.get("toolkit_items", []):
+					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
+			if inventory_count > 0:
+				print("[GameState] Inventory items loaded:")
+				for item in save_data.get("inventory_items", []):
+					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
+			
+			# Sync UI after loading inventory
+			InventoryManager.sync_inventory_ui()
+			InventoryManager.sync_toolkit_ui()
 
 		emit_signal("game_loaded")
 
@@ -205,28 +385,46 @@ func manage_save_files() -> void:
 		file_name = save_dir.get_next()
 	save_dir.list_dir_end()
 
-	# Sort save files by timestamp and keep only the 5 newest
-	save_files.sort_custom(
+	# Sort save files by modification time (oldest first) - FIFO
+	# Get file modification times for proper sorting
+	var save_files_with_time = []
+	for save_file_name in save_files:
+		var file_path = "user://" + save_file_name
+		if FileAccess.file_exists(file_path):
+			# Get modification time without opening the file
+			var mod_time = FileAccess.get_modified_time(file_path)
+			save_files_with_time.append({"name": save_file_name, "time": mod_time})
+	
+	# Sort by modification time (oldest first)
+	save_files_with_time.sort_custom(
 		func(a, b):
-			var timestamp_a = _extract_timestamp_from_filename(a)
-			var timestamp_b = _extract_timestamp_from_filename(b)
-			return int(timestamp_a - timestamp_b)
+			return a.time < b.time
 	)
-
-	# Remove old saves, keeping only the 5 most recent
-	while save_files.size() > 5:
-		var oldest_save = save_files.pop_front()
-		if oldest_save == current_save_file.replace("user://", ""):
-			print("Skipping current save file:", oldest_save)
+	
+	# Remove old saves, keeping only the 10 most recent (FIFO - First In First Out)
+	const MAX_SAVE_FILES = 10
+	print("[GameState] Managing save files: found %d saves, keeping %d most recent (FIFO)" % [save_files_with_time.size(), MAX_SAVE_FILES])
+	
+	while save_files_with_time.size() > MAX_SAVE_FILES:
+		var oldest_save = save_files_with_time.pop_front()
+		var oldest_file_name = oldest_save.name
+		
+		# Don't delete the current save file
+		var current_file_name = current_save_file.replace("user://", "")
+		if oldest_file_name == current_file_name:
+			print("[GameState] Skipping current save file:", oldest_file_name)
+			# Put it back at the end so we don't lose it
+			save_files_with_time.append(oldest_save)
 			continue
 
 		var delete_dir = DirAccess.open("user://")
 		if delete_dir:
-			var delete_result = delete_dir.remove(oldest_save)
+			var delete_result = delete_dir.remove(oldest_file_name)
 			if delete_result == OK:
-				print("Deleted old save file:", oldest_save)
+				var mod_date = Time.get_datetime_dict_from_unix_time(oldest_save.time)
+				print("[GameState] Deleted old save file (FIFO): %s (modified: %d/%d/%d)" % [oldest_file_name, mod_date.month, mod_date.day, mod_date.year])
 			else:
-				print("Error: Failed to delete old save file:", oldest_save)
+				print("[GameState] Error: Failed to delete old save file:", oldest_file_name)
 
 
 # Helper function to extract timestamp from save file name

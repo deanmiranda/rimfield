@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://xlohfwh564na"]
+[gd_scene load_steps=4 format=3 uid="uid://xlohfwh564na"]
 
 [ext_resource type="Script" uid="uid://dev2o7fsijrw5" path="res://scripts/scenes/main_menu.gd" id="1_7w23d"]
-[ext_resource type="Texture2D" uid="uid://cg1wubhccuodj" path="res://assets/main/RimfieldValley.webp" id="2_j5rje"]
+[ext_resource type="Texture2D" uid="uid://bo8600bo2h7c0" path="res://assets/main/RimfieldValley.png" id="2_fe2o3"]
+[ext_resource type="AudioStream" uid="uid://cuo5d4jeab3bt" path="res://assets/audio/RimWorld-Intro.mp3" id="3_intro"]
 
 [node name="Main_Menu" type="Control"]
 layout_mode = 3
@@ -29,7 +30,7 @@ grow_vertical = 2
 
 [node name="TextureRect" type="TextureRect" parent="RimfieldBackground"]
 layout_mode = 2
-texture = ExtResource("2_j5rje")
+texture = ExtResource("2_fe2o3")
 stretch_mode = 2
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
@@ -40,9 +41,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -100.0
-offset_top = -50.5
+offset_top = 242.5
 offset_right = 100.0
-offset_bottom = 50.5
+offset_bottom = 343.5
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -66,6 +67,10 @@ text = "Saved Games"
 [node name="Exit" type="Button" parent="CenterContainer/VBoxContainer"]
 layout_mode = 2
 text = "Exit"
+
+[node name="IntroMusic" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_intro")
+autoplay = true
 
 [connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
 [connection signal="pressed" from="CenterContainer/VBoxContainer/Exit" to="." method="_on_exit_pressed"]

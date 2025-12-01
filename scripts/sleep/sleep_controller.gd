@@ -86,8 +86,6 @@ func _find_bed_interaction() -> void:
 		if bed_interaction.has_signal("player_exited_bed_area"):
 			if not bed_interaction.player_exited_bed_area.is_connected(_on_player_exited_bed_area):
 				bed_interaction.player_exited_bed_area.connect(_on_player_exited_bed_area)
-	else:
-		print("Warning: SleepController could not find bed interaction node")
 
 
 func _find_bed_in_children(node: Node) -> Area2D:
@@ -150,11 +148,6 @@ func request_sleep_from_bed() -> void:
 	if sleep_prompt_ui:
 		if sleep_prompt_ui.has_method("show_prompt"):
 			sleep_prompt_ui.show_prompt()
-		else:
-			print("SleepController: ERROR - sleep_prompt_ui does not have show_prompt() method")
-	else:
-		print("SleepController: ERROR - sleep_prompt_ui is null, cannot show prompt")
-
 
 func _find_sleep_prompt_ui() -> void:
 	"""Find SleepPromptUI in the scene tree"""
@@ -169,12 +162,6 @@ func _find_sleep_prompt_ui() -> void:
 		var hud_canvas = hud.get_node_or_null("HUD")
 		if hud_canvas:
 			sleep_prompt_ui = hud_canvas.get_node_or_null("SleepPromptUI")
-			if sleep_prompt_ui:
-				print("SleepController: Found SleepPromptUI via direct path")
-			else:
-				print("SleepController: SleepPromptUI not found in HUD/HUD path")
-	else:
-		print("SleepController: Hud node not found in current scene")
 	
 	# Fallback 1: Try via HUD singleton if available
 	if not sleep_prompt_ui:
@@ -184,9 +171,7 @@ func _find_sleep_prompt_ui() -> void:
 				var hud_canvas = hud_instance.get_node_or_null("HUD")
 				if hud_canvas:
 					sleep_prompt_ui = hud_canvas.get_node_or_null("SleepPromptUI")
-					if sleep_prompt_ui:
-						print("SleepController: Found SleepPromptUI via HUD singleton")
-	
+
 	# Fallback 2: search recursively
 	if not sleep_prompt_ui:
 		for child in current_scene.get_children():
@@ -194,11 +179,6 @@ func _find_sleep_prompt_ui() -> void:
 			if sleep_prompt_ui:
 				break
 	
-	if sleep_prompt_ui:
-		print("SleepController: SleepPromptUI reference set successfully")
-	else:
-		print("SleepController: ERROR - SleepPromptUI not found in scene tree")
-
 
 func _find_sleep_prompt_in_children(node: Node) -> Control:
 	"""Recursively search for SleepPromptUI"""
@@ -282,16 +262,12 @@ func show_bed_tooltip() -> void:
 	if bed_tooltip_label:
 		bed_tooltip_label.visible = true
 		set_process(true) # Start updating position
-		print("SleepController: show_bed_tooltip() - tooltip shown (label valid)")
 	else:
 		# Retry finding the label if not found yet
 		_find_bed_tooltip_label()
 		if bed_tooltip_label:
 			bed_tooltip_label.visible = true
 			set_process(true) # Start updating position
-			print("SleepController: show_bed_tooltip() - tooltip found and shown after retry")
-		else:
-			print("SleepController: show_bed_tooltip() called but BedTooltipLabel not found (label invalid)")
 
 
 func hide_bed_tooltip() -> void:
@@ -299,16 +275,12 @@ func hide_bed_tooltip() -> void:
 	if bed_tooltip_label:
 		bed_tooltip_label.visible = false
 		set_process(false) # Stop updating position when hidden
-		print("SleepController: hide_bed_tooltip() - tooltip hidden (label valid)")
 	else:
 		# Retry finding the label if not found yet
 		_find_bed_tooltip_label()
 		if bed_tooltip_label:
 			bed_tooltip_label.visible = false
 			set_process(false) # Stop updating position when hidden
-			print("SleepController: hide_bed_tooltip() - tooltip found and hidden after retry")
-		else:
-			print("SleepController: hide_bed_tooltip() called but BedTooltipLabel not found (label invalid)")
 
 
 func _find_bed_spawn_point() -> void:
@@ -356,9 +328,7 @@ func _on_sleep_cancelled() -> void:
 
 func _execute_sleep_sequence() -> void:
 	"""Execute the full sleep sequence: fade out → hold black (update date) → fade in → teleport"""
-	print("SleepController: Sleep sequence started")
 	if _is_sleep_sequence_running:
-		print("SleepController: Sleep sequence already running, returning")
 		return
 	
 	_is_sleep_sequence_running = true
@@ -366,17 +336,14 @@ func _execute_sleep_sequence() -> void:
 	# Pause gameplay/time
 	if game_time_manager and game_time_manager.has_method("set_paused"):
 		game_time_manager.set_paused(true)
-		print("SleepController: Game paused")
 	
 	# Connect to fade_started signal to hide HUD
 	if screen_fade_manager and screen_fade_manager.has_signal("fade_started"):
 		if not screen_fade_manager.fade_started.is_connected(_on_fade_started):
 			screen_fade_manager.fade_started.connect(_on_fade_started, CONNECT_ONE_SHOT)
-			print("SleepController: Connected to fade_started signal")
 	
 	# Use fade_out_and_hold for sleep sequence (does NOT auto fade-in)
 	if screen_fade_manager and screen_fade_manager.has_method("fade_out_and_hold"):
-		print("SleepController: Starting fade_out_and_hold sequence")
 		screen_fade_manager.fade_out_and_hold(
 			2.0, # fade_out_duration: 2 seconds
 			2.0, # hold_duration: 2 seconds
@@ -384,116 +351,99 @@ func _execute_sleep_sequence() -> void:
 		)
 	else:
 		# Fallback if fade manager doesn't have new method
-		print("SleepController: WARNING - fade_out_and_hold not available, using fallback")
 		if screen_fade_manager and screen_fade_manager.has_method("fade_out"):
-			screen_fade_manager.fade_out(func():
-				_on_fade_out_complete()
-			)
+			screen_fade_manager.fade_out(Callable(self, "_on_fade_out_complete"))
 		else:
 			_on_fade_out_complete()
 
 
 func _on_hold_period_callback() -> void:
 	"""Called during the hold-black period to update date label"""
-	print("SleepController: Hold period callback STARTED")
-	print("SleepController: Calling sleep_to_next_morning() FIRST")
 	# Advance to next morning (this will emit day_changed signal, updating date label)
 	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
 		game_time_manager.sleep_to_next_morning()
-		print("SleepController: sleep_to_next_morning() completed, date label should update")
+		
+		# Restore energy and give happiness boost after sleeping
+		if PlayerStatsManager:
+			PlayerStatsManager.restore_energy_full()
+			PlayerStatsManager.modify_happiness(5) # Small happiness boost for good sleep
 		
 		# Show date popup with new date
 		if DatePopupManager and DatePopupManager.has_method("show_day_popup"):
 			var new_day = game_time_manager.day
 			var new_season = game_time_manager.season
 			var new_year = game_time_manager.year
-			print("SleepController: Showing date popup - Day: ", new_day)
 			DatePopupManager.show_day_popup(new_day, new_season, new_year)
 			
 			# Connect to popup completion signal (one-shot)
-			print("SleepController: Connecting to popup_sequence_finished")
 			if DatePopupManager.has_signal("popup_sequence_finished"):
 				if not DatePopupManager.popup_sequence_finished.is_connected(_on_date_popup_finished):
 					DatePopupManager.popup_sequence_finished.connect(_on_date_popup_finished, CONNECT_ONE_SHOT)
-					print("SleepController: Connected to popup_sequence_finished signal")
-				else:
-					print("SleepController: WARNING - Already connected to popup_sequence_finished")
-			else:
-				print("SleepController: ERROR - popup_sequence_finished signal not found")
 		else:
-			print("SleepController: WARNING - DatePopupManager not found or missing show_day_popup() method")
 			# Fallback: start fade-in immediately if popup manager not available
 			_on_date_popup_finished()
 	else:
-		print("SleepController: ERROR - game_time_manager or sleep_to_next_morning() not available")
 		# Fallback: start fade-in immediately if time manager not available
 		_on_date_popup_finished()
 
 
 func _on_fade_out_complete() -> void:
 	"""Called when fade out completes (fallback method)"""
-	print("SleepController: _on_fade_out_complete() called (fallback)")
 	# Advance to next morning
 	if game_time_manager and game_time_manager.has_method("sleep_to_next_morning"):
 		game_time_manager.sleep_to_next_morning()
 	
+	# Restore energy and give happiness boost after sleeping
+	if PlayerStatsManager:
+		PlayerStatsManager.restore_energy_full()
+		PlayerStatsManager.modify_happiness(5) # Small happiness boost for good sleep
+	
 	# Start fade in
 	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):
-		screen_fade_manager.fade_in(func():
-			_on_fade_in_complete()
-		)
+		screen_fade_manager.fade_in(Callable(self, "_on_fade_in_complete"))
 	else:
 		_on_fade_in_complete()
 
 
 func _on_date_popup_finished() -> void:
 	"""Called when date popup sequence completes - starts fade-in"""
-	print("SleepController: Popup finished → starting fade-in now")
 	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):
-		screen_fade_manager.fade_in(func():
-			_on_fade_in_complete()
-		, 2.0)
-		print("SleepController: Fade-in started (2.0s duration)")
+		screen_fade_manager.fade_in(Callable(self, "_on_fade_in_complete"), 2.0)
 	else:
-		print("SleepController: ERROR - ScreenFadeManager.fade_in() not available")
 		_on_fade_in_complete()
 
 
 func _on_fade_in_complete() -> void:
 	"""Called when fade in completes"""
-	print("SleepController: _on_fade_in_complete() called")
+	
+	# Get tree reference - check if it's valid
+	var tree = get_tree()
+	if not tree:
+		print("[SleepController] Error: get_tree() returned null in _on_fade_in_complete")
+		return
 	
 	# Delay player lookup by two frames to ensure player node exists
-	await get_tree().process_frame
-	await get_tree().process_frame
-	print("SleepController: Double frame delay complete, looking up player")
+	await tree.process_frame
+	await tree.process_frame
 	
 	# Teleport player to bed spawn
-	var player = get_tree().get_first_node_in_group("player")
+	var player = tree.get_first_node_in_group("player")
 	if player:
 		if bed_spawn_point:
 			player.global_position = bed_spawn_point.global_position
-			print("SleepController: Player found → teleporting to bed spawn")
-		else:
-			print("SleepController: WARNING - Bed spawn point not found")
-	else:
-		print("SleepController: ERROR - Player still not found after 2-frame delay")
-	
+
 	# Unpause gameplay/time
 	if game_time_manager and game_time_manager.has_method("set_paused"):
 		game_time_manager.set_paused(false)
-		print("SleepController: Game unpaused")
 	
 	# Ensure scene tree is also unpaused
 	if get_tree().paused:
 		get_tree().paused = false
-		print("SleepController: Scene tree unpaused")
 	
 	# Show HUD again after fade-in completes
 	_show_hud()
 	
 	_is_sleep_sequence_running = false
-	print("SleepController: Sleep sequence complete")
 
 
 func _get_player() -> Node2D:
@@ -561,17 +511,14 @@ func _world_to_screen_position(world_pos: Vector2) -> Vector2:
 
 func _on_fade_started() -> void:
 	"""Called when fade-out starts - hide HUD"""
-	print("SleepController: Fade started, hiding HUD")
 	_hide_hud()
 
 
 func _hide_hud() -> void:
 	for hud in get_tree().get_nodes_in_group("hud"):
 		hud.visible = false
-		print("SleepController: HIDING HUD ", hud)
 
 
 func _show_hud() -> void:
 	for hud in get_tree().get_nodes_in_group("hud"):
 		hud.visible = true
-		print("SleepController: SHOWING HUD ", hud)

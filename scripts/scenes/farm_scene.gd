@@ -14,8 +14,22 @@ var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 # Reference to the inventory instance
 var inventory_instance: Control = null
 
+# Reference to FarmingManager (set during initialization)
+var farming_manager: Node = null
+
+# Background music player
+var farm_music_player: AudioStreamPlayer = null
+
 
 func _ready() -> void:
+	# Temporary test: Verify FarmingTerrain.tres loads
+	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
+	print("[TEST] FarmingTerrain load result: ", test_tileset)
+	
+	# Setup background music - randomly select one of three farm tracks
+	# Call immediately - _setup_farm_music will handle async operations
+	_setup_farm_music()
+	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()
@@ -42,7 +56,6 @@ func _ready() -> void:
 
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded")) # Proper Callable usage
-	_load_farm_state() # Also run on initial entry
 
 	# Inventory setup
 	if UiManager:
@@ -50,21 +63,13 @@ func _ready() -> void:
 	else:
 		print("Error: UiManager singleton not found.")
 
-	var farming_manager = $FarmingManager
-	# Instantiate and add the HUD
+	# Defer farming initialization to allow TileSet to load asynchronously
+	call_deferred("_initialize_farming")
+	
+	# Instantiate and add the HUD (can happen immediately, linking happens in _initialize_farming)
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
-		# Pass HUD instance to the farming manager
-		if farming_manager and hud_instance:
-			if HUD:
-				HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
-				HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
-				farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
-			else:
-				print("Error: hud_instance is not an instance of HUD script.")
-		else:
-			print("Error: Could not link FarmingManager and HUD.")
 	else:
 		print("Error: HUD scene not assigned!")
 
@@ -120,6 +125,83 @@ func _get_random_farm_position() -> Vector2:
 	return Vector2(random_x, random_y)
 
 
+func _initialize_farming() -> void:
+	"""Deferred farming initialization - waits for TileSet to load"""
+	# Link FarmingManager first
+	link_farming_manager()
+	if not farming_manager:
+		return
+	
+	# Resolve farmable layer
+	var farmable_layer := get_node_or_null(tilemap_layer) as TileMapLayer
+	if farmable_layer == null:
+		push_error("[FarmScene] Farmable TileMapLayer not found at path: %s" % tilemap_layer)
+		return
+	
+	# Wait for TileSet to load (max 2 frames)
+	var wait_frames = 0
+	const MAX_WAIT_FRAMES = 2
+	
+	while farmable_layer.tile_set == null and wait_frames < MAX_WAIT_FRAMES:
+		await get_tree().process_frame
+		wait_frames += 1
+		print("[FarmScene] Waiting for TileSet to load... (frame %d/%d)" % [wait_frames, MAX_WAIT_FRAMES])
+	
+	# Validate TileSet after waiting
+	if farmable_layer.tile_set == null:
+		push_error("[FarmScene] Farmable TileMapLayer TileSet still null after deferred load")
+		return
+	
+	print("[FarmScene] Farmable layer validated: TileSet loaded (path: %s)" % farmable_layer.tile_set.resource_path)
+	
+	# Verification diagnostics
+	print("[VERIFY] Farmable TileSet at runtime: ", farmable_layer.tile_set)
+	if farmable_layer.tile_set:
+		print("[VERIFY] Farmable TileSet path: ", farmable_layer.tile_set.resource_path)
+	
+	# Pass validated layer to FarmingManager
+	farming_manager.set_farmable_layer(farmable_layer)
+	
+	# Complete FarmingManager setup
+	farming_manager.set_farm_scene(self)
+	farming_manager.connect_signals()
+	
+	# Load saved state (overwrites grass where needed)
+	_load_farm_state()
+	
+	# Check for missed crop growth if we're loading into a new day
+	if farming_manager and GameTimeManager:
+		if farming_manager.has_method("_advance_crop_growth"):
+			farming_manager._advance_crop_growth()
+			# Also revert watered states if needed
+			if farming_manager.has_method("_revert_watered_states") and GameState:
+				farming_manager._revert_watered_states()
+				GameState.reset_watering_states()
+	
+	# Link HUD to FarmingManager (after farming_manager is set)
+	if hud_instance and farming_manager:
+		if HUD:
+			HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
+			HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
+			farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
+		else:
+			print("Error: hud_instance is not an instance of HUD script.")
+	else:
+		if not hud_instance:
+			print("Error: HUD instance not created")
+		if not farming_manager:
+			print("Error: FarmingManager not linked")
+
+func link_farming_manager() -> void:
+	"""Get and validate FarmingManager reference"""
+	farming_manager = get_node_or_null(farming_manager_path)
+	if not farming_manager:
+		push_error("[FarmScene] FarmingManager not found at path: %s" % farming_manager_path)
+		return
+	print("[FarmScene] FarmingManager linked: %s" % farming_manager.name)
+
+# Auto-grass initialization removed - farmable area is defined by painted tiles only
+
 func _on_game_loaded() -> void:
 	_load_farm_state() # Apply loaded state when notified
 
@@ -134,28 +216,111 @@ func _load_farm_state() -> void:
 	if not tilemap:
 		print("Error: TileMapLayer not found!")
 		return
+	
+	# CRITICAL FIX: Get crop layer from FarmingManager (it creates/manages it)
+	var crop_layer: TileMapLayer = null
+	# Use get() to safely retrieve the property (has() doesn't work on Node objects)
+	var crop_layer_property = farming_manager.get("crop_layer")
+	if crop_layer_property != null:
+		crop_layer = crop_layer_property as TileMapLayer
+	else:
+		# Fallback: try to find it by name
+		crop_layer = get_node_or_null("Crops") as TileMapLayer
+	
+	# Debug logging: log tilemap layer name
+	print("[FarmScene] Loading farm state using TileMapLayer: %s, crop_layer: %s" % [tilemap.name, crop_layer.name if crop_layer else "null"])
+	print("[FarmScene] GameState.farm_state has %d tiles" % GameState.farm_state.size())
 
-	for position_key in GameState.farm_state.keys():
-		# Ensure position_key is a string before splitting
-		var tile_position: Vector2i
-		if position_key is String:
-			var components = position_key.split(",")
-			tile_position = Vector2i(components[0].to_int(), components[1].to_int())
-		elif position_key is Vector2i:
-			tile_position = position_key
-		else:
-			print("Invalid position_key format:", position_key)
+	for tile_position in GameState.farm_state.keys():
+		# Ensure tile_position is Vector2i (legacy saves may have strings, but we now use Vector2i)
+		if not (tile_position is Vector2i):
+			print("Warning: Invalid tile position format (skipping):", tile_position)
 			continue
-
+		
+		# With terrain-based system, we can place tiles anywhere in the farmable layer
+		# No need to check custom_data - terrain system handles visuals
+		
 		# Get the state and set the tile
 		var state = GameState.get_tile_state(tile_position)
+		var crop_data = GameState.get_tile_data(tile_position)
+		
 		match state:
-			"dirt":
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_DIRT, Vector2i(0, 0))
+			"soil":
+				# Draw dry soil atlas
+				farming_manager.set_dry_soil_visual(tile_position)
+				# Clear crop layer if it exists
+				if crop_layer:
+					crop_layer.erase_cell(tile_position)
 			"tilled":
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_TILLED, Vector2i(0, 0))
+				# Draw wet soil atlas (legacy "tilled" state)
+				farming_manager.set_wet_soil_visual(tile_position)
+				# Clear crop layer if it exists
+				if crop_layer:
+					crop_layer.erase_cell(tile_position)
 			"planted":
-				tilemap.set_cell(tile_position, farming_manager.TILE_ID_PLANTED, Vector2i(0, 0))
+				# Draw soil visual (dry or wet) depending on is_watered
+				var is_watered = false
+				if crop_data is Dictionary:
+					is_watered = crop_data.get("is_watered", false)
+				
+				if is_watered:
+					farming_manager.set_wet_soil_visual(tile_position)
+				else:
+					farming_manager.set_dry_soil_visual(tile_position)
+				
+				# Recreate crop from GameState on crop layer
+				var crop_layer_to_use = crop_layer if crop_layer else tilemap
+				var crop_source_id = farming_manager.CROP_SOURCE_DRY
+				if is_watered:
+					crop_source_id = farming_manager.CROP_SOURCE_WET
+				
+				# CRITICAL: Use single-cell set_cell() only - no bulk operations
+				if crop_data is Dictionary:
+					var current_stage = crop_data.get("current_stage", 0)
+					var max_stages = crop_data.get("growth_stages", 6)
+					# Clamp stage to valid range (0 to max_stages-1)
+					var stage_to_show = current_stage
+					if stage_to_show < 0:
+						stage_to_show = 0
+					if stage_to_show >= max_stages - 1:
+						stage_to_show = max_stages - 1
+					# Ensure Y coordinate is always 0 (only X changes with stage)
+					var atlas_coords := Vector2i(stage_to_show, 0)
+					crop_layer_to_use.set_cell(tile_position, crop_source_id, atlas_coords)
+				else:
+					# Default to stage 0
+					crop_layer_to_use.set_cell(tile_position, crop_source_id, Vector2i(0, 0))
+			"planted_tilled":
+				# Draw wet soil visual
+				farming_manager.set_wet_soil_visual(tile_position)
+				# Recreate crop from GameState on crop layer (wet row)
+				var crop_layer_to_use = crop_layer if crop_layer else tilemap
+				# CRITICAL: Use single-cell set_cell() only - no bulk operations
+				if crop_data is Dictionary:
+					var current_stage = crop_data.get("current_stage", 0)
+					var max_stages = crop_data.get("growth_stages", 6)
+					# Clamp stage to valid range (0 to max_stages-1)
+					var stage_to_show = current_stage
+					if stage_to_show < 0:
+						stage_to_show = 0
+					if stage_to_show >= max_stages - 1:
+						stage_to_show = max_stages - 1
+					# Ensure Y coordinate is always 0 (only X changes with stage)
+					var atlas_coords := Vector2i(stage_to_show, 0)
+					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, atlas_coords)
+				else:
+					# Default to stage 0
+					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, Vector2i(0, 0))
+			"dirt":
+				# Legacy support: "dirt" maps to "soil"
+				farming_manager.set_dry_soil_visual(tile_position)
+				if GameState:
+					GameState.update_tile_state(tile_position, "soil")
+			_:
+				# No state or unknown state - check if farmable layer has farm tile
+				# If not, leave it unchanged (non-farmable area)
+				# If yes, leave it as farm tile (already correct)
+				pass
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
@@ -172,3 +337,108 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
+
+func _setup_farm_music() -> void:
+	"""Setup and play random farm background music (no loop)."""
+	# Aggressively stop ALL audio players first
+	_stop_all_music()
+	
+	# Create AudioStreamPlayer node if it doesn't exist
+	if farm_music_player == null:
+		farm_music_player = AudioStreamPlayer.new()
+		farm_music_player.name = "FarmMusic"
+		farm_music_player.add_to_group("music") # Add to music group for easy management
+		add_child(farm_music_player)
+		print("[FarmScene] Created FarmMusic AudioStreamPlayer")
+	
+	# List of available farm music tracks
+	var farm_tracks: Array[String] = [
+		"res://assets/audio/Farm-1.mp3",
+		"res://assets/audio/Farm-2.mp3",
+		"res://assets/audio/Farm-3.mp3"
+	]
+	
+	# Randomly select one track
+	var random_index = randi() % farm_tracks.size()
+	var selected_track = farm_tracks[random_index]
+	
+	print("[FarmScene] Selected farm track: %s (index %d)" % [selected_track, random_index])
+	
+	# Load the selected track
+	var audio_stream = load(selected_track)
+	if audio_stream == null:
+		push_error("[FarmScene] CRITICAL: Failed to load farm music file: %s" % selected_track)
+		push_error("[FarmScene] File exists check: %s" % ResourceLoader.exists(selected_track))
+		return
+	
+	print("[FarmScene] Successfully loaded audio stream: %s (type: %s)" % [selected_track, audio_stream.get_class()])
+	
+	# Ensure the stream doesn't loop
+	if audio_stream is AudioStreamMP3:
+		audio_stream.loop = false
+		print("[FarmScene] Set loop = false on AudioStreamMP3")
+	
+	# Set the stream and volume
+	farm_music_player.stream = audio_stream
+	farm_music_player.volume_db = 0.0
+	
+	print("[FarmScene] Stream assigned to player. Stream is null: %s" % (farm_music_player.stream == null))
+	
+	# Wait a frame to ensure everything is set up, then play
+	call_deferred("_play_farm_music", selected_track)
+
+func _play_farm_music(track_path: String) -> void:
+	"""Play the farm music (called deferred to ensure node is ready)."""
+	if farm_music_player == null:
+		push_error("[FarmScene] Cannot play farm music - player is null")
+		return
+	
+	if farm_music_player.stream == null:
+		push_error("[FarmScene] Cannot play farm music - stream is null")
+		return
+	
+	# Stop any existing playback
+	farm_music_player.stop()
+	
+	# Ensure we're in the scene tree
+	if not is_inside_tree():
+		push_error("[FarmScene] Cannot play farm music - not in scene tree")
+		return
+	
+	# Play the music
+	farm_music_player.play()
+	print("[FarmScene] Playing farm music: %s (playing: %s)" % [track_path, farm_music_player.playing])
+
+func _stop_all_music() -> void:
+	"""Stop all music players in the scene tree (safety check)."""
+	# Stop all AudioStreamPlayer nodes in the entire scene tree
+	var all_nodes = get_tree().get_nodes_in_group("")
+	var music_nodes = []
+	
+	# Find all AudioStreamPlayer nodes recursively
+	_find_audio_players_recursive(self, music_nodes)
+	
+	# Also check the scene tree
+	if is_inside_tree():
+		var audio_players = get_tree().get_nodes_in_group("music")
+		for player in audio_players:
+			if player is AudioStreamPlayer and not player in music_nodes:
+				music_nodes.append(player)
+	
+	# Stop all found music players
+	for player in music_nodes:
+		if player is AudioStreamPlayer:
+			player.stop()
+			print("[FarmScene] Stopped music player: %s" % player.name)
+	
+	# Explicitly stop farm music player if it exists
+	if farm_music_player and farm_music_player.playing:
+		farm_music_player.stop()
+
+func _find_audio_players_recursive(node: Node, result: Array) -> void:
+	"""Recursively find all AudioStreamPlayer nodes."""
+	if node is AudioStreamPlayer:
+		result.append(node)
+	
+	for child in node.get_children():
+		_find_audio_players_recursive(child, result)

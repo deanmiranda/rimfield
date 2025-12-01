@@ -113,7 +113,6 @@ func pause_menu_setup() -> void:
 	# Pause menu setup
 	var pause_menu_scene = load("res://scenes/ui/pause_menu.tscn")
 	if not pause_menu_scene:
-		print("Error: Failed to load PauseMenu scene.")
 		return
 
 	if pause_menu_scene is PackedScene:

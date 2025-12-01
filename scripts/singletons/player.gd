@@ -1,7 +1,8 @@
 extends Node2D
 
-var health: int = 100
-var inventory: Array = []  # Tracks items in inventory
+# Note: Health is now managed by PlayerStatsManager singleton
+# This Player singleton handles spawn position and inventory tracking only
+var inventory: Array = [] # Tracks items in inventory
 var spawn_position: Vector2 = Vector2.ZERO
 
 func save_spawn_position(new_position: Vector2):

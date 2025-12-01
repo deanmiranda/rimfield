@@ -61,11 +61,8 @@ var current_day: int = 1
 var current_year: int = 1
 var current_season: String = "Spring"
 var current_money: int = 0
-var current_health: int = 100
-var max_health: int = 100
-var current_energy: int = 100
-var max_energy: int = 100
 var current_weather: String = "Sunny"
+# Note: Health, Energy, and Happiness are managed by PlayerStatsManager singleton
 
 # Placeholder stats (for future development)
 var stat_boredom: int = 50
@@ -118,15 +115,8 @@ func _ready() -> void:
 			# Don't return - continue anyway, methods will handle null gracefully
 	
 	if date_label:
-		var path_str: String
-		if is_inside_tree() and date_label.is_inside_tree():
-			path_str = date_label.get_path()
-		else:
-			path_str = "N/A (not in scene tree)"
-		print("PauseMenu: DateLabel reference found at path: ", path_str)
 		# Initialize with current date
 		date_label.text = GameTimeManager.get_date_string()
-		print("PauseMenu: DateLabel initialized to ", date_label.text)
 	
 	# Update all UI elements (after date_label is validated)
 	_update_ui()
@@ -136,7 +126,9 @@ func _ready() -> void:
 		if GameTimeManager.has_signal("day_changed"):
 			if not GameTimeManager.day_changed.is_connected(_on_day_changed):
 				GameTimeManager.day_changed.connect(_on_day_changed)
-				print("PauseMenu: Connected to GameTimeManager.day_changed signal")
+	
+	# Connect to PlayerStatsManager signals for stat updates
+	_connect_player_stats_signals()
 	
 	# Connect tab change signal for extensibility
 	if tab_container:
@@ -152,20 +144,9 @@ func refresh_date_label() -> void:
 	if date_label:
 		date_label.text = GameTimeManager.get_date_string()
 		# Only get path if node is in scene tree to avoid errors
-		var path_str: String
-		if is_inside_tree() and date_label.is_inside_tree():
-			path_str = date_label.get_path()
-		else:
-			path_str = "N/A"
-		print("PauseMenu: refresh_date_label() called → ", date_label.text, " (path: ", path_str, ")")
-	else:
-		# Silently skip if DateLabel is still not found (don't spam errors during gameplay)
-		print("PauseMenu: refresh_date_label() - DateLabel reference is null, skipping update")
-
 
 func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
 	"""Handle day_changed signal from GameTimeManager"""
-	print("PauseMenu: _on_day_changed() received - Day: ", _new_day, ", Season: ", _new_season, ", Year: ", _new_year)
 	refresh_date_label()
 	
 	# Hide save feedback initially
@@ -312,10 +293,6 @@ func _update_date_display() -> void:
 	
 	if date_label:
 		date_label.text = GameTimeManager.get_date_string()
-		print("PauseMenu: _update_date_display() updated label to ", date_label.text)
-	else:
-		# Silently skip if DateLabel is still not found (don't spam errors during gameplay)
-		print("PauseMenu: _update_date_display() - DateLabel reference is null, skipping update")
 
 
 func _update_money_display() -> void:
@@ -326,14 +303,14 @@ func _update_money_display() -> void:
 
 func _update_health_display() -> void:
 	"""Update health display: 'Health: 0/100' format"""
-	if health_label:
-		health_label.text = "Health: %d/%d" % [current_health, max_health]
+	if health_label and PlayerStatsManager:
+		health_label.text = "Health: %d/%d" % [PlayerStatsManager.health, PlayerStatsManager.max_health]
 
 
 func _update_energy_display() -> void:
 	"""Update energy display"""
-	if energy_label:
-		energy_label.text = "Energy: %d/%d" % [current_energy, max_energy]
+	if energy_label and PlayerStatsManager:
+		energy_label.text = "Energy: %d/%d" % [PlayerStatsManager.energy, PlayerStatsManager.max_energy]
 
 
 func _update_weather_display() -> void:
@@ -363,6 +340,35 @@ func _on_tab_changed(tab_index: int) -> void:
 			_focus_on_resume()
 		_: # Future tabs
 			pass
+
+
+func _connect_player_stats_signals() -> void:
+	"""Connect to PlayerStatsManager signals for real-time stat updates"""
+	if PlayerStatsManager:
+		if not PlayerStatsManager.health_changed.is_connected(_on_health_changed):
+			PlayerStatsManager.health_changed.connect(_on_health_changed)
+		if not PlayerStatsManager.energy_changed.is_connected(_on_energy_changed):
+			PlayerStatsManager.energy_changed.connect(_on_energy_changed)
+		if not PlayerStatsManager.happiness_changed.is_connected(_on_happiness_changed):
+			PlayerStatsManager.happiness_changed.connect(_on_happiness_changed)
+	else:
+		print("Warning: PlayerStatsManager not found. Pause menu stats will not update.")
+
+
+func _on_health_changed(new_health: int, max_health: int) -> void:
+	"""Handle health change signal from PlayerStatsManager"""
+	_update_health_display()
+
+
+func _on_energy_changed(new_energy: int, max_energy: int) -> void:
+	"""Handle energy change signal from PlayerStatsManager"""
+	_update_energy_display()
+
+
+func _on_happiness_changed(new_happiness: int, max_happiness: int) -> void:
+	"""Handle happiness change signal from PlayerStatsManager"""
+	# Note: No happiness label in pause menu currently, but handler ready for future use
+	pass
 
 
 func _connect_main_menu_signals() -> void:
@@ -422,6 +428,9 @@ func _input(event: InputEvent) -> void:
 		# Close the menu
 		self.visible = false
 		get_tree().paused = false
+		# Unpause game time when menu closes
+		if GameTimeManager:
+			GameTimeManager.set_paused(false)
 		get_viewport().set_input_as_handled() # Prevent further processing
 
 
@@ -429,6 +438,9 @@ func _on_resume_button_pressed() -> void:
 	"""Resume game"""
 	self.visible = false
 	get_tree().paused = false
+	# Unpause game time when menu closes
+	if GameTimeManager:
+		GameTimeManager.set_paused(false)
 
 
 func _on_exit_button_pressed() -> void:
@@ -493,6 +505,9 @@ func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
 	# Unpause the game before switching to the main menu
 	get_tree().paused = false
+	# Unpause game time when menu closes
+	if GameTimeManager:
+		GameTimeManager.set_paused(false)
 	
 	# Assuming there's a SceneManager singleton that handles scene transitions
 	if SceneManager:
@@ -560,18 +575,8 @@ func update_money(amount: int) -> void:
 	_update_money_display()
 
 
-func update_health(current: int, maximum: int) -> void:
-	"""Update health display"""
-	current_health = current
-	max_health = maximum
-	_update_health_display()
-
-
-func update_energy(current: int, maximum: int) -> void:
-	"""Update energy display"""
-	current_energy = current
-	max_energy = maximum
-	_update_energy_display()
+# Note: update_health() and update_energy() methods removed
+# Stats are now managed by PlayerStatsManager and updated via signals
 
 
 func update_weather(weather: String) -> void:
