@@ -144,17 +144,12 @@ func _initialize_farming() -> void:
 	while farmable_layer.tile_set == null and wait_frames < MAX_WAIT_FRAMES:
 		await get_tree().process_frame
 		wait_frames += 1
-		print("[FarmScene] Waiting for TileSet to load... (frame %d/%d)" % [wait_frames, MAX_WAIT_FRAMES])
 	
 	# Validate TileSet after waiting
 	if farmable_layer.tile_set == null:
 		push_error("[FarmScene] Farmable TileMapLayer TileSet still null after deferred load")
 		return
 	
-	
-	# Verification diagnostics
-	if farmable_layer.tile_set:
-		print("[VERIFY] Farmable TileSet path: ", farmable_layer.tile_set.resource_path)
 	
 	# Pass validated layer to FarmingManager
 	farming_manager.set_farmable_layer(farmable_layer)
