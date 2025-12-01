@@ -6,7 +6,6 @@ var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 # Background music player
 var house_music_player: AudioStreamPlayer = null
 
-
 func _ready():
 	# Setup background music - play Mowing-The-Lawn.mp3 (no loop)
 	_setup_house_music()
@@ -78,7 +77,6 @@ func _setup_house_music() -> void:
 		house_music_player.volume_db = 0.0
 		# Use call_deferred to ensure node is in scene tree before playing
 		call_deferred("_play_house_music")
-		print("[HouseScene] Setting up house music: Mowing-The-Lawn.mp3 (no loop)")
 	else:
 		push_error("[HouseScene] Failed to load house music: Mowing-The-Lawn.mp3")
 
@@ -87,7 +85,6 @@ func _play_house_music() -> void:
 	if house_music_player and house_music_player.stream:
 		house_music_player.stop() # Stop any existing playback
 		house_music_player.play()
-		print("[HouseScene] Playing house music: Mowing-The-Lawn.mp3")
 	else:
 		push_error("[HouseScene] Cannot play house music - player or stream is null")
 

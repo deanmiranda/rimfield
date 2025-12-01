@@ -24,7 +24,6 @@ var farm_music_player: AudioStreamPlayer = null
 func _ready() -> void:
 	# Temporary test: Verify FarmingTerrain.tres loads
 	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
-	print("[TEST] FarmingTerrain load result: ", test_tileset)
 	
 	# Setup background music - randomly select one of three farm tracks
 	# Call immediately - _setup_farm_music will handle async operations
@@ -145,19 +144,12 @@ func _initialize_farming() -> void:
 	while farmable_layer.tile_set == null and wait_frames < MAX_WAIT_FRAMES:
 		await get_tree().process_frame
 		wait_frames += 1
-		print("[FarmScene] Waiting for TileSet to load... (frame %d/%d)" % [wait_frames, MAX_WAIT_FRAMES])
 	
 	# Validate TileSet after waiting
 	if farmable_layer.tile_set == null:
 		push_error("[FarmScene] Farmable TileMapLayer TileSet still null after deferred load")
 		return
 	
-	print("[FarmScene] Farmable layer validated: TileSet loaded (path: %s)" % farmable_layer.tile_set.resource_path)
-	
-	# Verification diagnostics
-	print("[VERIFY] Farmable TileSet at runtime: ", farmable_layer.tile_set)
-	if farmable_layer.tile_set:
-		print("[VERIFY] Farmable TileSet path: ", farmable_layer.tile_set.resource_path)
 	
 	# Pass validated layer to FarmingManager
 	farming_manager.set_farmable_layer(farmable_layer)
@@ -198,7 +190,6 @@ func link_farming_manager() -> void:
 	if not farming_manager:
 		push_error("[FarmScene] FarmingManager not found at path: %s" % farming_manager_path)
 		return
-	print("[FarmScene] FarmingManager linked: %s" % farming_manager.name)
 
 # Auto-grass initialization removed - farmable area is defined by painted tiles only
 
@@ -228,13 +219,9 @@ func _load_farm_state() -> void:
 		crop_layer = get_node_or_null("Crops") as TileMapLayer
 	
 	# Debug logging: log tilemap layer name
-	print("[FarmScene] Loading farm state using TileMapLayer: %s, crop_layer: %s" % [tilemap.name, crop_layer.name if crop_layer else "null"])
-	print("[FarmScene] GameState.farm_state has %d tiles" % GameState.farm_state.size())
-
 	for tile_position in GameState.farm_state.keys():
 		# Ensure tile_position is Vector2i (legacy saves may have strings, but we now use Vector2i)
 		if not (tile_position is Vector2i):
-			print("Warning: Invalid tile position format (skipping):", tile_position)
 			continue
 		
 		# With terrain-based system, we can place tiles anywhere in the farmable layer
@@ -349,7 +336,6 @@ func _setup_farm_music() -> void:
 		farm_music_player.name = "FarmMusic"
 		farm_music_player.add_to_group("music") # Add to music group for easy management
 		add_child(farm_music_player)
-		print("[FarmScene] Created FarmMusic AudioStreamPlayer")
 	
 	# List of available farm music tracks
 	var farm_tracks: Array[String] = [
@@ -362,8 +348,6 @@ func _setup_farm_music() -> void:
 	var random_index = randi() % farm_tracks.size()
 	var selected_track = farm_tracks[random_index]
 	
-	print("[FarmScene] Selected farm track: %s (index %d)" % [selected_track, random_index])
-	
 	# Load the selected track
 	var audio_stream = load(selected_track)
 	if audio_stream == null:
@@ -371,18 +355,15 @@ func _setup_farm_music() -> void:
 		push_error("[FarmScene] File exists check: %s" % ResourceLoader.exists(selected_track))
 		return
 	
-	print("[FarmScene] Successfully loaded audio stream: %s (type: %s)" % [selected_track, audio_stream.get_class()])
 	
 	# Ensure the stream doesn't loop
 	if audio_stream is AudioStreamMP3:
 		audio_stream.loop = false
-		print("[FarmScene] Set loop = false on AudioStreamMP3")
 	
 	# Set the stream and volume
 	farm_music_player.stream = audio_stream
 	farm_music_player.volume_db = 0.0
 	
-	print("[FarmScene] Stream assigned to player. Stream is null: %s" % (farm_music_player.stream == null))
 	
 	# Wait a frame to ensure everything is set up, then play
 	call_deferred("_play_farm_music", selected_track)
@@ -407,7 +388,6 @@ func _play_farm_music(track_path: String) -> void:
 	
 	# Play the music
 	farm_music_player.play()
-	print("[FarmScene] Playing farm music: %s (playing: %s)" % [track_path, farm_music_player.playing])
 
 func _stop_all_music() -> void:
 	"""Stop all music players in the scene tree (safety check)."""
@@ -429,7 +409,6 @@ func _stop_all_music() -> void:
 	for player in music_nodes:
 		if player is AudioStreamPlayer:
 			player.stop()
-			print("[FarmScene] Stopped music player: %s" % player.name)
 	
 	# Explicitly stop farm music player if it exists
 	if farm_music_player and farm_music_player.playing:

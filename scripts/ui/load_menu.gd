@@ -160,14 +160,12 @@ func _get_scene_name_from_save(file_name: String) -> String:
 		
 		if parse_status == OK:
 			var save_data = json.data
-			print("Successfully retrieved scene name from save file:", save_data.get("current_scene", "Unknown Scene"))
 			return save_data.get("current_scene", "Unknown Scene")
 	return "Unknown Scene"
 
 # Called when the Load button is pressed
 func _on_load_button_pressed() -> void:
 	var selected_index = dropdown.get_selected_id()
-	print("Load button pressed. Selected index:", selected_index)
 
 	if save_metadata.has(selected_index) and selected_index != 0: # Ensure the placeholder item is not selected
 		var file_name = save_metadata[selected_index]

@@ -212,7 +212,6 @@ func _find_bed_tooltip_label() -> void:
 			if hud_root:
 				bed_tooltip_label = hud_root.get_node_or_null("BedTooltipLabel")
 				if bed_tooltip_label:
-					print("SleepController: Found BedTooltipLabel via root path (path: ", bed_tooltip_label.get_path(), ")")
 					return
 	
 	# Fallback 1: Try via HUD singleton's hud_scene_instance if available
@@ -223,7 +222,6 @@ func _find_bed_tooltip_label() -> void:
 			if hud_root:
 				bed_tooltip_label = hud_root.get_node_or_null("BedTooltipLabel")
 				if bed_tooltip_label:
-					print("SleepController: Found BedTooltipLabel via HUD singleton (path: ", bed_tooltip_label.get_path(), ")")
 					return
 	
 	# Fallback 2: Search in current scene
@@ -235,11 +233,10 @@ func _find_bed_tooltip_label() -> void:
 			if hud_root:
 				bed_tooltip_label = hud_root.get_node_or_null("BedTooltipLabel")
 				if bed_tooltip_label:
-					print("SleepController: Found BedTooltipLabel via current scene (path: ", bed_tooltip_label.get_path(), ")")
 					return
 	
 	if bed_tooltip_label:
-		print("SleepController: BedTooltipLabel reference set successfully")
+		return
 	else:
 		push_warning("SleepController: BedTooltipLabel not found at expected HUD path")
 
@@ -419,7 +416,6 @@ func _on_fade_in_complete() -> void:
 	# Get tree reference - check if it's valid
 	var tree = get_tree()
 	if not tree:
-		print("[SleepController] Error: get_tree() returned null in _on_fade_in_complete")
 		return
 	
 	# Delay player lookup by two frames to ensure player node exists

@@ -46,7 +46,6 @@ func consume_energy(amount: int) -> bool:
 	
 	energy -= amount
 	energy = max(0, energy) # Clamp to 0
-	print("[PlayerStats] Energy consumed: %d (remaining: %d/%d)" % [amount, energy, max_energy])
 	energy_changed.emit(energy, max_energy)
 	return true
 
@@ -55,7 +54,6 @@ func restore_energy_full() -> void:
 	"""Fully restore energy to maximum"""
 	var old_energy = energy
 	energy = max_energy
-	print("[PlayerStats] Energy fully restored: %d -> %d/%d" % [old_energy, energy, max_energy])
 	energy_changed.emit(energy, max_energy)
 
 
@@ -67,7 +65,6 @@ func take_damage(amount: int) -> void:
 	var old_health = health
 	health -= amount
 	health = max(0, health) # Clamp to 0
-	print("[PlayerStats] Damage taken: %d (health: %d -> %d/%d)" % [amount, old_health, health, max_health])
 	health_changed.emit(health, max_health)
 
 
@@ -79,7 +76,6 @@ func heal(amount: int) -> void:
 	var old_health = health
 	health += amount
 	health = min(max_health, health) # Clamp to max
-	print("[PlayerStats] Healed: %d (health: %d -> %d/%d)" % [amount, old_health, health, max_health])
 	health_changed.emit(health, max_health)
 
 
@@ -91,7 +87,6 @@ func modify_happiness(amount: int) -> void:
 	var old_happiness = happiness
 	happiness += amount
 	happiness = clamp(happiness, 0, max_happiness) # Clamp to 0-max
-	print("[PlayerStats] Happiness modified: %d (happiness: %d -> %d/%d)" % [amount, old_happiness, happiness, max_happiness])
 	happiness_changed.emit(happiness, max_happiness)
 
 
