@@ -221,9 +221,7 @@ func _use_watering_can(cell: Vector2i) -> void:
 				stage_to_show = max_stages - 1
 			# Ensure Y coordinate is always 0 (only X changes with stage)
 			var atlas_coords := Vector2i(stage_to_show, 0)
-			print("[WATER DEBUG] Writing crop at ", cell, " source=", CROP_SOURCE_WET, " atlas=", atlas_coords, " stage_to_show=", stage_to_show, " max_stages=", max_stages)
 			crop_layer.set_cell(cell, CROP_SOURCE_WET, atlas_coords)
-			print("[CROP_LAYER] After set_cell, cell=", cell, " used_atlas=", atlas_coords, " source_id=", CROP_SOURCE_WET)
 	
 	if GameTimeManager:
 		GameState.set_tile_watered(cell, GameTimeManager.day)
@@ -257,39 +255,24 @@ func _use_seed(cell: Vector2i) -> void:
 	SEEDS: Allowed if tile is dry or wet soil, NOT already planted, within farmable area.
 	Action: Place crop sprite on crop_layer using correct source_id based on soil wetness.
 	"""
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] target_cell: ", cell)
-	
 	if not GameState:
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: GameState is null")
 		return
 	
 	# Must be on soil (dry or wet), not on base rubble tile
 	if not _is_soil(cell):
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: Not soil (not dry or wet soil)")
 		return
 	
 	# Check if already planted
 	if crop_layer and crop_layer.get_cell_source_id(cell) != -1:
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: Already has crop")
 		return
 	
 	# Check tile state - must be "soil" or "tilled"
 	var tile_state = GameState.get_tile_state(cell)
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] tile_state: ", tile_state)
 	if tile_state != "soil" and tile_state != "tilled":
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: Tile state is not 'soil' or 'tilled'")
 		return
 	
 	# Get tile data to check if watered (for determining crop visual)
 	var tile_data = GameState.get_tile_data(cell)
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] tile_data: ", tile_data)
 	var is_watered = false
 	if tile_data is Dictionary:
 		is_watered = tile_data.get("is_watered", false)
@@ -299,27 +282,16 @@ func _use_seed(cell: Vector2i) -> void:
 		if atlas == SOIL_WET_ATLAS:
 			is_watered = true
 	
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] is_watered: ", is_watered)
-	
 	# Consume seed from inventory
 	if not tool_switcher or not InventoryManager:
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: tool_switcher or InventoryManager is null")
 		return
 	
 	var current_slot_index = tool_switcher.get("current_hud_slot")
 	if current_slot_index < 0:
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: Invalid slot index: ", current_slot_index)
 		return
 	
 	var seed_count = InventoryManager.get_toolkit_item_count(current_slot_index)
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] seed_count in slot ", current_slot_index, ": ", seed_count)
 	if seed_count <= 0:
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: No seeds in slot")
 		return
 	
 	# Decrement seed count
@@ -335,11 +307,7 @@ func _use_seed(cell: Vector2i) -> void:
 	if not crop_layer:
 		_create_crop_layer()
 	
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] crop_layer: ", crop_layer)
 	if not crop_layer:
-		if DEBUG_SEED_PLANTING:
-			print("[SEED] FAIL: crop_layer is null after creation attempt")
 		return
 	
 	# Determine crop source ID based on soil wetness
@@ -351,8 +319,6 @@ func _use_seed(cell: Vector2i) -> void:
 	var stage := 0
 	# CRITICAL: Y coordinate must always be 0 (only X changes with stage)
 	var atlas_coords := Vector2i(stage, 0)
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] Planting: source_id=", crop_source_id, " atlas=", atlas_coords)
 	
 	# Place crop on crop layer (stage 0) - SINGLE CELL ONLY
 	# This must be a single-cell operation, never a bulk operation
@@ -373,8 +339,6 @@ func _use_seed(cell: Vector2i) -> void:
 	GameState.update_tile_crop_data(cell, crop_data)
 	GameState.update_tile_state(cell, "planted")
 	
-	if DEBUG_SEED_PLANTING:
-		print("[SEED] SUCCESS: Planted crop at ", cell)
 
 func _create_crop_layer() -> void:
 	"""Create crop layer if missing"""
@@ -569,9 +533,7 @@ func _update_crop_visual(tile_pos: Vector2i, current_stage: int, max_stages: int
 	# CRITICAL: Ensure Y coordinate is always 0 (only X changes with stage)
 	# Use explicit Vector2i to avoid any coordinate confusion
 	var atlas_coords := Vector2i(stage_to_show, 0)
-	print("[UPDATE_CROP_VISUAL] Writing crop at ", tile_pos, " source=", crop_source_id, " atlas=", atlas_coords, " stage_to_show=", stage_to_show, " max_stages=", max_stages)
 	crop_layer.set_cell(tile_pos, crop_source_id, atlas_coords)
-	print("[CROP_LAYER] After set_cell, cell=", tile_pos, " used_atlas=", atlas_coords, " source_id=", crop_source_id)
 
 # ============================================================================
 # SAVE/LOAD HELPERS (for FarmScene)

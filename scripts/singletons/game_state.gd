@@ -101,7 +101,6 @@ func set_tile_watered(position: Vector2i, day: int) -> void:
 		tile_data["last_watered_day"] = day
 		tile_data["last_watered_day_absolute"] = day
 	farm_state[key] = tile_data
-	print("[GameState] Tile at %s marked as watered (day: %d, absolute: %d). Current state: %s" % [position, tile_data.get("last_watered_day", -1), tile_data.get("last_watered_day_absolute", -1), tile_data.get("state", "N/A")])
 
 
 # Resets watering state for all tiles (called on new day)
@@ -159,7 +158,6 @@ func save_game(file: String = "") -> void:
 	var inventory_items = []
 
 	if InventoryManager:
-		print("[GameState] Saving inventory - toolkit_slots size: %d, inventory_slots size: %d" % [InventoryManager.toolkit_slots.size(), InventoryManager.inventory_slots.size()])
 		# Save toolkit slots with stack counts and weight
 		for i in range(InventoryManager.max_toolkit_slots):
 			var slot_data = InventoryManager.toolkit_slots.get(
@@ -202,7 +200,6 @@ func save_game(file: String = "") -> void:
 			serialized_farm_state[key_str] = tile_data
 	
 	# Debug: Log how many tiles are being saved
-	print("[GameState] Saving %d farm tiles" % farm_state.size())
 	
 	# Get player position from current scene
 	# Player structure: scene root -> "Player" (Node2D) -> "Player" (CharacterBody2D)
@@ -230,13 +227,10 @@ func save_game(file: String = "") -> void:
 
 	var file_access = FileAccess.open(current_save_file, FileAccess.WRITE)
 	if file_access == null:
-		print("Error: Failed to open save file for writing:", current_save_file)
 		return
 
 	file_access.store_string(JSON.stringify(save_data))
 	file_access.close()
-	print("Game saved to:", current_save_file)
-	print("[GameState] Saved %d toolkit items and %d inventory items" % [toolkit_items.size(), inventory_items.size()])
 	
 	# Auto-manage save files: delete oldest saves, keeping only the most recent ones
 	manage_save_files()
@@ -248,12 +242,10 @@ func load_game(file: String = "") -> bool:
 		set_save_file(file)
 
 	if not FileAccess.file_exists(current_save_file):
-		print("Error: Save file does not exist:", current_save_file)
 		return false
 
 	var file_access = FileAccess.open(current_save_file, FileAccess.READ)
 	if file_access == null:
-		print("Error: Failed to open save file for reading:", current_save_file)
 		return false
 
 	var json = JSON.new()
@@ -265,7 +257,6 @@ func load_game(file: String = "") -> bool:
 		
 		# Deserialize farm_state (convert string keys back to Vector2i)
 		var loaded_farm_state = save_data.get("farm_state", {})
-		print("[GameState] Save file contains farm_state with %d entries" % loaded_farm_state.size())
 		if loaded_farm_state.size() > 0:
 			print("[GameState] Sample farm_state keys: %s" % str(loaded_farm_state.keys().slice(0, 5)))
 		
@@ -279,7 +270,6 @@ func load_game(file: String = "") -> bool:
 				print("[GameState] Warning: Invalid key format in save file: %s" % key_str)
 		
 		# Debug: Log how many tiles were loaded
-		print("[GameState] Loaded %d farm tiles from save file" % farm_state.size())
 		
 		current_scene = save_data.get("current_scene", "farm_scene")
 		
@@ -295,7 +285,6 @@ func load_game(file: String = "") -> bool:
 			var pos_data = save_data["player_position"]
 			SceneManager.player_spawn_position = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
 		
-		print("Game loaded successfully from:", current_save_file)
 
 		# Restore toolkit and inventory to InventoryManager
 		if InventoryManager:
@@ -341,7 +330,6 @@ func load_game(file: String = "") -> bool:
 
 			var toolkit_count = save_data.get("toolkit_items", []).size()
 			var inventory_count = save_data.get("inventory_items", []).size()
-			print("Loaded %d toolkit items and %d inventory items." % [toolkit_count, inventory_count])
 			
 			# Debug: Log what items were loaded
 			if toolkit_count > 0:
@@ -365,14 +353,12 @@ func load_game(file: String = "") -> bool:
 
 		return true
 	else:
-		print("Error parsing save file: Error Code", parse_status)
 		return false
 
 
 func manage_save_files() -> void:
 	var save_dir = DirAccess.open("user://")
 	if save_dir == null:
-		print("Error: Could not open save directory.")
 		return
 
 	# Gather all save files that match the "save_slot_" pattern
@@ -403,7 +389,6 @@ func manage_save_files() -> void:
 	
 	# Remove old saves, keeping only the 10 most recent (FIFO - First In First Out)
 	const MAX_SAVE_FILES = 10
-	print("[GameState] Managing save files: found %d saves, keeping %d most recent (FIFO)" % [save_files_with_time.size(), MAX_SAVE_FILES])
 	
 	while save_files_with_time.size() > MAX_SAVE_FILES:
 		var oldest_save = save_files_with_time.pop_front()
@@ -412,7 +397,6 @@ func manage_save_files() -> void:
 		# Don't delete the current save file
 		var current_file_name = current_save_file.replace("user://", "")
 		if oldest_file_name == current_file_name:
-			print("[GameState] Skipping current save file:", oldest_file_name)
 			# Put it back at the end so we don't lose it
 			save_files_with_time.append(oldest_save)
 			continue
