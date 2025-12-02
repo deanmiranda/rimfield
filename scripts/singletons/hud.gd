@@ -39,7 +39,6 @@ func setup_hud() -> void:
 	# farming_manager should already be set via set_farming_manager() from farm_scene
 	if not farming_manager:
 		if not _farming_manager_error_logged:
-			print("Error: FarmingManager not linked. Ensure set_farming_manager() is called.")
 			_farming_manager_error_logged = true
 
 	# Connect to ToolSwitcher using cached reference
@@ -47,12 +46,10 @@ func setup_hud() -> void:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
 			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
 	else:
-		print("Error: ToolSwitcher not cached. Ensure set_hud_scene_instance() is called.")
 		return
 
 	# Use cached slots container instead of absolute path
 	if not slots_container:
-		print("Error: Slots container not cached. Ensure set_hud_scene_instance() is called.")
 		return
 
 	# Dynamically connect signals for each TextureButton node
@@ -138,8 +135,6 @@ func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> voi
 	#print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
 	if farming_manager:
 		farming_manager._on_tool_changed(slot_index, item_texture)
-	else:
-		print("Error: Farming manager is not linked.")
 
 
 func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> void:

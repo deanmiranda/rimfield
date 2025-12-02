@@ -280,6 +280,27 @@ func remove_item_from_toolkit(slot_index: int) -> void:
 		sync_toolkit_ui()
 
 
+func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
+	"""Decrement item count in toolkit slot. Removes item if count reaches 0."""
+	if slot_index < 0 or slot_index >= max_toolkit_slots:
+		return
+	
+	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+	var current_count = slot_data["count"]
+	var texture = slot_data["texture"]
+	
+	if current_count <= 0 or texture == null:
+		return
+	
+	var new_count = current_count - amount
+	if new_count > 0:
+		toolkit_slots[slot_index] = {"texture": texture, "count": new_count, "weight": 0.0}
+	else:
+		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+	
+	sync_toolkit_ui()
+
+
 func get_toolkit_item(slot_index: int) -> Texture:
 	"""Get item texture from toolkit slot"""
 	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
@@ -542,9 +563,13 @@ func _sync_initial_toolkit_from_ui() -> void:
 			if slot_texture:
 				# Check if this is a seed texture - set count to 10 for new games
 				var seed_texture_path = "res://assets/tilesets/full version/tiles/FartSnipSeeds.png"
+				var chest_texture_path = "res://assets/icons/chest_icon.png"
 				var initial_count = 1
 				if slot_texture.resource_path == seed_texture_path:
 					initial_count = 10 # Starting seed count should be 10
+				# Check if this is a chest item (slot 4) - set count to 1
+				elif i == 4 and slot_texture.resource_path == chest_texture_path:
+					initial_count = 1 # Starting chest count should be 1
 				toolkit_slots[i] = {"texture": slot_texture, "count": initial_count, "weight": 0.0}
 				
 				# Update UI to show correct count (especially for seeds with count 10)
@@ -597,7 +622,18 @@ func _sync_toolkit_from_ui() -> void:
 						slot_count = 1 # TextureRect doesn't have count, default to 1
 
 			# Update toolkit_slots dictionary with current UI state
-			toolkit_slots[i] = {"texture": slot_texture, "count": slot_count, "weight": 0.0}
+			# Handle special cases for initial counts
+			var final_count = slot_count
+			if slot_texture:
+				var seed_texture_path = "res://assets/tilesets/full version/tiles/FartSnipSeeds.png"
+				var chest_texture_path = "res://assets/icons/chest_icon.png"
+				# If this is a seed and count is 0 or 1, set to 10 for new games
+				if slot_texture.resource_path == seed_texture_path and (slot_count == 0 or slot_count == 1):
+					final_count = 10
+				# If this is a chest (slot 4) and count is 0, set to 1 for new games
+				elif i == 4 and slot_texture.resource_path == chest_texture_path and slot_count == 0:
+					final_count = 1
+			toolkit_slots[i] = {"texture": slot_texture, "count": final_count, "weight": 0.0}
 
 ##Debug functions
 ## Populate the inventory with only a single test item for drag-and-drop testing

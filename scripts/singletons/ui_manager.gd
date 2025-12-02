@@ -14,6 +14,9 @@ var pause_menu: Control
 var paused = false
 signal scene_changed(new_scene_name: String)
 
+# Chest Inventory Panel
+var chest_inventory_panel: Control = null
+
 @onready var inventory_scene = preload("res://scenes/ui/inventory_scene.tscn") # Path to the inventory scene
 var inventory_instance: Control = null # Reference to the inventory instance
 
@@ -33,6 +36,7 @@ func _ready() -> void:
 
 	instantiate_inventory() # Call inventory instantiation
 	pause_menu_setup()
+	chest_panel_setup() # Setup chest inventory panel
 	set_process_input(true) # Ensure UiManager can process global inputs
 	process_mode = Node.PROCESS_MODE_ALWAYS # Process input even when tree is paused
 
@@ -125,6 +129,38 @@ func pause_menu_setup() -> void:
 		print("Error: Loaded resource is not a PackedScene.")
 
 
+func chest_panel_setup() -> void:
+	"""Setup chest inventory panel."""
+	var chest_panel_scene = load("res://scenes/ui/chest_inventory_panel.tscn")
+	if not chest_panel_scene:
+		return
+	
+	if chest_panel_scene is PackedScene:
+		var chest_panel_layer = chest_panel_scene.instantiate()
+		add_child(chest_panel_layer)
+		# Get the Control child from the CanvasLayer
+		chest_inventory_panel = chest_panel_layer.get_node("Control")
+		chest_inventory_panel.visible = false
+		
+		# Connect to chest signals globally
+		_connect_to_chest_signals()
+	else:
+		print("Error: Loaded chest panel resource is not a PackedScene.")
+
+
+func _connect_to_chest_signals() -> void:
+	"""Connect to all chest signals in the scene."""
+	# This will be called when chests are created
+	# For now, we'll connect dynamically when chests are registered
+	pass
+
+
+func open_chest_ui(chest: Node) -> void:
+	"""Open the chest UI for the specified chest."""
+	if chest_inventory_panel and chest_inventory_panel.has_method("open_chest_ui"):
+		chest_inventory_panel.open_chest_ui(chest)
+
+
 func _input(event: InputEvent) -> void:
 	# Don't process ESC or inventory on main menu - only during gameplay
 	var current_scene = get_tree().current_scene
@@ -164,6 +200,13 @@ func _input(event: InputEvent) -> void:
 		# First, check if there are any interactable objects nearby
 		# If there are, let them handle the interaction instead of opening inventory
 		if _has_nearby_interactables():
+			# Check if it's a chest interaction
+			var player = _get_player()
+			if player and player.get("current_interaction") == "chest":
+				# Find the chest and open its UI
+				var chest = _find_nearby_chest(player)
+				if chest:
+					open_chest_ui(chest)
 			# There are interactables nearby - don't open inventory, let them handle it
 			return
 
@@ -221,14 +264,51 @@ func _has_nearby_interactables() -> bool:
 	# 		if valid_pickables.size() > 0:
 	# 			return true  # Has nearby pickable items
 
-	# Check if player has an active interaction (e.g., house door)
+	# Check if player has an active interaction (e.g., house door, chest)
 	# CRITICAL: Check if player is null before accessing properties to prevent null reference error
 	if player and "current_interaction" in player:
 		var current_interaction = player.get("current_interaction")
 		if current_interaction != null and current_interaction != "":
-			return true # Has an active interaction
+			return true # Has an active interaction (including chest)
 
 	return false # No interactables nearby
+
+
+func _get_player() -> Node:
+	"""Get the player node."""
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		var current_scene = get_tree().current_scene
+		if current_scene:
+			for child in current_scene.get_children():
+				if child is Node2D and child.name == "Player":
+					var player_body = child.get_node_or_null("Player")
+					if player_body and player_body is CharacterBody2D and player_body.has_method("start_interaction"):
+						player = player_body
+						break
+				elif child is CharacterBody2D and child.has_method("start_interaction"):
+					player = child
+					break
+	return player
+
+
+func _find_nearby_chest(player: Node) -> Node:
+	"""Find a chest near the player."""
+	if not player or not player is Node2D:
+		return null
+	
+	var player_pos = (player as Node2D).global_position
+	var chests = get_tree().get_nodes_in_group("chest")
+	
+	for chest in chests:
+		if not is_instance_valid(chest):
+			continue
+		if chest is Node2D:
+			var distance = player_pos.distance_to(chest.global_position)
+			if distance < 64.0: # Within interaction range
+				return chest
+	
+	return null
 
 
 # Function to toggle pause menu visibility

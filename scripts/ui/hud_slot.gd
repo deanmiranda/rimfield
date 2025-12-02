@@ -92,7 +92,18 @@ func set_item(new_texture: Texture, count: int = 1) -> void:
 	# Only update child TextureRect (Hud_slot_X) with the item texture
 	var hud_slot_rect = get_node_or_null("Hud_slot_" + str(slot_index))
 	if hud_slot_rect and hud_slot_rect is TextureRect:
-		hud_slot_rect.texture = item_texture
+		# CRITICAL: TextureRect doesn't support region_enabled (only Sprite2D does)
+		# Use AtlasTexture for chest texture to show only the chest region
+		if item_texture and item_texture.resource_path == "res://assets/tilesets/full version/tiles/tiles.png" and slot_index == 4:
+			# Create AtlasTexture for chest region (128, 784, 16, 16)
+			var atlas_texture = AtlasTexture.new()
+			atlas_texture.atlas = item_texture
+			atlas_texture.region = Rect2(128, 784, 16, 16)
+			hud_slot_rect.texture = atlas_texture
+		else:
+			# For other textures, use full texture
+			hud_slot_rect.texture = item_texture
+		
 		# Ensure child doesn't block mouse events - CRITICAL for drag and drop
 		hud_slot_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Also ensure it doesn't block input by making it non-interactive
@@ -246,6 +257,13 @@ func _start_drag() -> void:
 	if item_texture == null:
 		return # No item to drag
 	
+	# CRITICAL: Extract base texture from AtlasTexture if needed (for chest icon)
+	# We need to store the base texture, not the AtlasTexture, so set_item() can recreate it correctly
+	var base_texture = item_texture
+	if item_texture is AtlasTexture:
+		base_texture = item_texture.atlas
+		print("[HudSlot] _start_drag: Extracted base texture from AtlasTexture: ", base_texture.resource_path if base_texture else "null")
+	
 	# CRITICAL: If swapped items exist in ghost slot, block transition to left-click drag
 	# This prevents item duplication/destruction
 	if has_swapped_items_in_ghost:
@@ -274,12 +292,12 @@ func _start_drag() -> void:
 		if original_stack_count > 0 and original_stack_count > stack_count:
 			stack_count = original_stack_count
 			if InventoryManager:
-				InventoryManager.add_item_to_toolkit(slot_index, item_texture, original_stack_count)
-			set_item(item_texture, original_stack_count)
+				InventoryManager.add_item_to_toolkit(slot_index, base_texture, original_stack_count)
+			set_item(base_texture, original_stack_count)
 	
 	is_dragging = true
 	_is_right_click_drag = false # This is a left-click drag
-	original_texture = item_texture
+	original_texture = base_texture # Store base texture, not AtlasTexture
 	original_stack_count = stack_count # Store the stack count
 	drag_count = stack_count # Drag entire stack
 	
@@ -634,7 +652,19 @@ func _remove_orphaned_drag_layers(node: Node) -> void:
 func _create_drag_preview(texture: Texture, count: int = 1) -> TextureRect:
 	"""Create ghost icon that follows cursor - 50% smaller than original"""
 	var preview = TextureRect.new()
-	preview.texture = texture
+	
+	# CRITICAL: TextureRect doesn't support region_enabled (only Sprite2D does)
+	# Use AtlasTexture for chest texture to show only the chest region
+	if texture and texture.resource_path == "res://assets/tilesets/full version/tiles/tiles.png":
+		# Create AtlasTexture for chest region (128, 784, 16, 16)
+		var atlas_texture = AtlasTexture.new()
+		atlas_texture.atlas = texture
+		atlas_texture.region = Rect2(128, 784, 16, 16)
+		preview.texture = atlas_texture
+	else:
+		# For other textures, use full texture
+		preview.texture = texture
+	
 	preview.custom_minimum_size = Vector2(32, 32) # 50% smaller (was 64x64)
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview.modulate = Color(1, 1, 1, 0.7) # Semi-transparent ghost

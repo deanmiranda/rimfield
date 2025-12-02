@@ -11,6 +11,7 @@ extends TextureButton
 signal slot_clicked(slot_index: int)
 signal slot_drag_started(slot_index: int, item_texture: Texture)
 signal slot_drop_received(slot_index: int, data: Dictionary)
+signal shift_clicked(slot_index: int, item_texture: Texture, stack_count: int, source_type: String)
 
 var item_texture: Texture = null
 var stack_count: int = 0 # Stack count (0 = empty, max 99 for inventory)
@@ -238,7 +239,11 @@ func _gui_input(event: InputEvent) -> void:
 				else:
 					_start_drag()
 			else:
-				emit_signal("slot_clicked", slot_index)
+				# Check for shift-click
+				if Input.is_key_pressed(KEY_SHIFT) and item_texture:
+					emit_signal("shift_clicked", slot_index, item_texture, stack_count, "player")
+				else:
+					emit_signal("slot_clicked", slot_index)
 	elif event is InputEventMouseMotion and is_dragging:
 		# Update drag preview position
 		_update_drag_preview_position()
@@ -1106,6 +1111,11 @@ func _handle_drop(drop_position: Vector2) -> bool:
 						# Create drag data in the format expected by inventory slots
 						var drag_data = _get_drag_data_for_drop()
 						
+						# If dropping from chest, mark source as "chest" for player inventory
+						if has_meta("is_chest_slot") and get_meta("is_chest_slot"):
+							drag_data["source"] = "chest"
+							drag_data["source_type"] = "chest"
+						
 						# Check if inventory slot can accept this drop
 						if inventory_slot.has_method("can_drop_data"):
 							var can_drop = inventory_slot.can_drop_data(mouse_pos, drag_data)
@@ -1115,7 +1125,43 @@ func _handle_drop(drop_position: Vector2) -> bool:
 
 						return false
 
+	# PRIORITY 3: Check chest inventory slots
+	var chest_panel = _find_chest_panel()
+	if chest_panel:
+		var chest_grid = chest_panel.get_node_or_null("CenterContainer/PanelContainer/VBoxContainer/HBoxContainer/ChestContainer/ChestInventoryGrid")
+		if chest_grid:
+			for i in range(chest_grid.get_child_count()):
+				var chest_slot = chest_grid.get_child(i)
+				if chest_slot and chest_slot is TextureButton:
+					var slot_rect = chest_slot.get_global_rect()
+					if slot_rect.has_point(mouse_pos):
+						# Create drag data for chest slot
+						var drag_data = _get_drag_data_for_drop()
+						if not drag_data.has("source"):
+							drag_data["source"] = "player"
+						
+						# Mark that this is from player inventory
+						drag_data["source_type"] = "player"
+						
+						# Check if chest slot can accept this drop
+						if chest_slot.has_method("can_drop_data"):
+							var can_drop = chest_slot.can_drop_data(mouse_pos, drag_data)
+							if can_drop and chest_slot.has_method("drop_data"):
+								chest_slot.drop_data(mouse_pos, drag_data)
+								return true
+						return false
+
 	return false
+
+
+func _find_chest_panel() -> Node:
+	"""Find the chest inventory panel."""
+	var chest_panel = get_tree().get_first_node_in_group("chest_panel")
+	if not chest_panel:
+		# Try to find it via UiManager
+		if UiManager and UiManager.has("chest_inventory_panel"):
+			chest_panel = UiManager.chest_inventory_panel
+	return chest_panel
 
 
 func _is_mouse_over_ui(mouse_pos: Vector2) -> bool:
@@ -1381,11 +1427,16 @@ func _get_drag_data_for_drop() -> Dictionary:
 	# For right-click drags, use drag_count instead of original_stack_count
 	var stack_count_to_send = drag_count if _is_right_click_drag else original_stack_count
 	
+	# Determine source type - check if this is a chest slot
+	var source_type = "inventory"
+	if has_meta("is_chest_slot") and get_meta("is_chest_slot"):
+		source_type = "chest"
+	
 	return {
 		"slot_index": slot_index,
 		"item_texture": original_texture,
 		"stack_count": stack_count_to_send,
-		"source": "inventory",
+		"source": source_type,
 		"source_node": self,
 		"is_right_click_drag": _is_right_click_drag, # CRITICAL: Include right-click drag flag
 		"original_stack_count": original_stack_count # CRITICAL: Include original stack count for right-click drags
@@ -1483,10 +1534,10 @@ func can_drop_data(_position: Vector2, data: Variant) -> bool:
 		_reset_highlight()
 		return false
 	
-	# Accept drops from toolkit (Phase 1) or inventory (Phase 3)
+	# Accept drops from toolkit (Phase 1), inventory (Phase 3), or chest
 	if data.has("source"):
 		var source: String = data["source"]
-		if source == "toolkit" or source == "inventory":
+		if source == "toolkit" or source == "inventory" or source == "chest":
 			can_drop = true
 	
 	# Visual feedback: highlight valid drop targets
@@ -1524,6 +1575,13 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 	var from_stack_count: int = data.get("stack_count", 1)
 	var source_node = data.get("source_node", null)
 	var source: String = data.get("source", "unknown")
+	
+	# Check if source is from chest (check source_node meta or source_type)
+	if source == "unknown" or source == "inventory":
+		if source_node and source_node.has_meta("is_chest_slot") and source_node.get_meta("is_chest_slot"):
+			source = "chest"
+		elif data.has("source_type"):
+			source = data["source_type"]
 	
 	# CRITICAL GUARD: Prevent duplicate drops - if source is not dragging, drop already happened
 	if source_node and "is_dragging" in source_node and not source_node.is_dragging:
@@ -1589,7 +1647,7 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 
 			var remaining = from_stack_count - amount_to_add
 
-			if source == "inventory" and source_slot_index >= 0:
+			if (source == "inventory" or source == "chest") and source_slot_index >= 0:
 				# CRITICAL: For right-click drags, if there are remaining items, keep them on the cursor
 				# instead of putting them back in the source slot
 				if is_right_click_drag and source_original_stack_count > 0 and remaining > 0:
@@ -1695,6 +1753,13 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 					)
 				else:
 					InventoryManager.remove_item_from_toolkit(toolkit_slot_index)
+		# If source is chest, notify chest panel to update chest inventory
+		elif source == "chest" and source_slot_index >= 0:
+			# Chest inventory is managed by ChestInventoryPanel, not InventoryManager
+			# Notify chest panel to update chest slot
+			var chest_panel = _find_chest_panel()
+			if chest_panel and chest_panel.has_method("_handle_chest_slot_dropped_to_player"):
+				chest_panel._handle_chest_slot_dropped_to_player(source_slot_index, slot_index, temp_texture, temp_stack_count)
 		# If source is inventory, update inventory slot with swapped item
 		# CRITICAL: For right-click drags, preserve the remaining stack instead of swapping
 		elif source == "inventory" and source_slot_index >= 0:
@@ -1748,8 +1813,8 @@ func drop_data(_position: Vector2, data: Variant) -> void:
 			if "drag_preview" in source_node and source_node.drag_preview:
 				if source_node.has_method("_cleanup_drag_preview"):
 					source_node._cleanup_drag_preview()
-	# For left-click drags from inventory, handle swap
-	if not is_right_click_drag and source == "inventory" and source_slot_index >= 0 and source_node and source_node.has_method("set_item"):
+	# For left-click drags from inventory or chest, handle swap
+	if not is_right_click_drag and (source == "inventory" or source == "chest") and source_slot_index >= 0 and source_node and source_node.has_method("set_item"):
 		# Left-click drag from inventory - swap if target has items
 		if temp_texture and temp_stack_count > 0:
 			# Target slot has items - perform swap

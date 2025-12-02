@@ -42,48 +42,66 @@ func _on_tool_selected(slot_index: int) -> void:
 
 
 func set_hud_by_slot(slot_index: int) -> void:
+	print("[ToolSwitcher] set_hud_by_slot called with slot_index: ", slot_index)
 	# Use cached HUD reference instead of repeated get_node() call
 	if not hud:
-		print("Error: HUD not found.")
+		print("[ToolSwitcher] ERROR: HUD not found.")
 		return
 	# Access the TextureButton and list its children
 	var button_path = "MarginContainer/HBoxContainer/TextureButton_" + str(slot_index)
 	var texture_button = hud.get_node_or_null(button_path)
+	print("[ToolSwitcher] TextureButton found: ", texture_button != null)
 	
 	if texture_button:
 		# Access the Hud_slot_X child
 		var slot_path = button_path + "/Hud_slot_" + str(slot_index)
 		var hud_slot = hud.get_node_or_null(slot_path)
+		print("[ToolSwitcher] Hud_slot found: ", hud_slot != null)
 
 		if hud_slot:
 			# Use explicit if/else instead of ternary operator (follows .cursor/rules/godot.md)
 			var item_texture: Texture = null
 			if hud_slot.has_method("get_texture"):
 				item_texture = hud_slot.get_texture()
+			else:
+				# Try getting texture directly
+				if hud_slot is TextureRect:
+					item_texture = hud_slot.texture
+					# If it's an AtlasTexture, get the atlas
+					if item_texture is AtlasTexture:
+						item_texture = item_texture.atlas
+						print("[ToolSwitcher] Found AtlasTexture, using atlas: ", item_texture.resource_path if item_texture else "null")
+			
+			print("[ToolSwitcher] Item texture: ", item_texture, " path: ", item_texture.resource_path if item_texture else "null")
 			
 			if item_texture:
 				current_hud_slot = slot_index
 				current_tool_texture = item_texture
 				# Map texture to tool name using shared ToolConfig
+				print("[ToolSwitcher] tool_config exists: ", tool_config != null)
 				if tool_config and tool_config.has_method("get_tool_name"):
 					current_tool = tool_config.get_tool_name(item_texture)
+					print("[ToolSwitcher] Tool name from config: ", current_tool)
 				else:
 					current_tool = "unknown"
+					print("[ToolSwitcher] tool_config missing or no get_tool_name method")
 				
 				# Update tool slot mapping
 				tool_slot_map[item_texture] = slot_index
 				
+				print("[ToolSwitcher] Emitting tool_changed signal - slot: ", slot_index, " tool: ", current_tool)
 				emit_signal("tool_changed", slot_index, item_texture)
 			else:
 				# Slot is empty - ALWAYS clear the active tool when selecting an empty slot
+				print("[ToolSwitcher] Slot is empty, clearing tool")
 				current_tool_texture = null
 				current_tool = "unknown"
 				current_hud_slot = slot_index # Track which slot is selected, but it's empty
 				emit_signal("tool_changed", slot_index, null)
 		else:
-			print("Tool slot not found at path:", slot_path)
+			print("[ToolSwitcher] ERROR: Tool slot not found at path:", slot_path)
 	else:
-		print("TextureButton not found at path:", button_path)
+		print("[ToolSwitcher] ERROR: TextureButton not found at path:", button_path)
 		
 		
 func update_toolkit_slot(slot_index: int, texture: Texture) -> void:

@@ -1,0 +1,36 @@
+[gd_scene load_steps=6 format=3 uid="uid://lttkqh2ugsrl"]
+
+[ext_resource type="Script" uid="uid://cxrrwtegibgin" path="res://scripts/world/chest.gd" id="1_chest"]
+[ext_resource type="Texture2D" uid="uid://dfp03truvrrtn" path="res://assets/icons/chest_icon.png" id="2_cpfxo"]
+[ext_resource type="AudioStream" uid="uid://1sojena35eld" path="res://assets/audio/creak.wav" id="3_qsqgn"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_collision"]
+size = Vector2(16, 16)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_interaction"]
+radius = 32.0
+
+[node name="Chest" type="Node2D"]
+script = ExtResource("1_chest")
+open_sound = ExtResource("3_qsqgn")
+close_sound = ExtResource("3_qsqgn")
+
+[node name="ChestSprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_cpfxo")
+region_enabled = true
+region_rect = Rect2(128, 784, 16, 16)
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+shape = SubResource("RectangleShape2D_collision")
+
+[node name="InteractionArea" type="Area2D" parent="."]
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractionArea"]
+shape = SubResource("CircleShape2D_interaction")
+
+[node name="AudioPlayer" type="AudioStreamPlayer2D" parent="."]

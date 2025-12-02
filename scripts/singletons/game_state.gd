@@ -212,12 +212,18 @@ func save_game(file: String = "") -> void:
 			if player_body:
 				player_position = player_body.global_position
 	
+	# Get chest data from ChestManager
+	var chest_data = []
+	if ChestManager:
+		chest_data = ChestManager.serialize_all_chests()
+	
 	var save_data = {
 		"farm_state": serialized_farm_state,
 		"current_scene": current_scene,
 		"player_position": {"x": player_position.x, "y": player_position.y},
 		"toolkit_items": toolkit_items,
 		"inventory_items": inventory_items,
+		"chest_data": chest_data,
 		"game_time": {
 			"day": GameTimeManager.day if GameTimeManager else 1,
 			"season": GameTimeManager.season if GameTimeManager else 0,
@@ -344,6 +350,10 @@ func load_game(file: String = "") -> bool:
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
 			InventoryManager.sync_toolkit_ui()
+		
+		# Restore chest data
+		if save_data.has("chest_data") and ChestManager:
+			ChestManager.restore_chests_from_save(save_data["chest_data"])
 
 		emit_signal("game_loaded")
 
