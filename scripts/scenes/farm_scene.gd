@@ -112,7 +112,6 @@ func spawn_random_droppables_async(count: int) -> void:
 func spawn_random_droppables(count: int) -> void:
 	"""Legacy synchronous spawn - kept for compatibility"""
 	if not hud_instance:
-		print("Error: HUD instance is null! Droppables cannot be spawned.")
 		return
 
 	for i in range(count):

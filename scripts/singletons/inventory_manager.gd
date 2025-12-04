@@ -283,7 +283,6 @@ func remove_item_from_toolkit(slot_index: int) -> void:
 func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
 	"""Decrement item count in toolkit slot. Removes item if count reaches 0."""
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
-		print("[CHEST INV] decrement_toolkit_item_count: EARLY RETURN - Invalid slot index: %d" % slot_index)
 		return
 	
 	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
@@ -291,15 +290,12 @@ func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
 	var texture = slot_data["texture"]
 	
 	if current_count <= 0 or texture == null:
-		print("[CHEST INV] decrement_toolkit_item_count: EARLY RETURN - Slot %d already empty (count=%d, texture=%s)" % [slot_index, current_count, str(texture)])
 		return
 	
 	var new_count = current_count - amount
 	if new_count > 0:
-		print("[CHEST INV] decrement_toolkit_item_count: Slot %d count decremented: %d -> %d" % [slot_index, current_count, new_count])
 		toolkit_slots[slot_index] = {"texture": texture, "count": new_count, "weight": 0.0}
 	else:
-		print("[CHEST INV] decrement_toolkit_item_count: Slot %d cleared (was count=%d)" % [slot_index, current_count])
 		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 	
 	sync_toolkit_ui()

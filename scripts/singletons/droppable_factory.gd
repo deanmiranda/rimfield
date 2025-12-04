@@ -34,11 +34,6 @@ func get_item_id_from_texture(texture: Texture) -> String:
 	if texture and texture in texture_to_item_id:
 		return texture_to_item_id[texture]
 	
-	# Debug: texture not found
-	print("[DroppableFactory] get_item_id_from_texture: texture not found: ", texture.resource_path if texture else "null")
-	print("[DroppableFactory] Available textures in lookup:")
-	for tex in texture_to_item_id.keys():
-		print("  - ", tex.resource_path, " -> ", texture_to_item_id[tex])
 	return ""
 
 # Spawns a droppable into the world
@@ -84,7 +79,6 @@ func spawn_droppable(item_id: String, spawn_position: Vector2, hud_instance: Nod
 		}
 		# Connect to tree_exiting to remove from tracking when picked up
 		droppable_instance.tree_exiting.connect(_on_droppable_removed.bind(droppable_instance))
-		print("[DroppableFactory] Tracking droppable for persistence: ", item_id, " (ID: ", droppable_id, ") at ", spawn_position, " in ", scene_name)
 
 	return droppable_instance
 
@@ -112,7 +106,6 @@ func spawn_droppable_from_texture(texture: Texture, spawn_position: Vector2, hud
 func _on_droppable_removed(droppable: Node2D) -> void:
 	"""Called when a droppable is removed from the scene (picked up or destroyed)."""
 	if droppable in active_droppables:
-		print("[DroppableFactory] Droppable removed from tracking (tree_exiting): ", active_droppables[droppable].get("item_id"))
 		active_droppables.erase(droppable)
 
 
@@ -121,7 +114,6 @@ func unregister_droppable(droppable_id: String) -> void:
 	for droppable in active_droppables.keys():
 		if is_instance_valid(droppable) and droppable.has_meta("droppable_id"):
 			if droppable.get_meta("droppable_id") == droppable_id:
-				print("[DroppableFactory] Droppable manually unregistered: ", active_droppables[droppable].get("item_id"))
 				active_droppables.erase(droppable)
 				return
 
@@ -137,14 +129,12 @@ func serialize_droppables() -> Array:
 				"position": {"x": data.get("position").x, "y": data.get("position").y},
 				"scene_name": data.get("scene_name")
 			})
-	print("[DroppableFactory] Serialized ", droppable_data.size(), " droppables")
 	return droppable_data
 
 
 func restore_droppables_from_save(droppable_data: Array) -> void:
 	"""Restore droppables from save data."""
 	pending_restore_droppables = droppable_data
-	print("[DroppableFactory] Loaded ", droppable_data.size(), " droppables to restore")
 
 
 func restore_droppables_for_scene(scene_name: String) -> void:
@@ -164,9 +154,7 @@ func restore_droppables_for_scene(scene_name: String) -> void:
 			# Spawn the droppable
 			spawn_droppable(item_id, position, hud)
 			restored_count += 1
-			print("[DroppableFactory] Restored droppable: ", item_id, " at ", position)
 	
-	print("[DroppableFactory] Restored ", restored_count, " droppables for scene: ", scene_name)
 
 
 func reset_all_droppables() -> void:
@@ -178,4 +166,3 @@ func reset_all_droppables() -> void:
 	
 	active_droppables.clear()
 	pending_restore_droppables.clear()
-	print("[DroppableFactory] Reset complete - all droppables cleared")

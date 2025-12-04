@@ -69,7 +69,6 @@ func reset_all() -> void:
 	chest_registry = {}
 	pending_restore_data = []
 	chest_id_counter = 0
-	print("[ChestManager] Reset complete - all chests cleared")
 
 
 func register_chest(chest: Node) -> String:
@@ -258,38 +257,29 @@ func _restore_chest_if_pending(chest_id: String) -> void:
 
 func create_chest_at_position(pos: Vector2) -> Node:
 	"""Create a new chest at the specified position. Returns the chest node."""
-	print("[ChestManager] create_chest_at_position called with pos: ", pos)
 	
 	var chest_scene = preload("res://scenes/world/chest.tscn")
 	if not chest_scene:
-		print("[ChestManager] ERROR: Could not load chest scene")
 		push_error("ChestManager: Could not load chest scene")
 		return null
 	
 	var chest_instance = chest_scene.instantiate()
 	if not chest_instance:
-		print("[ChestManager] ERROR: Could not instantiate chest scene")
 		push_error("ChestManager: Could not instantiate chest scene")
 		return null
 	
-	print("[ChestManager] Chest instance created: ", chest_instance)
 	
 	# Set position
 	if chest_instance is Node2D:
 		chest_instance.global_position = pos
-		print("[ChestManager] Set chest position to: ", chest_instance.global_position)
-	else:
-		print("[ChestManager] WARNING: Chest instance is not Node2D")
 	
 	# Add to current scene (works for both FarmScene and HouseScene)
 	var current_scene = get_tree().current_scene
 	if current_scene:
 		current_scene.add_child(chest_instance)
 	else:
-		print("[ChestManager] ERROR: No scene to add chest to!")
 		return null
 	
-	print("[ChestManager] Chest added to scene tree, will register in _ready()")
 	# Chest will register itself in _ready()
 	return chest_instance
 
@@ -334,7 +324,6 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 		chest_id = chest_node.get_chest_id()
 	
 	if chest_id.is_empty():
-		print("[CHEST PICKAXE] ERROR: Chest has no ID")
 		return false
 	
 	# Check if chest is empty
@@ -347,7 +336,6 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 			break
 	
 	if not is_empty:
-		print("[CHEST PICKAXE] BLOCKED: Chest is not empty")
 		# Play shake animation if chest has that method
 		if chest_node.has_method("_shake_animation"):
 			chest_node._shake_animation()
@@ -356,7 +344,6 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 	# Get chest position before removing
 	var chest_pos = chest_node.global_position if chest_node is Node2D else Vector2.ZERO
 	
-	print("[CHEST PICKAXE] Removing chest and spawning droppable at pos=%s" % [chest_pos])
 	
 	# Unregister from ChestManager
 	unregister_chest(chest_id)
@@ -369,11 +356,8 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 	# Spawn droppable
 	if DroppableFactory and hud:
 		var chest_texture = load("res://assets/icons/chest_icon.png")
-		print("[CHEST PICKAXE] chest_texture loaded: ", chest_texture.resource_path if chest_texture else "null")
 		var droppable = DroppableFactory.spawn_droppable_from_texture(chest_texture, chest_pos, hud, Vector2.ZERO)
 		if droppable:
-			print("[CHEST PICKAXE] Droppable spawned successfully at: ", droppable.global_position)
-			print("[CHEST PICKAXE] Droppable is in groups: ", droppable.get_groups())
 			print("[CHEST PICKAXE] Droppable has item_data: ", droppable.item_data != null)
 		else:
 			push_error("[CHEST PICKAXE] ERROR: spawn_droppable_from_texture returned null!")

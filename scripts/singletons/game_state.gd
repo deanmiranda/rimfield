@@ -345,11 +345,9 @@ func load_game(file: String = "") -> bool:
 			
 			# Debug: Log what items were loaded
 			if toolkit_count > 0:
-				print("[GameState] Toolkit items loaded:")
 				for item in save_data.get("toolkit_items", []):
 					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
 			if inventory_count > 0:
-				print("[GameState] Inventory items loaded:")
 				for item in save_data.get("inventory_items", []):
 					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
 			
@@ -426,7 +424,6 @@ func manage_save_files() -> void:
 			var delete_result = delete_dir.remove(oldest_file_name)
 			if delete_result == OK:
 				var mod_date = Time.get_datetime_dict_from_unix_time(oldest_save.time)
-				print("[GameState] Deleted old save file (FIFO): %s (modified: %d/%d/%d)" % [oldest_file_name, mod_date.month, mod_date.day, mod_date.year])
 			else:
 				print("[GameState] Error: Failed to delete old save file:", oldest_file_name)
 
@@ -459,7 +456,6 @@ func new_game() -> void:
 	if InventoryManager:
 		for i in range(InventoryManager.max_toolkit_slots):
 			InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
-		print("[GameState] Cleared toolkit_slots for new game")
 	
 	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
 	# The test chest is in the HUD scene file, so it will be loaded automatically

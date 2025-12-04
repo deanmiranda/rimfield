@@ -51,31 +51,24 @@ func _ready() -> void:
 
 	# Locate farming system if in the farm scene
 	var farm_scene = get_tree().current_scene
-	print("[Player] _ready: Current scene: ", farm_scene, " name: ", farm_scene.name if farm_scene else "null")
 
 	if farm_scene and farm_scene.has_node("FarmingManager"):
 		farming_manager = farm_scene.get_node("FarmingManager")
-		print("[Player] _ready: Found FarmingManager via has_node: ", farming_manager)
 	else:
 		# Fallback: try to find FarmingManager via scene tree search
 		var farming_managers = get_tree().get_nodes_in_group("farming_manager")
-		print("[Player] _ready: Found ", farming_managers.size(), " farming managers in group")
 		if farming_managers.size() > 0:
 			farming_manager = farming_managers[0]
-			print("[Player] _ready: Using first farming manager from group: ", farming_manager)
 		else:
 			# Try to find it as a child of current scene
 			if farm_scene:
 				var found_manager = farm_scene.find_child("FarmingManager", true, false)
 				if found_manager:
 					farming_manager = found_manager
-					print("[Player] _ready: Found FarmingManager via find_child: ", farming_manager)
 				else:
 					farming_manager = null
-					print("[Player] _ready: ERROR - FarmingManager not found!")
 			else:
 				farming_manager = null
-				print("[Player] _ready: ERROR - No current scene!")
 
 
 func _physics_process(_delta: float) -> void:
@@ -133,23 +126,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	# This ensures UI elements (toolkit, inventory) get priority over world interactions
 	# Handle left-click for farming interactions (only if not handled by UI)
 	if event.is_action_pressed("ui_mouse_left") and not event.is_echo():
-		print("[Player] _unhandled_input: Left mouse button pressed")
 		
 		# CRITICAL: Detect drag state BEFORE stopping it
 		var was_dragging = _is_any_slot_dragging()
-		print("[Player] _unhandled_input: Was dragging: ", was_dragging)
 		
 		# Extract drag information WITHOUT stopping the drag yet
 		var dragged_slot_tool: String = ""
 		var dragged_slot_index: int = -1
 		var dragged_slot = null
 		if was_dragging:
-			print("[Player] _unhandled_input: Dragging detected - extracting tool info")
 			dragged_slot = _get_dragging_slot()
 			if dragged_slot:
 				if "slot_index" in dragged_slot:
 					dragged_slot_index = dragged_slot.slot_index
-				print("[Player] _unhandled_input: Dragged slot index: ", dragged_slot_index)
 				# Get the tool texture from the slot
 				var tool_texture = dragged_slot.get("item_texture") if "item_texture" in dragged_slot else null
 				if not tool_texture:
@@ -164,15 +153,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					var tool_config = load("res://resources/data/tool_config.tres")
 					if tool_config and tool_config.has_method("get_tool_name"):
 						dragged_slot_tool = tool_config.get_tool_name(tool_texture)
-						print("[Player] _unhandled_input: Tool from dragged slot: ", dragged_slot_tool)
 		
 		# CHEST PLACEMENT HANDLING - special case, must prevent _throw_to_world()
 		if was_dragging and dragged_slot_tool == "chest" and dragged_slot_index >= 0:
-			print("[CHEST] Drag ended: tool=", dragged_slot_tool, " index=", dragged_slot_index)
 			
 			var world_pos = MouseUtil.get_world_mouse_pos_2d(self)
-			print("[CHEST] World position=", world_pos)
-			print("[CHEST] Attempting placement in:", ("farm" if farming_manager else "house"))
 			
 			# Mark input as handled to prevent _stop_drag() from throwing to world
 			get_viewport().set_input_as_handled()
@@ -191,28 +176,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				# House scene - direct placement (async call)
 				placement_success = await _handle_chest_placement_in_house_and_return_success(dragged_slot_index)
 			
-			print("[CHEST] Placement result:", ("SUCCESS" if placement_success else "FAILED"))
 			return
 		
 		# For non-chest drags, stop them normally
 		if was_dragging:
-			print("[Player] Non-chest drag ended, stopping normally")
 			_stop_all_drags()
 		
 		# Only process farming if UI didn't handle the click and we're not dragging
 		if not was_dragging:
-			print("[Player] _unhandled_input: farming_manager exists: ", farming_manager != null)
 			if farming_manager:
 				var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
-				print("[Player] _unhandled_input: Mouse world pos: ", mouse_pos, " Player pos: ", global_position)
-				print("[Player] _unhandled_input: Calling farming_manager.interact_with_tile()")
 				farming_manager.interact_with_tile(mouse_pos, global_position)
 			else:
 				# House scene - handle pickaxe for chest removal
 				var current_tool = _get_current_tool()
-				print("[Player] _unhandled_input[House]: Current tool: ", current_tool)
 				if current_tool == "pickaxe":
-					print("[Player] Pickaxe detected in house, calling handler")
 					_handle_pickaxe_in_house()
 
 		# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
@@ -233,14 +211,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _is_any_slot_dragging() -> bool:
 	"""Check if any toolkit or inventory slot is currently dragging an item"""
-	print("[Player] _is_any_slot_dragging: Checking for dragging slots...")
 	# Check toolkit slots
 	var hud = get_tree().root.get_node_or_null("Hud")
 	if not hud:
 		# Try alternative path
 		hud = get_tree().current_scene.get_node_or_null("Hud")
-	
-	print("[Player] _is_any_slot_dragging: HUD found: ", hud != null)
 	
 	if hud:
 		# CRITICAL: HUD structure is Hud (Node) -> HUD (CanvasLayer) -> MarginContainer -> HBoxContainer
@@ -250,17 +225,12 @@ func _is_any_slot_dragging() -> bool:
 			if margin_container:
 				var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
 				if toolkit_container:
-					print("[Player] _is_any_slot_dragging: Checking ", toolkit_container.get_child_count(), " toolkit slots")
 					for i in range(toolkit_container.get_child_count()):
 						var slot = toolkit_container.get_child(i)
 						if slot and slot is TextureButton:
 							if "is_dragging" in slot:
-								print("[Player] _is_any_slot_dragging: Slot ", i, " is_dragging = ", slot.is_dragging)
 								if slot.is_dragging:
-									print("[Player] _is_any_slot_dragging: FOUND DRAGGING SLOT: ", i)
 									return true
-							else:
-								print("[Player] _is_any_slot_dragging: Slot ", i, " has no is_dragging property")
 	
 	# Check inventory slots (only if pause menu is visible)
 	var pause_menu = null
@@ -278,7 +248,6 @@ func _is_any_slot_dragging() -> bool:
 					if "is_dragging" in slot and slot.is_dragging:
 						return true
 	
-	print("[Player] _is_any_slot_dragging: No dragging slots found, returning false")
 	return false
 
 
@@ -323,7 +292,6 @@ func _get_dragging_slot() -> Node:
 
 func _stop_all_drags() -> void:
 	"""Stop all active drag operations from toolkit and inventory slots"""
-	print("[Player] _stop_all_drags: Stopping all drags...")
 	# Check toolkit slots
 	var hud = get_tree().root.get_node_or_null("Hud")
 	if not hud:
@@ -340,7 +308,6 @@ func _stop_all_drags() -> void:
 						var slot = toolkit_container.get_child(i)
 						if slot and slot is TextureButton:
 							if "is_dragging" in slot and slot.is_dragging:
-								print("[Player] _stop_all_drags: Stopping drag on toolkit slot ", i)
 								if slot.has_method("_stop_drag"):
 									slot._stop_drag()
 								elif slot.has_method("_cancel_drag"):
@@ -360,7 +327,6 @@ func _stop_all_drags() -> void:
 				var slot = inventory_grid.get_child(i)
 				if slot and slot is TextureButton:
 					if "is_dragging" in slot and slot.is_dragging:
-						print("[Player] _stop_all_drags: Stopping drag on inventory slot ", i)
 						if slot.has_method("_stop_drag"):
 							slot._stop_drag()
 						elif slot.has_method("_cancel_drag"):
@@ -379,10 +345,8 @@ func _on_interaction_area_body_exited(body: Node2D) -> void:
 
 func _on_interaction_area_area_entered(area: Area2D) -> void:
 	# Auto-pickup pickable items when player walks near them
-	print("[Player] area_entered detected: ", area.name, " parent: ", area.get_parent().name if area.get_parent() else "null")
 	var parent = area.get_parent()
 	if parent and parent.is_in_group("pickable"):
-		print("[Player] Pickable detected, attempting auto-pickup: ", parent.name)
 		# Auto-pickup immediately
 		if parent.has_method("pickup_item"):
 			# Set HUD reference if needed
@@ -394,7 +358,6 @@ func _on_interaction_area_area_entered(area: Area2D) -> void:
 			
 			# Trigger pickup
 			parent.pickup_item()
-			print("[Player] Auto-pickup successful for: ", parent.name)
 
 
 func _on_interaction_area_area_exited(area: Area2D) -> void:
@@ -404,25 +367,20 @@ func _on_interaction_area_area_exited(area: Area2D) -> void:
 
 func _handle_chest_placement_in_house_and_return_success(slot_index_override: int) -> bool:
 	"""Handle chest placement when farming_manager is not available (e.g., in house scene). Returns true if successful."""
-	print("[Player] _handle_chest_placement_in_house: CALLED with slot_index: ", slot_index_override)
 	
 	# Validate slot index
 	if slot_index_override < 0:
-		print("[Player] _handle_chest_placement_in_house: BLOCKED - Invalid slot index")
 		return false
 	
 	# Read item from toolkit via InventoryManager
 	if not InventoryManager:
-		print("[Player] _handle_chest_placement_in_house: BLOCKED - InventoryManager is null")
 		return false
 	
 	var texture := InventoryManager.get_toolkit_item(slot_index_override)
 	var count := InventoryManager.get_toolkit_item_count(slot_index_override)
 	
-	print("[Player] _handle_chest_placement_in_house: Slot ", slot_index_override, " texture: ", texture, " count: ", count)
 	
 	if texture == null or count <= 0:
-		print("[Player] _handle_chest_placement_in_house: BLOCKED - No item in slot")
 		return false
 	
 	# Identify tool using ToolConfig
@@ -430,26 +388,21 @@ func _handle_chest_placement_in_house_and_return_success(slot_index_override: in
 	var tool_config = load("res://resources/data/tool_config.tres")
 	if tool_config and tool_config.has_method("get_tool_name"):
 		tool_name = tool_config.get_tool_name(texture)
-		print("[Player] _handle_chest_placement_in_house: Tool name: ", tool_name)
 	else:
 		# Fallback: check resource path
 		if texture.resource_path.findn("chest") != -1:
 			tool_name = "chest"
-			print("[Player] _handle_chest_placement_in_house: Tool name (fallback): chest")
 	
 	if tool_name != "chest":
-		print("[Player] _handle_chest_placement_in_house: BLOCKED - Not a chest tool: ", tool_name)
 		return false
 	
 	# Get mouse position in world and snap to grid
 	var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
 	var world_pos = Vector2(floor(mouse_pos.x / 16.0) * 16.0 + 8, floor(mouse_pos.y / 16.0) * 16.0 + 8)
-	print("[Player] _handle_chest_placement_in_house: World pos: ", world_pos)
 	
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		print("[Player] _handle_chest_placement_in_house: BLOCKED - ChestManager is null")
 		return false
 	
 	# Check if there's already a chest at this position
@@ -460,20 +413,15 @@ func _handle_chest_placement_in_house_and_return_success(slot_index_override: in
 		if chest_node and is_instance_valid(chest_node):
 			var distance = chest_node.global_position.distance_to(world_pos)
 			if distance < 16.0:
-				print("[Player] _handle_chest_placement_in_house: BLOCKED - Chest already exists at position")
 				return false
 	
 	# Create chest at position
-	print("[Player] _handle_chest_placement_in_house: Creating chest...")
 	var chest = chest_manager.create_chest_at_position(world_pos)
 	if chest == null:
-		print("[Player] _handle_chest_placement_in_house: FAILED - ChestManager.create_chest_at_position returned null")
 		return false
 	
-	print("[Player] _handle_chest_placement_in_house: SUCCESS - Chest created, consuming item...")
 	
 	# Log BEFORE decrement
-	print("[CHEST INV][House] BEFORE decrement: slot=%d texture=%s count=%d" % [slot_index_override, str(InventoryManager.get_toolkit_item(slot_index_override)), InventoryManager.get_toolkit_item_count(slot_index_override)])
 	
 	# Consume one chest item from the toolkit slot
 	InventoryManager.decrement_toolkit_item_count(slot_index_override, 1)
@@ -483,9 +431,6 @@ func _handle_chest_placement_in_house_and_return_success(slot_index_override: in
 	InventoryManager.sync_toolkit_ui()
 	
 	# Log AFTER sync
-	print("[CHEST INV][House] AFTER decrement: slot=%d texture=%s count=%d" % [slot_index_override, str(InventoryManager.get_toolkit_item(slot_index_override)), InventoryManager.get_toolkit_item_count(slot_index_override)])
-	
-	print("[Player] _handle_chest_placement_in_house: COMPLETE")
 	return true
 
 
@@ -506,60 +451,46 @@ func _get_current_tool() -> String:
 		tool_switcher = hud.get_node_or_null("ToolSwitcher")
 	
 	if not tool_switcher:
-		print("[Player] _get_current_tool: ToolSwitcher not found in HUD")
 		return ""
 	
 	# ToolSwitcher uses "current_hud_slot", not "selected_slot"
 	var selected_slot = -1
 	if "current_hud_slot" in tool_switcher:
 		selected_slot = tool_switcher.current_hud_slot
-		print("[Player] _get_current_tool: ToolSwitcher current_hud_slot = ", selected_slot)
 	else:
-		print("[Player] _get_current_tool: current_hud_slot property not found in ToolSwitcher")
 		return ""
 	
 	if selected_slot < 0:
-		print("[Player] _get_current_tool: No slot selected (slot = ", selected_slot, ")")
 		return ""
 	
 	var tool_texture = InventoryManager.get_toolkit_item(selected_slot)
 	if not tool_texture:
-		print("[Player] _get_current_tool: No texture in slot ", selected_slot)
 		return ""
 	
-	print("[Player] _get_current_tool: Tool texture path = ", tool_texture.resource_path)
 	
 	var tool_config = load("res://resources/data/tool_config.tres")
 	if tool_config and tool_config.has_method("get_tool_name"):
 		var tool_name = tool_config.get_tool_name(tool_texture)
-		print("[Player] _get_current_tool: Tool name = ", tool_name)
 		return tool_name
 	
-	print("[Player] _get_current_tool: ToolConfig not found or no get_tool_name method")
 	return ""
 
 
 func _handle_pickaxe_in_house() -> void:
 	"""Handle pickaxe usage in house scene (for chest removal)."""
-	print("[CHEST PICKAXE][House] Pickaxe clicked in house")
-	
 	# Get mouse position
 	var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
-	print("[CHEST PICKAXE][House] Mouse world pos: ", mouse_pos)
 	
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		print("[CHEST PICKAXE][House] ERROR: ChestManager not found")
 		return
 	
 	# Find chest at mouse position
 	var chest_at_pos = chest_manager.find_chest_at_position(mouse_pos, 16.0)
 	if not chest_at_pos:
-		print("[CHEST PICKAXE][House] No chest found at position")
 		return
 	
-	print("[CHEST PICKAXE][House] Chest found at pos: ", chest_at_pos.global_position)
 	
 	# Get HUD for droppable spawning
 	var hud = get_tree().root.get_node_or_null("Hud")
@@ -569,15 +500,8 @@ func _handle_pickaxe_in_house() -> void:
 	# Attempt to remove chest and spawn drop
 	var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
 	
-	if removal_success:
-		print("[CHEST PICKAXE][House] Chest removed successfully")
-	else:
-		print("[CHEST PICKAXE][House] Chest removal blocked (not empty)")
-
-
 func start_interaction(interaction_type: String):
 	current_interaction = interaction_type
-	# print("Player can interact with:", interaction_type)
 
 
 func stop_interaction():

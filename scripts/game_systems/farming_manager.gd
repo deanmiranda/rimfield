@@ -66,39 +66,23 @@ func connect_signals() -> void:
 			GameTimeManager.day_changed.connect(_on_day_changed)
 
 func set_hud(hud_scene_instance: Node) -> void:
-	print("[FarmingManager] set_hud called with: ", hud_scene_instance)
 	tool_switcher = hud_scene_instance.get_node("ToolSwitcher")
-	print("[FarmingManager] set_hud: tool_switcher: ", tool_switcher)
 	if tool_switcher:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-			print("[FarmingManager] set_hud: Connected tool_changed signal")
-		else:
-			print("[FarmingManager] set_hud: tool_changed signal already connected")
-	else:
-		print("[FarmingManager] set_hud: ERROR - ToolSwitcher not found!")
 
 func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
-	print("[FarmingManager] _on_tool_changed called - slot_index: ", slot_index, " texture: ", item_texture)
 	if item_texture:
-		print("[FarmingManager] _on_tool_changed: Texture path: ", item_texture.resource_path if item_texture else "null")
 		if tool_config:
-			print("[FarmingManager] _on_tool_changed: tool_config exists: ", tool_config)
 			if tool_config.has_method("get_tool_name"):
 				current_tool = tool_config.get_tool_name(item_texture)
-				print("[FarmingManager] _on_tool_changed: Tool name from config: ", current_tool)
 			else:
 				current_tool = "unknown"
-				print("[FarmingManager] _on_tool_changed: tool_config has no get_tool_name method")
 		else:
 			current_tool = "unknown"
-			print("[FarmingManager] _on_tool_changed: tool_config is null")
 	else:
 		current_tool = "unknown"
-		print("[FarmingManager] _on_tool_changed: No texture, setting tool to 'unknown'")
 	
-	print("[FarmingManager] _on_tool_changed: Final current_tool: ", current_tool)
-
 # ============================================================================
 # FARMABLE AREA CHECKING
 # ============================================================================
@@ -132,14 +116,11 @@ func _is_soil(cell: Vector2i) -> bool:
 func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool: String = "", override_slot_index: int = -1) -> void:
 	# Use override tool if provided, otherwise use current_tool
 	var tool_to_use = override_tool if override_tool != "" else current_tool
-	print("[FarmingManager] interact_with_tile called - current_tool: ", current_tool, " tool_to_use: ", tool_to_use, " override_tool: ", override_tool)
 	
 	if not farmable_layer:
-		print("[FarmingManager] ERROR: farmable_layer is null")
 		return
 	
 	if farmable_layer.tile_set == null:
-		print("[FarmingManager] ERROR: farmable_layer.tile_set is null")
 		return
 	
 	var target_local_pos = farmable_layer.to_local(target_pos)
@@ -151,16 +132,13 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool:
 	var cell_distance_x = abs(target_cell.x - player_cell.x)
 	var cell_distance_y = abs(target_cell.y - player_cell.y)
 	
-	print("[FarmingManager] Target cell: ", target_cell, " Player cell: ", player_cell, " Distance: (", cell_distance_x, ", ", cell_distance_y, ")")
 	
 	if cell_distance_x == 0 and cell_distance_y == 0:
-		print("[FarmingManager] Blocked: Clicked on same tile as player")
 		return
 	
 	# Allow chest placement at slightly greater distance (2 cells) for better UX
 	var max_distance = 2 if tool_to_use == "chest" else 1
 	if cell_distance_x > max_distance or cell_distance_y > max_distance:
-		print("[FarmingManager] Blocked: Tile too far away (max distance: ", max_distance, ")")
 		return
 	
 	# Get energy cost
@@ -177,15 +155,12 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool:
 		"chest":
 			energy_cost = ENERGY_COST_CHEST
 	
-	print("[FarmingManager] Energy cost for ", tool_to_use, ": ", energy_cost)
 	
 	if PlayerStatsManager and energy_cost > 0:
 		if not PlayerStatsManager.consume_energy(energy_cost):
-			print("[FarmingManager] Blocked: Not enough energy")
 			return
 	
 	# Execute tool action
-	print("[FarmingManager] Executing tool action: ", tool_to_use)
 	match tool_to_use:
 		"hoe":
 			_use_hoe(target_cell)
@@ -197,8 +172,6 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool:
 			_use_seed(target_cell)
 		"chest":
 			_use_chest(target_cell, target_pos, override_slot_index)
-		_:
-			print("[FarmingManager] WARNING: Unknown tool type: ", current_tool)
 
 func _use_hoe(cell: Vector2i) -> void:
 	"""
@@ -286,7 +259,6 @@ func _use_pickaxe(cell: Vector2i) -> void:
 		# Check if there's a chest at this position
 		var chest_at_pos = chest_manager.find_chest_at_position(tile_center_pos, 12.0)
 		if chest_at_pos:
-			print("[CHEST PICKAXE] Chest hit at cell=%s world_pos=%s" % [cell, tile_center_pos])
 			
 			# Get HUD for droppable spawning
 			var hud = get_tree().root.get_node_or_null("Hud")
@@ -295,11 +267,6 @@ func _use_pickaxe(cell: Vector2i) -> void:
 			
 			# Attempt to remove chest and spawn drop
 			var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
-			
-			if removal_success:
-				print("[CHEST PICKAXE] Chest removed successfully")
-			else:
-				print("[CHEST PICKAXE] Chest removal blocked (not empty)")
 			
 			return # Chest handling done, don't process soil/crops
 	
@@ -419,23 +386,18 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 	Allowed if: tile is farmable/soil, no existing chest at position, player has chest in toolkit.
 	Action: Instantiate chest scene, consume chest from toolkit.
 	"""
-	print("[CHEST FARM] _use_chest called - slot:", override_slot_index, " cell:", cell, " world_pos:", world_pos)
 	
 	if override_slot_index < 0:
-		print("[CHEST FARM] BLOCKED - Invalid slot index")
 		return
 	
 	if not InventoryManager:
-		print("[CHEST FARM] BLOCKED - InventoryManager is null")
 		return
 	
 	var texture := InventoryManager.get_toolkit_item(override_slot_index)
 	var count := InventoryManager.get_toolkit_item_count(override_slot_index)
 	
-	print("[CHEST FARM] Slot data - texture:", texture, " count:", count)
 	
 	if texture == null or count <= 0:
-		print("[CHEST FARM] BLOCKED - No item in slot")
 		return
 	
 	# Identify tool using ToolConfig
@@ -443,20 +405,16 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 	var tool_config_resource = load("res://resources/data/tool_config.tres")
 	if tool_config_resource and tool_config_resource.has_method("get_tool_name"):
 		tool_name = tool_config_resource.get_tool_name(texture)
-		print("[CHEST FARM] Tool name:", tool_name)
 	
 	if tool_name != "chest":
-		print("[CHEST FARM] BLOCKED - Not a chest tool:", tool_name)
 		return
 	
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		print("[CHEST FARM] BLOCKED - ChestManager is null")
 		return
 	
 	if not farm_scene:
-		print("[CHEST FARM] BLOCKED - farm_scene is null")
 		return
 	
 	# Calculate tile center position
@@ -466,7 +424,6 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 	else:
 		tile_center_pos = world_pos
 	
-	print("[CHEST FARM] Tile center position:", tile_center_pos)
 	
 	# Check if there's already a chest at this position
 	var existing_chests = chest_manager.chest_registry
@@ -476,7 +433,6 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 		if chest_node and is_instance_valid(chest_node):
 			var distance = chest_node.global_position.distance_to(tile_center_pos)
 			if distance < 16.0:
-				print("[CHEST FARM] BLOCKED - Chest already exists at position")
 				return
 	
 	# Check if position is valid - CANNOT place on soil/farmable tiles
@@ -493,7 +449,6 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 			has_crop = tile_data.get("tile_state") == "planted"
 	
 	if is_soil or is_watered or has_crop:
-		print("[CHEST FARM] BLOCKED - Cannot place on soil/watered/planted tiles")
 		return
 	
 	# Validate placement: allow on grass/empty ground, block on soil/water
@@ -512,26 +467,17 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 			if atlas_coords == FARM_TILE_ATLAS:
 				print("[CHEST FARM] ALLOW placement at cell=%s reason=grass_tile" % [cell])
 			elif atlas_coords == SOIL_DRY_ATLAS:
-				print("[CHEST FARM] BLOCK placement at cell=%s reason=dry_soil" % [cell])
 				return
 			elif atlas_coords == SOIL_WET_ATLAS:
-				print("[CHEST FARM] BLOCK placement at cell=%s reason=wet_soil" % [cell])
 				return
-			else:
-				# Unknown tile type - allow for now (could be decorative)
-				print("[CHEST FARM] ALLOW placement at cell=%s reason=unknown_tile (atlas=%s)" % [cell, atlas_coords])
 	else:
-		print("[CHEST FARM] BLOCK placement at cell=%s reason=no_farmable_layer" % [cell])
 		return
 	
 	# Create chest at position
-	print("[CHEST FARM] Attempting placement...")
 	var chest = chest_manager.create_chest_at_position(tile_center_pos)
 	if chest == null:
 		print("[CHEST FARM] FAILED - ChestManager.create_chest_at_position returned null")
 		return
-	
-	print("[CHEST FARM] Placement success")
 	
 	# Call async helper to consume chest and sync UI
 	_consume_chest_and_sync_ui(override_slot_index)
@@ -540,7 +486,6 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 func _consume_chest_and_sync_ui(slot_index: int) -> void:
 	"""Async helper to consume chest from toolkit and sync UI with deferred frame."""
 	# Log BEFORE decrement
-	print("[CHEST INV][Farm] BEFORE decrement: slot=%d texture=%s count=%d" % [slot_index, str(InventoryManager.get_toolkit_item(slot_index)), InventoryManager.get_toolkit_item_count(slot_index)])
 	
 	# Consume one chest item from the toolkit slot
 	InventoryManager.decrement_toolkit_item_count(slot_index, 1)
@@ -550,10 +495,6 @@ func _consume_chest_and_sync_ui(slot_index: int) -> void:
 	InventoryManager.sync_toolkit_ui()
 	
 	# Log AFTER sync
-	print("[CHEST INV][Farm] AFTER decrement: slot=%d texture=%s count=%d" % [slot_index, str(InventoryManager.get_toolkit_item(slot_index)), InventoryManager.get_toolkit_item_count(slot_index)])
-	
-	print("[CHEST FARM] Inventory updated")
-
 
 func _create_crop_layer() -> void:
 	"""Create crop layer if missing"""

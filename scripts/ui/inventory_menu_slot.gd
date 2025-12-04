@@ -2056,7 +2056,6 @@ func _cleanup_drag_preview() -> void:
 	var root = get_tree().root
 	for child in root.get_children():
 		if child.name == "InventoryDragPreviewLayer" or child.name == "DragPreviewLayer":
-			print("[InventorySlot] Cleaning up orphaned drag preview layer: ", child.name)
 			child.visible = false
 			child.queue_free()
 

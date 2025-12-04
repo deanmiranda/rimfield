@@ -36,8 +36,6 @@ func _ready() -> void:
 	var sprite = $Sprite2D
 	if sprite and item_data.texture:
 		sprite.texture = item_data.texture
-	else:
-		print("Error: Sprite2D or texture is missing!")
 	
 	# Disable process by default (only enabled during slide)
 	set_process(false)
@@ -70,7 +68,6 @@ func _process(delta: float) -> void:
 	var distance_from_item = global_position.distance_to(player_pos)
 	if distance_from_item > MAX_PICKUP_DISTANCE:
 		# Player ran away - cancel the pickup animation
-		print("[Droppable] Player too far (%.1fpx), canceling pickup" % distance_from_item)
 		_cancel_pickup()
 		return
 	
@@ -149,7 +146,6 @@ func pickup_item() -> void:
 	
 	# If no space anywhere, shake and return
 	if not can_add_to_toolkit and not can_add_to_inventory:
-		print("[Droppable] Inventory full, cannot pickup ", item_data.item_id)
 		_shake_item()
 		return
 	
@@ -262,7 +258,6 @@ func _remove_droppable() -> void:
 					chest_slot = i
 					chest_count = InventoryManager.get_toolkit_item_count(i)
 					break
-			print("[CHEST PICKUP] Added chest to toolkit slot=%d new_count=%d" % [chest_slot, chest_count])
 	
 	# CRITICAL: Call unregister BEFORE queue_free to ensure proper cleanup
 	if DroppableFactory and has_meta("droppable_id"):
