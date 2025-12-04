@@ -283,6 +283,7 @@ func remove_item_from_toolkit(slot_index: int) -> void:
 func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
 	"""Decrement item count in toolkit slot. Removes item if count reaches 0."""
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
+		print("[CHEST INV] decrement_toolkit_item_count: EARLY RETURN - Invalid slot index: %d" % slot_index)
 		return
 	
 	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
@@ -290,12 +291,15 @@ func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
 	var texture = slot_data["texture"]
 	
 	if current_count <= 0 or texture == null:
+		print("[CHEST INV] decrement_toolkit_item_count: EARLY RETURN - Slot %d already empty (count=%d, texture=%s)" % [slot_index, current_count, str(texture)])
 		return
 	
 	var new_count = current_count - amount
 	if new_count > 0:
+		print("[CHEST INV] decrement_toolkit_item_count: Slot %d count decremented: %d -> %d" % [slot_index, current_count, new_count])
 		toolkit_slots[slot_index] = {"texture": texture, "count": new_count, "weight": 0.0}
 	else:
+		print("[CHEST INV] decrement_toolkit_item_count: Slot %d cleared (was count=%d)" % [slot_index, current_count])
 		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 	
 	sync_toolkit_ui()
@@ -363,45 +367,12 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 			if is_dragging:
 				continue
 			
-			# CRITICAL: Check current UI state before updating
-			# If dictionary says slot is empty but UI has an item, preserve the UI item
-			var current_ui_texture: Texture = null
-			var current_ui_count: int = 0
+			# CRITICAL: toolkit_slots is the source of truth - always update UI from it
+			# Don't preserve UI state over dictionary state (causes infinite item bug)
 			
-			if texture_button.has_method("get_item"):
-				current_ui_texture = texture_button.get_item()
-				if texture_button.has_method("get_stack_count"):
-					current_ui_count = texture_button.get_stack_count()
-				elif current_ui_texture:
-					current_ui_count = 1
-			else:
-				# Fallback: check child TextureRect
-				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
-				if hud_slot and hud_slot is TextureRect:
-					current_ui_texture = hud_slot.texture
-					if current_ui_texture:
-						current_ui_count = 1
-			
-			# CRITICAL: If UI has an item but dictionary says empty, SKIP updating that slot
-			# This preserves pre-loaded items that aren't in the dictionary yet
-			if current_ui_texture and not item_texture:
-				# UI has item but dictionary doesn't - preserve UI item, update dictionary
-				toolkit_slots[i] = {"texture": current_ui_texture, "count": current_ui_count, "weight": 0.0}
-				continue # SKIP updating this slot - preserve what's in UI
-			
-			# Only update if the texture or count actually changed
-			var needs_update = false
-			if current_ui_texture != item_texture:
-				needs_update = true
-			elif current_ui_texture and current_ui_count != item_count:
-				needs_update = true
-			elif item_texture and not current_ui_texture:
-				needs_update = true
-			
-			if needs_update:
-				# Update the TextureButton itself (which is the hud_slot)
-				if texture_button.has_method("set_item"):
-					texture_button.set_item(item_texture, item_count)
+			# Update the TextureButton itself (which is the hud_slot)
+			if texture_button.has_method("set_item"):
+				texture_button.set_item(item_texture, item_count)
 			else:
 				# Fallback: update child TextureRect
 				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
@@ -575,6 +546,15 @@ func _sync_initial_toolkit_from_ui() -> void:
 				# Update UI to show correct count (especially for seeds with count 10)
 				if texture_button.has_method("set_item"):
 					texture_button.set_item(slot_texture, initial_count)
+			# TESTING: If slot 4 is empty, add a chest for testing purposes
+			# TODO: Remove this when chest crafting system is implemented
+			elif i == 4:
+				var chest_texture = load("res://assets/icons/chest_icon.png")
+				if chest_texture:
+					toolkit_slots[i] = {"texture": chest_texture, "count": 1, "weight": 0.0}
+					if texture_button.has_method("set_item"):
+						texture_button.set_item(chest_texture, 1)
+					print("[InventoryManager] TESTING: Added chest to slot 4 for testing")
 
 
 func _sync_toolkit_from_ui() -> void:

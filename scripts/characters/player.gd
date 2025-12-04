@@ -187,8 +187,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				farming_manager.interact_with_tile(world_pos, global_position, dragged_slot_tool, dragged_slot_index)
 				placement_success = true # Assume success for now (farming_manager handles it)
 			else:
-				# House scene - direct placement
-				placement_success = _handle_chest_placement_in_house_and_return_success(dragged_slot_index)
+				# House scene - direct placement (async call)
+				placement_success = await _handle_chest_placement_in_house_and_return_success(dragged_slot_index)
 			
 			print("[CHEST] Placement result:", ("SUCCESS" if placement_success else "FAILED"))
 			return
@@ -206,26 +206,34 @@ func _unhandled_input(event: InputEvent) -> void:
 				print("[Player] _unhandled_input: Mouse world pos: ", mouse_pos, " Player pos: ", global_position)
 				print("[Player] _unhandled_input: Calling farming_manager.interact_with_tile()")
 				farming_manager.interact_with_tile(mouse_pos, global_position)
-	
-	# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
-	# Tools are now managed entirely by ToolSwitcher based on slot selection
-	# Keyboard shortcuts (1-0) select slots via ToolSwitcher, which then updates farming_manager
-	# This ensures tools are tied to tool textures, not slot positions
-	# Handle E key for door interactions (house entrance)
-	if event.is_action_pressed("ui_interact"):
-		if current_interaction == "house":
-			# Door interaction is handled by house_interaction.gd
-			# This is just a fallback - door should handle its own input
-			pass
+			else:
+				# House scene - handle pickaxe for chest removal
+				var current_tool = _get_current_tool()
+				print("[Player] _unhandled_input[House]: Current tool: ", current_tool)
+				if current_tool == "pickaxe":
+					print("[Player] Pickaxe detected in house, calling handler")
+					_handle_pickaxe_in_house()
 
-	# Handle right-click for item pickup (vegetables, dropped items)
-	# Note: This won't conflict with toolkit right-click drag because UI elements
-	# capture input first. If right-click is over a toolkit slot, it won't reach here.
-	if event is InputEventMouseButton:
-		if event.button_index == 2 and event.pressed: # MOUSE_BUTTON_RIGHT = 2
-			# Right-click to pick up nearby items
-			if nearby_pickables.size() > 0:
-				_pickup_nearest_item()
+		# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
+		# Tools are now managed entirely by ToolSwitcher based on slot selection
+		# Keyboard shortcuts (1-0) select slots via ToolSwitcher, which then updates farming_manager
+		# This ensures tools are tied to tool textures, not slot positions
+
+		# Handle E key for door interactions (house entrance)
+		if event.is_action_pressed("ui_interact"):
+			if current_interaction == "house":
+				# Door interaction is handled by house_interaction.gd
+				# This is just a fallback - door should handle its own input
+				pass
+
+		# Handle right-click for item pickup (vegetables, dropped items)
+		# Note: This won't conflict with toolkit right-click drag because UI elements
+		# capture input first. If right-click is over a toolkit slot, it won't reach here.
+		if event is InputEventMouseButton:
+			if event.button_index == 2 and event.pressed: # MOUSE_BUTTON_RIGHT = 2
+				# Right-click to pick up nearby items
+				if nearby_pickables.size() > 0:
+					_pickup_nearest_item()
 
 
 func _is_any_slot_dragging() -> bool:
@@ -465,9 +473,20 @@ func _handle_chest_placement_in_house_and_return_success(slot_index_override: in
 		return false
 	
 	print("[Player] _handle_chest_placement_in_house: SUCCESS - Chest created, consuming item...")
+	
+	# Log BEFORE decrement
+	print("[CHEST INV][House] BEFORE decrement: slot=%d texture=%s count=%d" % [slot_index_override, str(InventoryManager.get_toolkit_item(slot_index_override)), InventoryManager.get_toolkit_item_count(slot_index_override)])
+	
 	# Consume one chest item from the toolkit slot
 	InventoryManager.decrement_toolkit_item_count(slot_index_override, 1)
+	
+	# Deferred sync to ensure drag state is cleared
+	await get_tree().process_frame
 	InventoryManager.sync_toolkit_ui()
+	
+	# Log AFTER sync
+	print("[CHEST INV][House] AFTER decrement: slot=%d texture=%s count=%d" % [slot_index_override, str(InventoryManager.get_toolkit_item(slot_index_override)), InventoryManager.get_toolkit_item_count(slot_index_override)])
+	
 	print("[Player] _handle_chest_placement_in_house: COMPLETE")
 	return true
 
@@ -506,6 +525,87 @@ func _pickup_nearest_item() -> void:
 			var index = nearby_pickables.find(nearest_item)
 			if index >= 0:
 				nearby_pickables.remove_at(index)
+
+
+func _get_current_tool() -> String:
+	"""Get the currently selected tool name from ToolSwitcher."""
+	# ToolSwitcher is a child of HUD, not an autoload
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	var tool_switcher = null
+	if hud:
+		tool_switcher = hud.get_node_or_null("ToolSwitcher")
+	
+	if not tool_switcher:
+		print("[Player] _get_current_tool: ToolSwitcher not found in HUD")
+		return ""
+	
+	# ToolSwitcher uses "current_hud_slot", not "selected_slot"
+	var selected_slot = -1
+	if "current_hud_slot" in tool_switcher:
+		selected_slot = tool_switcher.current_hud_slot
+		print("[Player] _get_current_tool: ToolSwitcher current_hud_slot = ", selected_slot)
+	else:
+		print("[Player] _get_current_tool: current_hud_slot property not found in ToolSwitcher")
+		return ""
+	
+	if selected_slot < 0:
+		print("[Player] _get_current_tool: No slot selected (slot = ", selected_slot, ")")
+		return ""
+	
+	var tool_texture = InventoryManager.get_toolkit_item(selected_slot)
+	if not tool_texture:
+		print("[Player] _get_current_tool: No texture in slot ", selected_slot)
+		return ""
+	
+	print("[Player] _get_current_tool: Tool texture path = ", tool_texture.resource_path)
+	
+	var tool_config = load("res://resources/data/tool_config.tres")
+	if tool_config and tool_config.has_method("get_tool_name"):
+		var tool_name = tool_config.get_tool_name(tool_texture)
+		print("[Player] _get_current_tool: Tool name = ", tool_name)
+		return tool_name
+	
+	print("[Player] _get_current_tool: ToolConfig not found or no get_tool_name method")
+	return ""
+
+
+func _handle_pickaxe_in_house() -> void:
+	"""Handle pickaxe usage in house scene (for chest removal)."""
+	print("[CHEST PICKAXE][House] Pickaxe clicked in house")
+	
+	# Get mouse position
+	var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	print("[CHEST PICKAXE][House] Mouse world pos: ", mouse_pos)
+	
+	# Get ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		print("[CHEST PICKAXE][House] ERROR: ChestManager not found")
+		return
+	
+	# Find chest at mouse position
+	var chest_at_pos = chest_manager.find_chest_at_position(mouse_pos, 16.0)
+	if not chest_at_pos:
+		print("[CHEST PICKAXE][House] No chest found at position")
+		return
+	
+	print("[CHEST PICKAXE][House] Chest found at pos: ", chest_at_pos.global_position)
+	
+	# Get HUD for droppable spawning
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	# Attempt to remove chest and spawn drop
+	var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
+	
+	if removal_success:
+		print("[CHEST PICKAXE][House] Chest removed successfully")
+	else:
+		print("[CHEST PICKAXE][House] Chest removal blocked (not empty)")
 
 
 func start_interaction(interaction_type: String):

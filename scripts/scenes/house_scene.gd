@@ -7,6 +7,10 @@ var hud_scene_path = preload("res://scenes/ui/hud.tscn")
 var house_music_player: AudioStreamPlayer = null
 
 func _ready():
+	# Restore chests for this scene
+	if ChestManager:
+		ChestManager.restore_chests_for_scene("House")
+	
 	# Setup background music - play Mowing-The-Lawn.mp3 (no loop)
 	_setup_house_music()
 	

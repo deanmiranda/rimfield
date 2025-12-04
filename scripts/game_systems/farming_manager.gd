@@ -270,9 +270,40 @@ func _use_watering_can(cell: Vector2i) -> void:
 
 func _use_pickaxe(cell: Vector2i) -> void:
 	"""
-	PICKAXE: Allowed if tile is soil OR has a crop.
-	Action: Remove crop, replace tile with FARM_TILE_ATLAS, clear all tile state
+	PICKAXE: Allowed if tile is soil OR has a crop OR has a chest.
+	Action: Remove crop, replace tile with FARM_TILE_ATLAS, clear all tile state, OR remove chest
 	"""
+	# FIRST: Check for chest at this position
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if chest_manager:
+		# Calculate tile center position
+		var tile_center_pos: Vector2
+		if farmable_layer:
+			tile_center_pos = farmable_layer.map_to_local(cell) + Vector2(8, 8)
+		else:
+			tile_center_pos = Vector2(cell.x * 16 + 8, cell.y * 16 + 8)
+		
+		# Check if there's a chest at this position
+		var chest_at_pos = chest_manager.find_chest_at_position(tile_center_pos, 12.0)
+		if chest_at_pos:
+			print("[CHEST PICKAXE] Chest hit at cell=%s world_pos=%s" % [cell, tile_center_pos])
+			
+			# Get HUD for droppable spawning
+			var hud = get_tree().root.get_node_or_null("Hud")
+			if not hud:
+				hud = get_tree().current_scene.get_node_or_null("Hud")
+			
+			# Attempt to remove chest and spawn drop
+			var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
+			
+			if removal_success:
+				print("[CHEST PICKAXE] Chest removed successfully")
+			else:
+				print("[CHEST PICKAXE] Chest removal blocked (not empty)")
+			
+			return # Chest handling done, don't process soil/crops
+	
+	# SECOND: Check for crops and soil (existing logic)
 	# Check if there's a crop
 	var has_crop = false
 	if crop_layer and crop_layer.get_cell_source_id(cell) != -1:
@@ -448,24 +479,50 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 				print("[CHEST FARM] BLOCKED - Chest already exists at position")
 				return
 	
-	# Check if position is valid (on soil or empty farmable tile)
+	# Check if position is valid - CANNOT place on soil/farmable tiles
+	# Only allow placement on grass (FARM_TILE_ATLAS) that is NOT soil or watered
 	var is_soil = _is_soil(cell)
-	if not is_soil:
-		if farmable_layer:
-			var source_id = farmable_layer.get_cell_source_id(cell)
-			if source_id == -1:
-				# No tile at this position, allow placement
-				pass
-			else:
-				# Check if it's a farmable tile (FARM_TILE_ATLAS)
-				var atlas_coords = farmable_layer.get_cell_atlas_coords(cell)
-				if atlas_coords != FARM_TILE_ATLAS:
-					# Can't place on non-farmable tiles
-					print("[CHEST FARM] BLOCKED - Not a farmable tile")
-					return
+	
+	# Check if tile is watered or has a crop
+	var is_watered = false
+	var has_crop = false
+	if GameState and GameState.farm_state.has(cell):
+		var tile_data = GameState.get_tile_data(cell)
+		if tile_data:
+			is_watered = tile_data.get("is_watered", false)
+			has_crop = tile_data.get("tile_state") == "planted"
+	
+	if is_soil or is_watered or has_crop:
+		print("[CHEST FARM] BLOCKED - Cannot place on soil/watered/planted tiles")
+		return
+	
+	# Validate placement: allow on grass/empty ground, block on soil/water
+	if farmable_layer:
+		var source_id = farmable_layer.get_cell_source_id(cell)
+		
+		# If source_id == -1, there's no tile on farmable layer (regular grass/ground) - ALLOW
+		if source_id == -1:
+			print("[CHEST FARM] ALLOW placement at cell=%s reason=empty_ground (no farmable tile)" % [cell])
 		else:
-			print("[CHEST FARM] BLOCKED - No farmable_layer")
-			return
+			# There IS a tile on farmable layer - check what it is
+			var atlas_coords = farmable_layer.get_cell_atlas_coords(cell)
+			
+			# FARM_TILE_ATLAS (12, 0) is garden dirt - allow placement
+			# SOIL_DRY_ATLAS and SOIL_WET_ATLAS are tilled soil - block (already checked above)
+			if atlas_coords == FARM_TILE_ATLAS:
+				print("[CHEST FARM] ALLOW placement at cell=%s reason=grass_tile" % [cell])
+			elif atlas_coords == SOIL_DRY_ATLAS:
+				print("[CHEST FARM] BLOCK placement at cell=%s reason=dry_soil" % [cell])
+				return
+			elif atlas_coords == SOIL_WET_ATLAS:
+				print("[CHEST FARM] BLOCK placement at cell=%s reason=wet_soil" % [cell])
+				return
+			else:
+				# Unknown tile type - allow for now (could be decorative)
+				print("[CHEST FARM] ALLOW placement at cell=%s reason=unknown_tile (atlas=%s)" % [cell, atlas_coords])
+	else:
+		print("[CHEST FARM] BLOCK placement at cell=%s reason=no_farmable_layer" % [cell])
+		return
 	
 	# Create chest at position
 	print("[CHEST FARM] Attempting placement...")
@@ -475,9 +532,26 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 		return
 	
 	print("[CHEST FARM] Placement success")
+	
+	# Call async helper to consume chest and sync UI
+	_consume_chest_and_sync_ui(override_slot_index)
+
+
+func _consume_chest_and_sync_ui(slot_index: int) -> void:
+	"""Async helper to consume chest from toolkit and sync UI with deferred frame."""
+	# Log BEFORE decrement
+	print("[CHEST INV][Farm] BEFORE decrement: slot=%d texture=%s count=%d" % [slot_index, str(InventoryManager.get_toolkit_item(slot_index)), InventoryManager.get_toolkit_item_count(slot_index)])
+	
 	# Consume one chest item from the toolkit slot
-	InventoryManager.decrement_toolkit_item_count(override_slot_index, 1)
+	InventoryManager.decrement_toolkit_item_count(slot_index, 1)
+	
+	# Deferred sync to ensure drag state is cleared
+	await get_tree().process_frame
 	InventoryManager.sync_toolkit_ui()
+	
+	# Log AFTER sync
+	print("[CHEST INV][Farm] AFTER decrement: slot=%d texture=%s count=%d" % [slot_index, str(InventoryManager.get_toolkit_item(slot_index)), InventoryManager.get_toolkit_item_count(slot_index)])
+	
 	print("[CHEST FARM] Inventory updated")
 
 

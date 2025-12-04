@@ -1,13 +1,13 @@
 # droppable_generic.gd
 extends Node2D
 
-@export var item_data: Resource  # Reference to the DroppableItem resource
+@export var item_data: Resource # Reference to the DroppableItem resource
 
 # Signal removed - pickup is handled directly via pickup_item() method
 # signal picked_up(item_data: Resource)  # Signal to emit when picked up
 
-var player: Node = null  # Reference to the player
-var hud: Node = null  # Reference to the HUD
+var player: Node = null # Reference to the player
+var hud: Node = null # Reference to the HUD
 
 
 func _ready() -> void:
@@ -49,7 +49,20 @@ func pickup_item() -> void:
 			remaining = InventoryManager.add_item_auto_stack(item_data.texture, remaining)
 
 			if remaining > 0:
-				return  # Exit without removing the droppable (inventory full)
+				return # Exit without removing the droppable (inventory full)
 
+		# Log chest pickups for debugging
+		if item_data.item_id == "chest":
+			var chest_slot = -1
+			var chest_count = 0
+			# Find which slot has the chest
+			for i in range(InventoryManager.max_toolkit_slots):
+				var slot_texture = InventoryManager.get_toolkit_item(i)
+				if slot_texture == item_data.texture:
+					chest_slot = i
+					chest_count = InventoryManager.get_toolkit_item_count(i)
+					break
+			print("[CHEST PICKUP] Added chest to toolkit slot=%d new_count=%d" % [chest_slot, chest_count])
+		
 		# If added successfully to toolkit or inventory, remove from the map
 		queue_free()

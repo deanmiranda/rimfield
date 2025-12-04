@@ -29,6 +29,10 @@ func _ready() -> void:
 	# Call immediately - _setup_farm_music will handle async operations
 	_setup_farm_music()
 	
+	# Restore chests for this scene
+	if ChestManager:
+		ChestManager.restore_chests_for_scene("Farm")
+	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()

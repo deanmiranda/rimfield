@@ -1,11 +1,7 @@
 extends Node
 
 # Stores the resource paths for available droppable items
-var droppable_item_resources: Dictionary = {
-	"carrot": preload("res://resources/droppable_items/carrot.tres"),
-	"strawberry": preload("res://resources/droppable_items/strawberry.tres"),
-	"tomato": preload("res://resources/droppable_items/tomato.tres"),
-}
+var droppable_item_resources: Dictionary = {}
 
 # Reverse lookup: texture -> item_id (for throw-to-world feature)
 var texture_to_item_id: Dictionary = {}
@@ -14,6 +10,14 @@ var texture_to_item_id: Dictionary = {}
 var droppable_scene: PackedScene = preload("res://scenes/droppable/droppable_generic.tscn")
 
 func _ready() -> void:
+	# Load droppable item resources
+	droppable_item_resources = {
+		"carrot": load("res://resources/droppable_items/carrot.tres"),
+		"strawberry": load("res://resources/droppable_items/strawberry.tres"),
+		"tomato": load("res://resources/droppable_items/tomato.tres"),
+		"chest": load("res://resources/droppable_items/chest.tres"),
+	}
+	
 	# Build reverse lookup dictionary
 	for item_id in droppable_item_resources.keys():
 		var item_data = droppable_item_resources[item_id]
@@ -66,7 +70,7 @@ func spawn_droppable_from_texture(texture: Texture, spawn_position: Vector2, hud
 		# Add physics/velocity for bounce effect
 		# Since droppable is Node2D with Area2D, we'll use a simple tween for bounce effect
 		var tween = droppable.create_tween()
-		var bounce_distance = velocity.length() * 0.1  # Convert velocity to distance
+		var bounce_distance = velocity.length() * 0.1 # Convert velocity to distance
 		var bounce_duration = 0.3
 		tween.set_parallel(true)
 		tween.tween_property(droppable, "global_position", droppable.global_position + velocity * bounce_distance, bounce_duration)

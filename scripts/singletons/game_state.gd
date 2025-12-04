@@ -436,3 +436,17 @@ func new_game() -> void:
 
 	# Clear all tile states
 	farm_state.clear()
+	
+	# Clear all chests
+	if ChestManager:
+		ChestManager.reset_all()
+	
+	# Clear toolkit_slots so HUD will re-sync from the scene file
+	if InventoryManager:
+		for i in range(InventoryManager.max_toolkit_slots):
+			InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+		print("[GameState] Cleared toolkit_slots for new game")
+	
+	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
+	# The test chest is in the HUD scene file, so it will be loaded automatically
+	# TODO: When chest crafting is implemented, remove chest from HUD scene file

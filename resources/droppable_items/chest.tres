@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="DroppableItem" load_steps=3 format=3 uid="uid://byvixt5idw3n"]
+
+[ext_resource type="Script" uid="uid://bn2tvoux0j22v" path="res://scripts/droppable/droppable_item.gd" id="1_chest"]
+[ext_resource type="Texture2D" uid="uid://dfp03truvrrtn" path="res://assets/icons/chest_icon.png" id="2_chest_icon"]
+
+[resource]
+script = ExtResource("1_chest")
+item_id = "chest"
+texture = ExtResource("2_chest_icon")
+max_stack = 99
+description = "A storage chest"

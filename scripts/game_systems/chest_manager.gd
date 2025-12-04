@@ -1,7 +1,7 @@
 extends Node
 
 # ChestManager - Manages all chests in the game, handles registration, inventory, and persistence
-# Chest registry: chest_id: String → {"node": Chest, "inventory": Dictionary, "position": Vector2}
+# Chest registry: chest_id: String → {"node": Chest, "inventory": Dictionary, "position": Vector2, "scene_name": String}
 
 var chest_registry: Dictionary = {}
 var chest_id_counter: int = 0
@@ -11,6 +11,40 @@ var pending_restore_data: Array = [] # Store chest data to restore when chests a
 func get_pending_restore_data() -> Array:
 	return pending_restore_data
 
+
+func restore_chests_for_scene(scene_name: String) -> void:
+	"""Restore chests for a specific scene when it loads."""
+	if not scene_name:
+		return
+	
+	# Get chest scene
+	var chest_scene = load("res://scenes/world/chest.tscn")
+	if not chest_scene:
+		push_error("ChestManager: Could not load chest scene")
+		return
+	
+	# Find chests for this scene in the registry
+	for chest_id in chest_registry.keys():
+		var chest_data = chest_registry[chest_id]
+		var saved_scene_name = chest_data.get("scene_name", "")
+		
+		# Only restore if this chest belongs to the current scene and doesn't have a node
+		if saved_scene_name == scene_name and not chest_data.get("node"):
+			var position = chest_data.get("position", Vector2.ZERO)
+			
+			# Create chest at position
+			var chest_instance = create_chest_at_position(position)
+			if chest_instance and chest_instance.has_method("set_chest_id"):
+				chest_instance.set_chest_id(chest_id)
+
+
+func _get_current_scene_name() -> String:
+	"""Get the current scene name for tracking which scene the chest belongs to."""
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		return current_scene.name
+	return ""
+
 const CHEST_INVENTORY_SIZE: int = 24
 const MAX_INVENTORY_STACK: int = 99
 
@@ -18,6 +52,24 @@ const MAX_INVENTORY_STACK: int = 99
 func _ready() -> void:
 	# Initialize empty registry
 	chest_registry = {}
+
+
+func reset_all() -> void:
+	"""Reset all chest data (for new game)."""
+	# Remove all chest nodes from scene
+	for chest_id in chest_registry.keys():
+		var chest_data = chest_registry[chest_id]
+		var chest_node = chest_data.get("node")
+		if chest_node and is_instance_valid(chest_node):
+			if chest_node.get_parent():
+				chest_node.get_parent().remove_child(chest_node)
+			chest_node.queue_free()
+	
+	# Clear registries
+	chest_registry = {}
+	pending_restore_data = []
+	chest_id_counter = 0
+	print("[ChestManager] Reset complete - all chests cleared")
 
 
 func register_chest(chest: Node) -> String:
@@ -49,11 +101,15 @@ func register_chest(chest: Node) -> String:
 	# Get chest position
 	var position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
 	
+	# Get scene name
+	var scene_name = _get_current_scene_name()
+	
 	# Register chest
 	chest_registry[chest_id] = {
 		"node": chest,
 		"inventory": inventory,
-		"position": position
+		"position": position,
+		"scene_name": scene_name
 	}
 	
 	# Set chest ID on the chest node
@@ -115,9 +171,11 @@ func serialize_all_chests() -> Array:
 		
 		# Only save chest if it has items or if node still exists
 		if inventory_array.size() > 0 or (chest_node and is_instance_valid(chest_node)):
+			var scene_name = chest_data.get("scene_name", "")
 			chest_data_array.append({
 				"chest_id": chest_id,
 				"position": {"x": position.x, "y": position.y},
+				"scene_name": scene_name,
 				"inventory": inventory_array
 			})
 	
@@ -125,12 +183,40 @@ func serialize_all_chests() -> Array:
 
 
 func restore_chests_from_save(chest_data: Array) -> void:
-	"""Restore chests from save data. Stores data temporarily until chests are registered."""
+	"""Restore chests from save data. Stores chest data in registry for scene restoration."""
 	pending_restore_data = chest_data
 	
-	# Try to restore any already-registered chests
-	for chest_id in chest_registry.keys():
-		_restore_chest_if_pending(chest_id)
+	# Add chest data to registry (without nodes yet - those will be created when scenes load)
+	for save_data in chest_data:
+		var chest_id = save_data.get("chest_id", "")
+		var position_data = save_data.get("position", {"x": 0, "y": 0})
+		var position = Vector2(position_data["x"], position_data["y"])
+		var scene_name = save_data.get("scene_name", "")
+		
+		# Convert inventory array to dictionary
+		var inventory: Dictionary = {}
+		for i in range(CHEST_INVENTORY_SIZE):
+			inventory[i] = {"texture": null, "count": 0, "weight": 0.0}
+		
+		var inventory_array = save_data.get("inventory", [])
+		for item_data in inventory_array:
+			var slot_index = item_data.get("slot_index", -1)
+			var texture_path = item_data.get("texture_path", "")
+			var count = item_data.get("count", 1)
+			var weight = item_data.get("weight", 0.0)
+			
+			if slot_index >= 0 and slot_index < CHEST_INVENTORY_SIZE and texture_path != "":
+				var texture = load(texture_path)
+				if texture:
+					inventory[slot_index] = {"texture": texture, "count": count, "weight": weight}
+		
+		# Store in registry (without node - will be created when scene loads)
+		chest_registry[chest_id] = {
+			"node": null,
+			"inventory": inventory,
+			"position": position,
+			"scene_name": scene_name
+		}
 
 
 func _restore_chest_if_pending(chest_id: String) -> void:
@@ -219,3 +305,71 @@ func unregister_chest(chest_id: String) -> void:
 	"""Unregister a chest (e.g., when it's destroyed)."""
 	if chest_registry.has(chest_id):
 		chest_registry.erase(chest_id)
+
+
+func find_chest_at_position(world_pos: Vector2, radius: float = 8.0) -> Node:
+	"""Find a chest near the given world position. Returns chest node or null."""
+	for chest_id in chest_registry.keys():
+		var chest_data = chest_registry[chest_id]
+		var chest_node = chest_data.get("node")
+		
+		if chest_node and is_instance_valid(chest_node):
+			var chest_pos = chest_node.global_position if chest_node is Node2D else Vector2.ZERO
+			var distance = chest_pos.distance_to(world_pos)
+			
+			if distance <= radius:
+				return chest_node
+	
+	return null
+
+
+func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
+	"""Remove a chest from the world and spawn a droppable. Returns true if successful."""
+	if not chest_node:
+		return false
+	
+	# Get chest ID
+	var chest_id: String = ""
+	if chest_node.has_method("get_chest_id"):
+		chest_id = chest_node.get_chest_id()
+	
+	if chest_id.is_empty():
+		print("[CHEST PICKAXE] ERROR: Chest has no ID")
+		return false
+	
+	# Check if chest is empty
+	var inventory = get_chest_inventory(chest_id)
+	var is_empty = true
+	for slot_index in range(CHEST_INVENTORY_SIZE):
+		var slot_data = inventory.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+		if slot_data["texture"] != null and slot_data["count"] > 0:
+			is_empty = false
+			break
+	
+	if not is_empty:
+		print("[CHEST PICKAXE] BLOCKED: Chest is not empty")
+		# Play shake animation if chest has that method
+		if chest_node.has_method("_shake_animation"):
+			chest_node._shake_animation()
+		return false
+	
+	# Get chest position before removing
+	var chest_pos = chest_node.global_position if chest_node is Node2D else Vector2.ZERO
+	
+	print("[CHEST PICKAXE] Removing chest and spawning droppable at pos=%s" % [chest_pos])
+	
+	# Unregister from ChestManager
+	unregister_chest(chest_id)
+	
+	# Remove from scene
+	if chest_node.get_parent():
+		chest_node.get_parent().remove_child(chest_node)
+	chest_node.queue_free()
+	
+	# Spawn droppable
+	if DroppableFactory and hud:
+		var chest_texture = load("res://assets/icons/chest_icon.png")
+		DroppableFactory.spawn_droppable_from_texture(chest_texture, chest_pos, hud, Vector2.ZERO)
+		print("[CHEST PICKAXE] Droppable spawned")
+	
+	return true
