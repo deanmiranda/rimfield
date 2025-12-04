@@ -629,10 +629,14 @@ func _cleanup_drag_preview() -> void:
 		drag_preview = null
 		drag_preview_label = null
 
-	# Also check for any orphaned DragPreviewLayer nodes in the scene tree
+	# CRITICAL: Also check for any orphaned DragPreviewLayer nodes in the scene tree
+	# This handles drag previews that persist across scene changes
 	var root = get_tree().root
-	if root:
-		_remove_orphaned_drag_layers(root)
+	for child in root.get_children():
+		if child.name == "DragPreviewLayer" or child.name == "InventoryDragPreviewLayer":
+			print("[HudSlot] Cleaning up orphaned drag preview layer: ", child.name)
+			child.visible = false
+			child.queue_free()
 
 
 func _remove_orphaned_drag_layers(node: Node) -> void:

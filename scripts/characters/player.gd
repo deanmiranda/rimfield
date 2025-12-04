@@ -12,7 +12,7 @@ var farming_manager: Node = null # Reference to the farming system
 var current_interaction: String = "" # Track the current interaction
 
 # Interaction system - signal-based sets (no polling)
-var nearby_pickables: Array = [] # Array of nearby pickable items
+# REMOVED: nearby_pickables array (now using auto-pickup on area_entered)
 var pickup_radius: float = 48.0 # Default (will be overridden by GameConfig)
 
 @onready var inventory_manager = InventoryManager # Singleton reference
@@ -38,7 +38,8 @@ func _ready() -> void:
 	# Create collision shape for interaction radius
 	var collision_shape = CollisionShape2D.new()
 	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = pickup_radius
+	# Pickup radius: 32 pixels = two tiles (gives player time to react and run away)
+	circle_shape.radius = 32.0
 	collision_shape.shape = circle_shape
 	interaction_area.add_child(collision_shape)
 
@@ -226,14 +227,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				# This is just a fallback - door should handle its own input
 				pass
 
-		# Handle right-click for item pickup (vegetables, dropped items)
-		# Note: This won't conflict with toolkit right-click drag because UI elements
-		# capture input first. If right-click is over a toolkit slot, it won't reach here.
-		if event is InputEventMouseButton:
-			if event.button_index == 2 and event.pressed: # MOUSE_BUTTON_RIGHT = 2
-				# Right-click to pick up nearby items
-				if nearby_pickables.size() > 0:
-					_pickup_nearest_item()
+		# REMOVED: Right-click pickup (now auto-pickup on proximity)
+		# Right-click will be used for harvesting from trees/plants in the future
 
 
 func _is_any_slot_dragging() -> bool:
@@ -373,35 +368,38 @@ func _stop_all_drags() -> void:
 
 
 func _on_interaction_area_body_entered(body: Node2D) -> void:
-	# Track pickable items in the interaction area
-	if body.is_in_group("pickable"):
-		if not nearby_pickables.has(body):
-			nearby_pickables.append(body)
+	# REMOVED: Manual pickup tracking (now auto-pickup via area_entered)
+	pass
 
 
 func _on_interaction_area_body_exited(body: Node2D) -> void:
-	# Remove pickable items when they leave the interaction area
-	if body.is_in_group("pickable"):
-		var index = nearby_pickables.find(body)
-		if index >= 0:
-			nearby_pickables.remove_at(index)
+	# REMOVED: Manual pickup tracking (now auto-pickup via area_entered)
+	pass
 
 
 func _on_interaction_area_area_entered(area: Area2D) -> void:
-	# Track pickable items (Area2D parent)
+	# Auto-pickup pickable items when player walks near them
+	print("[Player] area_entered detected: ", area.name, " parent: ", area.get_parent().name if area.get_parent() else "null")
 	var parent = area.get_parent()
 	if parent and parent.is_in_group("pickable"):
-		if not nearby_pickables.has(parent):
-			nearby_pickables.append(parent)
+		print("[Player] Pickable detected, attempting auto-pickup: ", parent.name)
+		# Auto-pickup immediately
+		if parent.has_method("pickup_item"):
+			# Set HUD reference if needed
+			if not parent.hud:
+				var hud_ref = get_tree().root.get_node_or_null("Hud")
+				if not hud_ref:
+					hud_ref = get_tree().current_scene.get_node_or_null("Hud")
+				parent.hud = hud_ref
+			
+			# Trigger pickup
+			parent.pickup_item()
+			print("[Player] Auto-pickup successful for: ", parent.name)
 
 
 func _on_interaction_area_area_exited(area: Area2D) -> void:
-	# Remove pickable items when they leave
-	var parent = area.get_parent()
-	if parent and parent.is_in_group("pickable"):
-		var index = nearby_pickables.find(parent)
-		if index >= 0:
-			nearby_pickables.remove_at(index)
+	# REMOVED: Manual pickup tracking (now auto-pickup via area_entered)
+	pass
 
 
 func _handle_chest_placement_in_house_and_return_success(slot_index_override: int) -> bool:
@@ -492,39 +490,8 @@ func _handle_chest_placement_in_house_and_return_success(slot_index_override: in
 
 
 func _pickup_nearest_item() -> void:
-	# Find the nearest pickable item
-	var nearest_item = null
-	var nearest_distance = INF
-
-	for item in nearby_pickables:
-		if not is_instance_valid(item):
-			continue
-
-		var distance = global_position.distance_to(item.global_position)
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest_item = item
-
-	# Pick up the nearest item
-	if nearest_item:
-		if nearest_item.has_method("pickup_item"):
-			# Set HUD reference if needed (get from current scene)
-			if not nearest_item.hud:
-				var current_scene = get_tree().current_scene
-				if (
-					current_scene
-					and current_scene.has_method("get")
-					and current_scene.has("hud_instance")
-				):
-					nearest_item.hud = current_scene.hud_instance
-				elif HUD and HUD.hud_scene_instance:
-					nearest_item.hud = HUD.hud_scene_instance
-
-			nearest_item.pickup_item()
-			# Remove from nearby set
-			var index = nearby_pickables.find(nearest_item)
-			if index >= 0:
-				nearby_pickables.remove_at(index)
+	# REMOVED: Manual pickup (now auto-pickup on proximity)
+	pass
 
 
 func _get_current_tool() -> String:

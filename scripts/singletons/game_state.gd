@@ -217,6 +217,11 @@ func save_game(file: String = "") -> void:
 	if ChestManager:
 		chest_data = ChestManager.serialize_all_chests()
 	
+	# Get droppable data from DroppableFactory (house/farm only)
+	var droppable_data = []
+	if DroppableFactory:
+		droppable_data = DroppableFactory.serialize_droppables()
+	
 	var save_data = {
 		"farm_state": serialized_farm_state,
 		"current_scene": current_scene,
@@ -224,6 +229,7 @@ func save_game(file: String = "") -> void:
 		"toolkit_items": toolkit_items,
 		"inventory_items": inventory_items,
 		"chest_data": chest_data,
+		"droppable_data": droppable_data,
 		"game_time": {
 			"day": GameTimeManager.day if GameTimeManager else 1,
 			"season": GameTimeManager.season if GameTimeManager else 0,
@@ -354,6 +360,10 @@ func load_game(file: String = "") -> bool:
 		# Restore chest data
 		if save_data.has("chest_data") and ChestManager:
 			ChestManager.restore_chests_from_save(save_data["chest_data"])
+		
+		# Restore droppable data (house/farm only)
+		if save_data.has("droppable_data") and DroppableFactory:
+			DroppableFactory.restore_droppables_from_save(save_data["droppable_data"])
 
 		emit_signal("game_loaded")
 
@@ -440,6 +450,10 @@ func new_game() -> void:
 	# Clear all chests
 	if ChestManager:
 		ChestManager.reset_all()
+	
+	# Clear all droppables
+	if DroppableFactory:
+		DroppableFactory.reset_all_droppables()
 	
 	# Clear toolkit_slots so HUD will re-sync from the scene file
 	if InventoryManager:

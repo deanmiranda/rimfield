@@ -369,7 +369,14 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 	# Spawn droppable
 	if DroppableFactory and hud:
 		var chest_texture = load("res://assets/icons/chest_icon.png")
-		DroppableFactory.spawn_droppable_from_texture(chest_texture, chest_pos, hud, Vector2.ZERO)
-		print("[CHEST PICKAXE] Droppable spawned")
+		print("[CHEST PICKAXE] chest_texture loaded: ", chest_texture.resource_path if chest_texture else "null")
+		var droppable = DroppableFactory.spawn_droppable_from_texture(chest_texture, chest_pos, hud, Vector2.ZERO)
+		if droppable:
+			print("[CHEST PICKAXE] Droppable spawned successfully at: ", droppable.global_position)
+			print("[CHEST PICKAXE] Droppable is in groups: ", droppable.get_groups())
+			print("[CHEST PICKAXE] Droppable has item_data: ", droppable.item_data != null)
+		else:
+			push_error("[CHEST PICKAXE] ERROR: spawn_droppable_from_texture returned null!")
+			push_error("[CHEST PICKAXE] Available item_ids: " + str(DroppableFactory.droppable_item_resources.keys()))
 	
 	return true

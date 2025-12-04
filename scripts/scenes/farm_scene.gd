@@ -33,6 +33,10 @@ func _ready() -> void:
 	if ChestManager:
 		ChestManager.restore_chests_for_scene("Farm")
 	
+	# Restore droppables for this scene
+	if DroppableFactory:
+		DroppableFactory.restore_droppables_for_scene("Farm")
+	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()
@@ -77,7 +81,8 @@ func _ready() -> void:
 		print("Error: HUD scene not assigned!")
 
 	# Spawn droppables asynchronously to avoid scene load delay
-	spawn_random_droppables_async(40)
+	# TESTING: Increased to 80 for inventory-full testing
+	spawn_random_droppables_async(80)
 
 
 func spawn_random_droppables_async(count: int) -> void:

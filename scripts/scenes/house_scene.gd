@@ -11,6 +11,10 @@ func _ready():
 	if ChestManager:
 		ChestManager.restore_chests_for_scene("House")
 	
+	# Restore droppables for this scene
+	if DroppableFactory:
+		DroppableFactory.restore_droppables_for_scene("House")
+	
 	# Setup background music - play Mowing-The-Lawn.mp3 (no loop)
 	_setup_house_music()
 	

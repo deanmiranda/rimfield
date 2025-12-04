@@ -2044,11 +2044,21 @@ func _cleanup_drag_preview() -> void:
 	if custom_drag_preview:
 		var drag_layer = custom_drag_preview.get_parent()
 		if drag_layer and drag_layer.name == "InventoryDragPreviewLayer":
+			drag_layer.visible = false
 			drag_layer.queue_free()
 		else:
 			custom_drag_preview.queue_free()
 		custom_drag_preview = null
 		set_process(false)
+	
+	# CRITICAL: Also check for any orphaned InventoryDragPreviewLayer nodes in the scene tree
+	# This handles drag previews that persist across scene changes
+	var root = get_tree().root
+	for child in root.get_children():
+		if child.name == "InventoryDragPreviewLayer" or child.name == "DragPreviewLayer":
+			print("[InventorySlot] Cleaning up orphaned drag preview layer: ", child.name)
+			child.visible = false
+			child.queue_free()
 
 
 func _notification(what: int) -> void:
