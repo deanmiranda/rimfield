@@ -41,8 +41,9 @@ func _setup_chest_slots() -> void:
 	if not chest_grid:
 		return
 	
-	# Clear existing slots
+	# Clear existing slots immediately
 	for child in chest_grid.get_children():
+		chest_grid.remove_child(child)
 		child.queue_free()
 	chest_slots.clear()
 	
@@ -63,6 +64,11 @@ func _setup_chest_slots() -> void:
 		slot.is_locked = false
 		slot.name = "ChestSlot_%d" % i
 		
+		# CRITICAL: Set minimum size so slot is visible
+		slot.custom_minimum_size = Vector2(64, 64)
+		slot.ignore_texture_size = true
+		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		
 		# Connect signals for drag-drop and shift-click
 		if slot.has_signal("slot_clicked"):
 			slot.slot_clicked.connect(_on_chest_slot_clicked.bind(i))
@@ -79,15 +85,23 @@ func _setup_chest_slots() -> void:
 		
 		# Initialize slot
 		slot._ready()
+	
+	print("[ChestPanel] Created %d chest slots, grid has %d children" % [CHEST_INVENTORY_SIZE, chest_grid.get_child_count()])
+	
+	# Force grid to be visible and update layout
+	chest_grid.visible = true
+	chest_grid.queue_redraw()
 
 
 func _setup_player_slots() -> void:
 	"""Create player inventory slots in our panel."""
 	if not player_grid:
+		print("[ChestPanel] ERROR: player_grid is null!")
 		return
 	
-	# Clear existing slots
+	# Clear existing slots immediately
 	for child in player_grid.get_children():
+		player_grid.remove_child(child)
 		child.queue_free()
 	
 	# Load empty slot texture and slot script
@@ -98,10 +112,12 @@ func _setup_player_slots() -> void:
 		push_error("ChestInventoryPanel: Could not load inventory_menu_slot.gd")
 		return
 	
-	# Get player inventory size (usually 24)
+	# Get player inventory size (usually 24) - ensure minimum of 24
 	var player_inventory_size = 24
-	if InventoryManager:
-		player_inventory_size = InventoryManager.inventory_slots.size()
+	if InventoryManager and InventoryManager.inventory_slots.size() > 0:
+		player_inventory_size = max(24, InventoryManager.inventory_slots.size())
+	
+	print("[ChestPanel] Creating %d player inventory slots" % player_inventory_size)
 	
 	# Create slots
 	for i in range(player_inventory_size):
@@ -111,6 +127,11 @@ func _setup_player_slots() -> void:
 		slot.empty_texture = empty_texture
 		slot.is_locked = false
 		slot.name = "PlayerSlot_%d" % i
+		
+		# CRITICAL: Set minimum size so slot is visible
+		slot.custom_minimum_size = Vector2(64, 64)
+		slot.ignore_texture_size = true
+		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		
 		# Connect signals for drag-drop and shift-click
 		if slot.has_signal("slot_drop_received"):
@@ -125,6 +146,12 @@ func _setup_player_slots() -> void:
 		
 		# Initialize slot
 		slot._ready()
+	
+	print("[ChestPanel] Created %d player slots, grid has %d children" % [player_inventory_size, player_grid.get_child_count()])
+	
+	# Force grid to be visible and update layout
+	player_grid.visible = true
+	player_grid.queue_redraw()
 
 
 func _on_player_shift_clicked(slot_index: int, item_texture: Texture, stack_count: int, source_type: String) -> void:
@@ -360,9 +387,14 @@ func _on_chest_slot_drop_received(slot_index: int, data: Dictionary) -> void:
 		elif source_node.has_meta("is_player_slot"):
 			source_type = "player"
 	
+	print("[ChestPanel] Drop received: source=%s slot=%d texture=%s count=%d" % [source_type, slot_index, source_texture, source_count])
+	
 	if source_type == "player" or source_type == "inventory":
 		# Transfer from player inventory to chest
 		_transfer_to_chest(slot_index, source_slot_index, source_texture, source_count)
+	elif source_type == "toolkit":
+		# Transfer from HUD/toolkit to chest
+		_transfer_from_toolkit_to_chest(slot_index, source_slot_index, source_texture, source_count)
 	elif source_type == "chest":
 		# Transfer within chest (swap)
 		_swap_chest_slots(slot_index, source_slot_index)
@@ -473,6 +505,49 @@ func _transfer_to_chest(chest_slot_index: int, player_slot_index: int, texture: 
 		chest_inventory[chest_slot_index] = {"texture": texture, "count": count, "weight": 0.0}
 		if InventoryManager:
 			InventoryManager.inventory_slots[player_slot_index] = {"texture": temp_texture, "count": temp_count, "weight": 0.0}
+	
+	sync_chest_ui()
+	sync_player_ui()
+
+
+func _transfer_from_toolkit_to_chest(chest_slot_index: int, toolkit_slot_index: int, texture: Texture, count: int) -> void:
+	"""Transfer item from HUD/toolkit to chest."""
+	var chest_slot_data = chest_inventory.get(chest_slot_index, {"texture": null, "count": 0})
+	
+	print("[ChestPanel] Transferring from toolkit slot %d to chest slot %d: %s x%d" % [toolkit_slot_index, chest_slot_index, texture, count])
+	
+	# Check if chest slot is empty or has same texture
+	if not chest_slot_data["texture"]:
+		# Empty slot - place item
+		chest_inventory[chest_slot_index] = {"texture": texture, "count": count, "weight": 0.0}
+		# Remove from toolkit
+		if InventoryManager:
+			InventoryManager.toolkit_slots[toolkit_slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+			InventoryManager.sync_toolkit_ui()
+	elif chest_slot_data["texture"] == texture:
+		# Same texture - stack
+		var new_count = min(chest_slot_data["count"] + count, MAX_INVENTORY_STACK)
+		var remaining = (chest_slot_data["count"] + count) - new_count
+		chest_inventory[chest_slot_index] = {
+			"texture": texture,
+			"count": new_count,
+			"weight": chest_slot_data.get("weight", 0.0)
+		}
+		# Update toolkit
+		if InventoryManager:
+			if remaining > 0:
+				InventoryManager.toolkit_slots[toolkit_slot_index] = {"texture": texture, "count": remaining, "weight": 0.0}
+			else:
+				InventoryManager.toolkit_slots[toolkit_slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+			InventoryManager.sync_toolkit_ui()
+	else:
+		# Different texture - swap
+		var temp_texture = chest_slot_data["texture"]
+		var temp_count = chest_slot_data["count"]
+		chest_inventory[chest_slot_index] = {"texture": texture, "count": count, "weight": 0.0}
+		if InventoryManager:
+			InventoryManager.toolkit_slots[toolkit_slot_index] = {"texture": temp_texture, "count": temp_count, "weight": 0.0}
+			InventoryManager.sync_toolkit_ui()
 	
 	sync_chest_ui()
 	sync_player_ui()

@@ -13,7 +13,10 @@ var tool_switcher: Node = null # Cached reference to ToolSwitcher node
 
 
 func _ready() -> void:
-# Connect the signal to highlight the active tool
+	# Add to "hud" group for easy lookup
+	add_to_group("hud")
+	
+	# Connect the signal to highlight the active tool
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
 
 	# Connect to UiManager's scene_changed signal

@@ -213,37 +213,39 @@ func _gui_input(event: InputEvent) -> void:
 						_cancel_existing_drag_from_toolkit()
 						_cancel_existing_drag_from_other_slot()
 			
-			# FOURTH: No active drag - start drag if slot has an item (pick up on click)
-			# CRITICAL: Check if we're transitioning from right-click to left-click drag
-			if item_texture and not is_locked:
-				# If we're in a right-click drag, preserve original_stack_count before starting left-click drag
-				if is_dragging and _is_right_click_drag and original_stack_count > 0:
-					# CRITICAL: Clean up right-click drag state before starting left-click drag
-					# This prevents state confusion
-					var preserved_original_stack_count = original_stack_count
-					var preserved_original_texture = original_texture
-					var preserved_drag_count = drag_count
-					
-					# Clean up right-click drag state
-					_is_right_click_drag = false
-					has_swapped_items_in_ghost = false
-					
-					# Start left-click drag
-					_start_drag()
-					
-					# If _start_drag() didn't detect it (shouldn't happen, but just in case), restore it
-					if original_stack_count == 0 and preserved_original_stack_count > 0:
-						original_stack_count = preserved_original_stack_count
-						original_texture = preserved_original_texture
-						drag_count = preserved_drag_count
-				else:
-					_start_drag()
+		# FOURTH: No active drag - handle click on slot
+		# Check for shift-click FIRST (before starting drag)
+		if Input.is_key_pressed(KEY_SHIFT) and item_texture and not is_locked:
+			emit_signal("shift_clicked", slot_index, item_texture, stack_count, "player")
+			return # Don't start drag when shift-clicking
+		
+		# CRITICAL: Check if we're transitioning from right-click to left-click drag
+		if item_texture and not is_locked:
+			# If we're in a right-click drag, preserve original_stack_count before starting left-click drag
+			if is_dragging and _is_right_click_drag and original_stack_count > 0:
+				# CRITICAL: Clean up right-click drag state before starting left-click drag
+				# This prevents state confusion
+				var preserved_original_stack_count = original_stack_count
+				var preserved_original_texture = original_texture
+				var preserved_drag_count = drag_count
+				
+				# Clean up right-click drag state
+				_is_right_click_drag = false
+				has_swapped_items_in_ghost = false
+				
+				# Start left-click drag
+				_start_drag()
+				
+				# If _start_drag() didn't detect it (shouldn't happen, but just in case), restore it
+				if original_stack_count == 0 and preserved_original_stack_count > 0:
+					original_stack_count = preserved_original_stack_count
+					original_texture = preserved_original_texture
+					drag_count = preserved_drag_count
 			else:
-				# Check for shift-click
-				if Input.is_key_pressed(KEY_SHIFT) and item_texture:
-					emit_signal("shift_clicked", slot_index, item_texture, stack_count, "player")
-				else:
-					emit_signal("slot_clicked", slot_index)
+				_start_drag()
+		else:
+			# Slot is empty or locked
+			emit_signal("slot_clicked", slot_index)
 	elif event is InputEventMouseMotion and is_dragging:
 		# Update drag preview position
 		_update_drag_preview_position()
@@ -252,6 +254,11 @@ func _gui_input(event: InputEvent) -> void:
 		and event.button_index == MOUSE_BUTTON_RIGHT
 		and event.pressed
 	):
+		# Check for shift+right-click (transfer single item)
+		if Input.is_key_pressed(KEY_SHIFT) and item_texture and not is_locked and stack_count > 0:
+			emit_signal("shift_clicked", slot_index, item_texture, 1, "player") # Transfer only 1 item
+			return
+		
 		# Right-click drag: grab one item at a time
 		_start_right_click_drag()
 

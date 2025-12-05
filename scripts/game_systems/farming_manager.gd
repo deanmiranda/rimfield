@@ -259,14 +259,20 @@ func _use_pickaxe(cell: Vector2i) -> void:
 		# Check if there's a chest at this position
 		var chest_at_pos = chest_manager.find_chest_at_position(tile_center_pos, 12.0)
 		if chest_at_pos:
-			
-			# Get HUD for droppable spawning
-			var hud = get_tree().root.get_node_or_null("Hud")
+			# Get HUD for droppable spawning (use group for reliable lookup)
+			var hud = get_tree().get_first_node_in_group("hud")
+			if not hud:
+				hud = get_tree().root.get_node_or_null("Hud")
 			if not hud:
 				hud = get_tree().current_scene.get_node_or_null("Hud")
 			
 			# Attempt to remove chest and spawn drop
 			var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
+			
+			if removal_success:
+				print("[CHEST PICKAXE] Successfully removed chest and spawned droppable")
+			else:
+				print("[CHEST PICKAXE] Failed to remove chest (chest not empty or error)")
 			
 			return # Chest handling done, don't process soil/crops
 	
