@@ -183,8 +183,9 @@ func _slide_to_player_and_remove() -> void:
 	# Create a single tween with sequential phases
 	shake_tween = create_tween()
 	
-	# PHASE 1: Subtle shake for 0.8 seconds (anticipation - gives player time to run away)
-	for i in range(8): # 8 shakes
+	# PHASE 1: Subtle shake for 0.55 seconds (anticipation - gives player time to run away)
+	# Reduced from 0.8 seconds to 0.55 seconds (0.25 seconds faster)
+	for i in range(5): # 5 shakes (was 8) = 0.5 seconds total
 		shake_tween.tween_property(self, "global_position", original_pos + Vector2(1, 0), 0.05)
 		shake_tween.tween_property(self, "global_position", original_pos + Vector2(-1, 0), 0.05)
 	
