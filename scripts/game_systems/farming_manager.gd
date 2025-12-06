@@ -82,7 +82,7 @@ func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
 			current_tool = "unknown"
 	else:
 		current_tool = "unknown"
-	
+
 # ============================================================================
 # FARMABLE AREA CHECKING
 # ============================================================================

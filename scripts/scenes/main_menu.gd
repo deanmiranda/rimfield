@@ -3,9 +3,20 @@ extends Control
 const LOAD_MENU = preload("res://scenes/ui/load_menu.tscn") # Preload the load menu scene
 
 func _on_new_game_pressed() -> void:
+	# Stop intro music before starting game
+	_stop_intro_music()
+	
 	GameState.new_game()
 	#GameState.save_game()  # Create a new save file with timestamp
 	SceneManager.start_in_house(true) # Start the game in the house scene
+
+
+func _stop_intro_music() -> void:
+	"""Stop the intro music player"""
+	var intro_music = get_node_or_null("IntroMusic")
+	if intro_music and intro_music is AudioStreamPlayer:
+		intro_music.stop()
+		print("[MainMenu] Stopped intro music")
 
 func _on_exit_pressed() -> void:
 	get_tree().quit() # Exit the game

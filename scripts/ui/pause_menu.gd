@@ -19,6 +19,10 @@ var inventory_grid: GridContainer = $CenterContainer/PanelContainer/VBoxContaine
 # Type will show linter error until Godot restarts - this is normal for new class_name
 var player_inventory_container = null # Will be PlayerInventoryContainer instance
 
+# Local array of pause menu's own SlotBase nodes (for UI-specific behavior like drop target toggling)
+# Do NOT use player_inventory_container.slots for UI control - that's shared with ChestPanel
+var pause_inventory_slots: Array[SlotBase] = []
+
 # Player info references
 @onready
 var player_sprite: TextureRect = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlayerSpriteContainer/PlayerSprite
@@ -197,7 +201,9 @@ func _setup_inventory_slots() -> void:
 	var border_texture = preload("res://assets/ui/tile_outline.png")
 	
 	# Create 30 slots (3 columns x 10 rows) using NEW SlotBase system
-	var slots = []
+	# Maintain local array for UI-specific behavior (drop target toggling)
+	# Clear any existing slots before rebuilding
+	pause_inventory_slots.clear()
 	for i in range(INVENTORY_SLOTS_TOTAL):
 		var slot = SlotBase.new()
 		slot.name = "InventorySlot_" + str(i)
@@ -210,6 +216,10 @@ func _setup_inventory_slots() -> void:
 		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		slot.focus_mode = Control.FOCUS_NONE
+		
+		# Optional: tag slot for logging (helps identify which UI owns it)
+		if not "ui_owner_tag" in slot:
+			slot.set_meta("ui_owner_tag", "PauseMenu")
 		
 		# Add background style for slots
 		var bg_style = StyleBoxFlat.new()
@@ -231,9 +241,11 @@ func _setup_inventory_slots() -> void:
 		
 		inventory_grid.add_child(slot)
 		
-		# Register slot with container using API
+		# Register slot with container using API (for data sync)
 		player_inventory_container.register_slot(slot)
-		slots.append({"slot": slot, "index": i})
+		
+		# Store in local array for UI-specific behavior
+		pause_inventory_slots.append(slot)
 		
 		# Initialize slot
 		slot._ready()
@@ -437,15 +449,14 @@ func _on_visibility_changed() -> void:
 
 
 func _set_inventory_drop_targets_enabled(enabled: bool) -> void:
-	"""Enable or disable drop targets for all inventory slots"""
+	"""Enable or disable drop targets for pause menu's own inventory slots only"""
+	"""Do NOT touch ChestPanel's slots - each UI manages its own slot behavior"""
 	if not inventory_grid:
 		return
 	
-	if not player_inventory_container:
-		return
-	
-	# Set drop_target_enabled flag for all inventory slots
-	for slot in player_inventory_container.slots:
+	# Toggle only pause menu's local slots (not container's shared registry)
+	var valid_slots = []
+	for slot in pause_inventory_slots:
 		if slot and is_instance_valid(slot):
 			slot.drop_target_enabled = enabled
 			# Also set mouse_filter to IGNORE when disabled to prevent hit tests
@@ -453,8 +464,13 @@ func _set_inventory_drop_targets_enabled(enabled: bool) -> void:
 				slot.mouse_filter = Control.MOUSE_FILTER_STOP
 			else:
 				slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			valid_slots.append(slot)
 	
-	print("[PauseMenu] Set inventory drop targets enabled=%s" % enabled)
+	# Clean up invalid references
+	if valid_slots.size() != pause_inventory_slots.size():
+		pause_inventory_slots = valid_slots
+	
+	print("[PauseMenu] Toggled drop targets for local slots count=%d enabled=%s" % [valid_slots.size(), enabled])
 
 
 func _on_resume_button_pressed() -> void:
@@ -550,6 +566,10 @@ func _on_save_game_pressed() -> void:
 
 func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
+	# Stop game music before returning to main menu
+	if MusicManager:
+		MusicManager.stop_music()
+	
 	# Unpause the game before switching to the main menu
 	get_tree().paused = false
 	# Unpause game time when menu closes

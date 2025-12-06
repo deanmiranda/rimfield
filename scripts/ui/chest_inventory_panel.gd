@@ -16,6 +16,9 @@ signal panel_closed()
 var current_chest: Node = null
 var current_chest_id: String = ""
 
+# Chest slots (local array for UI-specific behavior)
+var chest_slots: Array[SlotBase] = []
+
 # Player inventory slots (NEW SYSTEM: using SlotBase with PlayerInventoryContainer)
 var player_slots: Array = []
 # Type will show linter error until Godot restarts - this is normal for new class_name
@@ -50,10 +53,10 @@ func _ready() -> void:
 	# Set up chest slots using new SlotBase system
 	_setup_chest_slots()
 	
-	# Set up player inventory slots (still using old system for now)
+	# Set up player inventory slots
 	_setup_player_slots()
 	
-	print("[ChestPanel] Ready: %d chest slots created, max stack %d" % [slots.size(), max_stack_size])
+	print("[ChestPanel] Ready: %d chest slots created, max stack %d" % [chest_slots.size(), max_stack_size])
 
 
 func _setup_chest_slots() -> void:
@@ -65,7 +68,7 @@ func _setup_chest_slots() -> void:
 	for child in chest_grid.get_children():
 		chest_grid.remove_child(child)
 		child.queue_free()
-	slots.clear()
+	chest_slots.clear()
 	
 	# Load empty slot texture
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
@@ -80,8 +83,11 @@ func _setup_chest_slots() -> void:
 		
 		chest_grid.add_child(slot)
 		
-		# Register slot with container using API
+		# Register slot with container using API (for data sync)
 		register_slot(slot)
+		
+		# Store in local array for UI-specific behavior (if needed later)
+		chest_slots.append(slot)
 		
 		# Initialize slot
 		slot._ready()
@@ -89,7 +95,7 @@ func _setup_chest_slots() -> void:
 		# Sync slot UI from container data
 		sync_slot_ui(i)
 	
-	print("[ChestPanel] Created %d chest slots" % slots.size())
+	print("[ChestPanel] Created %d chest slots" % chest_slots.size())
 
 
 func _setup_player_slots() -> void:
@@ -126,6 +132,7 @@ func _setup_player_slots() -> void:
 	var player_inventory_size = player_inventory_container.slot_count
 	
 	# Create player inventory slots using SlotBase
+	# Maintain local player_slots array for UI-specific behavior
 	for i in range(player_inventory_size):
 		var slot = SlotBase.new()
 		slot.slot_index = i
@@ -133,15 +140,21 @@ func _setup_player_slots() -> void:
 		slot.container_ref = player_inventory_container
 		slot.name = "PlayerSlot_%d" % i
 		
+		# Optional: tag slot for logging (helps identify which UI owns it)
+		if not "ui_owner_tag" in slot:
+			slot.set_meta("ui_owner_tag", "ChestPanel")
+		
 		slot.custom_minimum_size = Vector2(64, 64)
 		slot.ignore_texture_size = true
 		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		
 		player_grid.add_child(slot)
-		player_slots.append(slot)
 		
-		# Register slot with container using API
+		# Register slot with container using API (for data sync)
 		player_inventory_container.register_slot(slot)
+		
+		# Store in local array for UI-specific behavior (if needed later)
+		player_slots.append(slot)
 		
 		slot._ready()
 		
@@ -318,120 +331,6 @@ func _on_close_pressed() -> void:
 
 # Override removed - use ContainerBase.handle_drop_on_slot() which routes to _handle_external_drop()
 # This ensures source removal via ContainerBase API
-
-
-func _handle_external_drop_to_chest(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int) -> void:
-	"""Handle drop from HUD/toolkit or player inventory to chest"""
-	var target_data = inventory_data[target_slot]
-	
-	if not target_data["texture"]:
-		# Empty target - transfer item
-		print("[ChestPanel] Placing in empty slot %d" % target_slot)
-		inventory_data[target_slot] = {"texture": texture, "count": count, "weight": 0.0}
-		
-		# Remove from source (HUD/toolkit or player inventory)
-		_remove_from_source(source_container, source_slot)
-		
-	elif target_data["texture"] == texture:
-		# Same texture - stack
-		print("[ChestPanel] Stacking in slot %d" % target_slot)
-		var combined = target_data["count"] + count
-		var new_count = min(combined, max_stack_size)
-		var overflow = combined - new_count
-		
-		inventory_data[target_slot]["count"] = new_count
-		
-		if overflow > 0:
-			# Update source with overflow
-			_update_source_count(source_container, source_slot, overflow)
-		else:
-			# Remove from source
-			_remove_from_source(source_container, source_slot)
-	else:
-		# Different texture - swap
-		print("[ChestPanel] Swapping with slot %d" % target_slot)
-		var temp_texture = target_data["texture"]
-		var temp_count = target_data["count"]
-		
-		inventory_data[target_slot] = {"texture": texture, "count": count, "weight": 0.0}
-		
-		# Put chest item into source
-		_update_source(source_container, source_slot, temp_texture, temp_count)
-	
-	sync_slot_ui(target_slot)
-
-
-func _remove_from_source(source_container: Node, source_slot: int) -> void:
-	"""Remove item from source (HUD/toolkit or player inventory)"""
-	# Check if source is HUD/toolkit
-	if source_container and source_container.has_method("get_item"):
-		# This is a HUD slot
-		if InventoryManager:
-			InventoryManager.toolkit_slots[source_slot] = {"texture": null, "count": 0, "weight": 0.0}
-			InventoryManager.sync_toolkit_ui()
-		
-		# Also clean up HUD slot's visual state
-		if source_container.has_method("_cleanup_drag_manager_state"):
-			source_container._cleanup_drag_manager_state()
-		else:
-			# Fallback: restore slot visual
-			var hud_slot_rect = source_container.get_node_or_null("Hud_slot_" + str(source_slot))
-			if hud_slot_rect:
-				hud_slot_rect.modulate = Color.WHITE
-	elif InventoryManager:
-		# Player inventory
-		InventoryManager.inventory_slots[source_slot] = {"texture": null, "count": 0, "weight": 0.0}
-		sync_player_ui()
-
-
-func _update_source_count(source_container: Node, source_slot: int, new_count: int) -> void:
-	"""Update source slot count (for overflow from stacking)"""
-	# Check if source is HUD/toolkit
-	if source_container and source_container.has_method("get_item"):
-		# This is a HUD slot
-		if InventoryManager:
-			var existing = InventoryManager.toolkit_slots.get(source_slot, {})
-			existing["count"] = new_count
-			InventoryManager.toolkit_slots[source_slot] = existing
-			InventoryManager.sync_toolkit_ui()
-		
-		# Clean up HUD slot's visual state
-		if source_container.has_method("_cleanup_drag_manager_state"):
-			source_container._cleanup_drag_manager_state()
-		else:
-			# Fallback: restore slot visual
-			var hud_slot_rect = source_container.get_node_or_null("Hud_slot_" + str(source_slot))
-			if hud_slot_rect:
-				hud_slot_rect.modulate = Color.WHITE
-	elif InventoryManager:
-		# Player inventory
-		var existing = InventoryManager.inventory_slots.get(source_slot, {})
-		existing["count"] = new_count
-		InventoryManager.inventory_slots[source_slot] = existing
-		sync_player_ui()
-
-
-func _update_source(source_container: Node, source_slot: int, texture: Texture, count: int) -> void:
-	"""Update source slot with new item (for swaps)"""
-	# Check if source is HUD/toolkit
-	if source_container and source_container.has_method("get_item"):
-		# This is a HUD slot
-		if InventoryManager:
-			InventoryManager.toolkit_slots[source_slot] = {"texture": texture, "count": count, "weight": 0.0}
-			InventoryManager.sync_toolkit_ui()
-		
-		# Clean up HUD slot's visual state
-		if source_container.has_method("_cleanup_drag_manager_state"):
-			source_container._cleanup_drag_manager_state()
-		else:
-			# Fallback: restore slot visual
-			var hud_slot_rect = source_container.get_node_or_null("Hud_slot_" + str(source_slot))
-			if hud_slot_rect:
-				hud_slot_rect.modulate = Color.WHITE
-	elif InventoryManager:
-		# Player inventory
-		InventoryManager.inventory_slots[source_slot] = {"texture": texture, "count": count, "weight": 0.0}
-		sync_player_ui()
 
 
 # Override handle_shift_click for chest-specific behavior

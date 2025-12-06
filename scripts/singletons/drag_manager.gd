@@ -126,6 +126,15 @@ func cancel_drag() -> void:
 		_reset_state()
 
 
+func clear_drag_state() -> void:
+	"""Clear drag state and preview without restoring source (for successful world drops)"""
+	"""Does NOT mutate inventory or restore source visuals - just cleans up drag state"""
+	if is_dragging:
+		print("[DragManager] Clearing drag state (world drop completed)")
+		cleanup_preview()
+		_reset_state()
+
+
 func cleanup_preview() -> void:
 	"""Remove drag preview from scene"""
 	if drag_preview_layer:

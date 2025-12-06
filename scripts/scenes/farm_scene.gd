@@ -449,3 +449,9 @@ func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: T
 	elif source_container and source_container.has_method("remove_item_from_slot"):
 		# Fallback: just remove the slot
 		source_container.remove_item_from_slot(source_slot)
+	
+	# CRITICAL: Clear drag state and preview after successful world placement
+	# Use clear_drag_state() instead of cancel_drag() to avoid restoring source visuals
+	# (source container was already mutated above)
+	if DragManager:
+		DragManager.clear_drag_state()

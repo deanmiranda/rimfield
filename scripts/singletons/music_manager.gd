@@ -28,7 +28,7 @@ var saved_volume_db: float = 0.0
 
 # Tracks to exclude (main menu/intro music)
 const EXCLUDED_TRACKS: Array[String] = [
-	"RimWorld-Intro.mp3"
+	"RimField-Intro.mp3"
 ]
 
 
@@ -283,4 +283,3 @@ func _load_mute_state() -> void:
 		var muted = config.get_value("audio", "music_muted", false)
 		if muted:
 			set_muted(true)
-

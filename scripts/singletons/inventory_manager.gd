@@ -45,7 +45,7 @@ func _ready() -> void:
 		for i in range(max_inventory_slots):
 			if not inventory_slots.has(i):
 				inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
-
+		
 		for i in range(max_toolkit_slots):
 			if not toolkit_slots.has(i):
 				toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
@@ -681,9 +681,9 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 			# CRITICAL: toolkit_slots is the source of truth - always update UI from it
 			# Don't preserve UI state over dictionary state (causes infinite item bug)
 			
-			# Update the TextureButton itself (which is the hud_slot)
-			if texture_button.has_method("set_item"):
-				texture_button.set_item(item_texture, item_count)
+				# Update the TextureButton itself (which is the hud_slot)
+				if texture_button.has_method("set_item"):
+					texture_button.set_item(item_texture, item_count)
 			else:
 				# Fallback: update child TextureRect
 				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))

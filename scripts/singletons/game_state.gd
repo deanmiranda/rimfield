@@ -368,6 +368,9 @@ func load_game(file: String = "") -> bool:
 		# Always start in house scene after loading (save data is already applied)
 		get_tree().paused = false # Unpause the game if paused
 		
+		# Stop intro music if it's playing (from main menu)
+		_stop_intro_music()
+		
 		# Start background music if not already playing
 		if MusicManager and not MusicManager.is_playing:
 			MusicManager.start_music()
@@ -433,6 +436,17 @@ func manage_save_files() -> void:
 				print("[GameState] Error: Failed to delete old save file:", oldest_file_name)
 
 
+# Helper function to stop intro music from main menu
+func _stop_intro_music() -> void:
+	"""Stop intro music if it's playing (from main menu scene)"""
+	var main_menu = get_tree().current_scene
+	if main_menu and main_menu.name == "Main_Menu":
+		var intro_music = main_menu.get_node_or_null("IntroMusic")
+		if intro_music and intro_music is AudioStreamPlayer:
+			intro_music.stop()
+			print("[GameState] Stopped intro music")
+
+
 # Helper function to extract timestamp from save file name
 func _extract_timestamp_from_filename(file_name: String) -> float:
 	var components = file_name.split("_")
@@ -465,6 +479,9 @@ func new_game() -> void:
 	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
 	# The test chest is in the HUD scene file, so it will be loaded automatically
 	# TODO: When chest crafting is implemented, remove chest from HUD scene file
+	
+	# Stop intro music if it's playing (from main menu)
+	_stop_intro_music()
 	
 	# Start background music
 	if MusicManager:

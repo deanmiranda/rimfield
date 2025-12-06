@@ -25,24 +25,63 @@ var max_stack_size: int = GLOBAL_MAX_STACK_SIZE
 # Container data - dictionary of {slot_index: {texture, count, weight}}
 var inventory_data: Dictionary = {}
 
-# Slot references (SlotBase instances)
-var slots: Array[SlotBase] = []
+# Slot references (SlotBase instances) - multi-view support
+# Dictionary mapping slot_index -> Array[SlotBase] to support multiple UI views per container
+var slot_nodes_by_index: Dictionary = {}
 
 # State
 var is_open: bool = false
 
 
 func register_slot(slot: SlotBase) -> void:
-	"""Register a SlotBase node with this container"""
+	"""Register a SlotBase node with this container (supports multiple views per index)"""
 	if slot == null:
 		return
 	if slot.slot_index < 0:
 		return
-	# Ensure slots array is large enough
-	if slots.size() <= slot.slot_index:
-		slots.resize(slot.slot_index + 1)
-	slots[slot.slot_index] = slot
-	print("[Container:%s] Registered SlotBase index=%d" % [container_id, slot.slot_index])
+	
+	# Initialize array for this index if needed
+	if not slot_nodes_by_index.has(slot.slot_index):
+		slot_nodes_by_index[slot.slot_index] = []
+	
+	# Append slot to array (don't overwrite - support multiple UI views)
+	var slot_array = slot_nodes_by_index[slot.slot_index]
+	if not slot in slot_array:
+		slot_array.append(slot)
+		var total_views = slot_array.size()
+		var owner_tag = ""
+		if slot.has_meta("ui_owner_tag"):
+			owner_tag = " owner=" + str(slot.get_meta("ui_owner_tag"))
+		print("[Container:%s] Registered SlotBase index=%d total_views=%d%s" % [container_id, slot.slot_index, total_views, owner_tag])
+
+
+func unregister_slot(slot: SlotBase) -> void:
+	"""Unregister a SlotBase node from this container"""
+	if slot == null or slot.slot_index < 0:
+		return
+	
+	if slot_nodes_by_index.has(slot.slot_index):
+		var slot_array = slot_nodes_by_index[slot.slot_index]
+		var index = slot_array.find(slot)
+		if index >= 0:
+			slot_array.remove_at(index)
+			if slot_array.is_empty():
+				slot_nodes_by_index.erase(slot.slot_index)
+
+
+func get_registered_slots_for_index(index: int) -> Array:
+	"""Get all SlotBase nodes registered for a specific index"""
+	if slot_nodes_by_index.has(index):
+		return slot_nodes_by_index[index].duplicate()
+	return []
+
+
+func get_all_registered_slots() -> Array:
+	"""Get all registered SlotBase nodes (flattened)"""
+	var all_slots = []
+	for index in slot_nodes_by_index:
+		all_slots.append_array(slot_nodes_by_index[index])
+	return all_slots
 
 
 func _ready() -> void:
@@ -196,20 +235,34 @@ func set_slot_data(slot_index: int, texture: Texture, count: int) -> void:
 
 func sync_ui() -> void:
 	"""Update all slot visuals from inventory_data"""
-	for i in range(min(slots.size(), slot_count)):
+	# Sync all slots (multi-view support - sync_ui updates all registered views)
+	for i in range(slot_count):
 		sync_slot_ui(i)
 
 
 func sync_slot_ui(slot_index: int) -> void:
-	"""Update single slot visual from inventory_data"""
-	if slot_index < 0 or slot_index >= slots.size():
+	"""Update all registered slot visuals at this index from inventory_data"""
+	if slot_index < 0:
 		return
 	
-	var slot = slots[slot_index]
-	var slot_data = inventory_data[slot_index]
+	var slot_data = inventory_data.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
 	
-	if slot and slot.has_method("set_item"):
-		slot.set_item(slot_data["texture"], slot_data["count"])
+	# Update all registered slots at this index (multi-view support)
+	if slot_nodes_by_index.has(slot_index):
+		var slot_array = slot_nodes_by_index[slot_index]
+		# Clean up invalid references while iterating
+		var valid_slots = []
+		for slot in slot_array:
+			if slot and is_instance_valid(slot) and slot.has_method("set_item"):
+				slot.set_item(slot_data["texture"], slot_data["count"])
+				valid_slots.append(slot)
+			else:
+				# Slot was freed - remove from registry
+				pass
+		
+		# Update registry if we removed invalid slots
+		if valid_slots.size() != slot_array.size():
+			slot_nodes_by_index[slot_index] = valid_slots
 
 
 func handle_drop_on_slot(target_slot_index: int) -> void:
@@ -244,7 +297,7 @@ func handle_drop_on_slot(target_slot_index: int) -> void:
 			source_slot_index,
 			target_slot_index
 		])
-		_handle_external_drop(source_container, source_slot_index, target_slot_index, drag_texture, drag_count)
+		_handle_external_drop(source_container, source_slot_index, target_slot_index, drag_texture, drag_count, is_right_click)
 
 
 func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count: int, is_right_click: bool = false) -> void:
@@ -313,7 +366,7 @@ func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count
 	sync_slot_ui(to_slot)
 
 
-func _handle_external_drop(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int) -> void:
+func _handle_external_drop(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int, is_right_click: bool = false) -> void:
 	"""Handle drop from external container (transfer or swap)"""
 	var source_id_str = source_container.container_id if source_container and "container_id" in source_container else "unknown"
 	var target_id_str = container_id
@@ -333,16 +386,43 @@ func _handle_external_drop(source_container: Node, source_slot: int, target_slot
 	
 	if not target_data["texture"]:
 		# Empty target - transfer item using API (preserves count)
-		add_item_to_slot(target_slot, texture, count)
-		source_container.remove_item_from_slot(source_slot)
+		# For right-click, only move 1 item (Stardew-style peel)
+		var transfer_count = count
+		if is_right_click:
+			transfer_count = 1
+		
+		add_item_to_slot(target_slot, texture, transfer_count)
+		
+		# Update source: remove all if left-click, or decrement by 1 if right-click
+		if is_right_click:
+			# For right-click, we moved 1 item, so decrement source by 1
+			# Get current source count (may have changed if drag started with partial count)
+			var source_data = source_container.get_slot_data(source_slot) if source_container.has_method("get_slot_data") else {"texture": texture, "count": count}
+			var current_source_count = source_data.get("count", count)
+			var remaining = current_source_count - 1
+			if remaining > 0:
+				if source_container.has_method("set_slot_data"):
+					source_container.set_slot_data(source_slot, texture, remaining)
+				else:
+					source_container.remove_item_from_slot(source_slot)
+					source_container.add_item_to_slot(source_slot, texture, remaining)
+			else:
+				source_container.remove_item_from_slot(source_slot)
+		else:
+			source_container.remove_item_from_slot(source_slot)
 	elif target_data["texture"] == texture:
 		# Same texture - stack using clearer algorithm
 		# Read current state using APIs
 		var target_current = get_slot_data(target_slot)
 		
+		# For right-click, only try to move 1 item
+		var amount_to_move = count
+		if is_right_click:
+			amount_to_move = 1
+		
 		# Compute space available and amount to move
 		var space = max_stack_size - target_current["count"]
-		var to_move = min(space, count)
+		var to_move = min(space, amount_to_move)
 		var remaining = count - to_move
 		
 		# Apply: move items to target

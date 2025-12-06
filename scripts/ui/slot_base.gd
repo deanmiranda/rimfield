@@ -241,10 +241,17 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - cancel drag
-			print("[SlotBase] No hovered slot found - canceling drag")
-			DragManager.cancel_drag()
-			_restore_after_cancel()
+			# No valid target found - check if item is world-placeable
+			if _is_world_placeable_drag():
+				print("[SlotBase] No hovered slot found, but item is world-placeable - emitting world drop")
+				DragManager.emit_world_drop()
+				# Clear stored original data (world drop committed)
+				original_slot_data.clear()
+			else:
+				# No valid target and not world-placeable - cancel drag
+				print("[SlotBase] No hovered slot found - canceling drag")
+				DragManager.cancel_drag()
+				_restore_after_cancel()
 		
 		accept_event() # Consume the event
 		get_viewport().set_input_as_handled()

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dev2o7fsijrw5" path="res://scripts/scenes/main_menu.gd" id="1_7w23d"]
 [ext_resource type="Texture2D" uid="uid://bo8600bo2h7c0" path="res://assets/main/RimfieldValley.png" id="2_fe2o3"]
-[ext_resource type="AudioStream" uid="uid://cuo5d4jeab3bt" path="res://assets/audio/RimWorld-Intro.mp3" id="3_intro"]
+[ext_resource type="AudioStream" path="res://assets/audio/RimWorld-Intro.mp3" id="3_intro"]
 
 [node name="Main_Menu" type="Control"]
 layout_mode = 3

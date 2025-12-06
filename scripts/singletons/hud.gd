@@ -16,7 +16,7 @@ func _ready() -> void:
 	# Add to "hud" group for easy lookup
 	add_to_group("hud")
 	
-	# Connect the signal to highlight the active tool
+# Connect the signal to highlight the active tool
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
 
 	# Connect to UiManager's scene_changed signal
@@ -57,7 +57,7 @@ func setup_hud() -> void:
 
 	# NEW SYSTEM: Connect to SlotBase signals
 	var tool_buttons = slots_container.get_children()
-	
+
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
 			# SlotBase emits tool_selected signal directly (no child nodes)

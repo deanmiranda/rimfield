@@ -59,17 +59,21 @@ func _setup_toolkit_slots() -> void:
 	# GUARD: Only clear slots if this is a fresh setup
 	# If slots already exist and are linked to this container, preserve them
 	var needs_rebuild = false
-	if toolkit_container.slots.size() == 0:
+	var all_registered_slots = toolkit_container.get_all_registered_slots()
+	if all_registered_slots.size() == 0:
 		needs_rebuild = true
 	else:
 		# Check if existing slots are actually in the scene tree
-		var first_slot = toolkit_container.slots[0] if toolkit_container.slots.size() > 0 else null
+		var first_slot = all_registered_slots[0] if all_registered_slots.size() > 0 else null
 		if not first_slot or not is_instance_valid(first_slot) or not first_slot.get_parent():
 			needs_rebuild = true
 	
 	if needs_rebuild:
 		# Clear old slot references (this HUD instance will provide new ones)
-		toolkit_container.slots.clear()
+		# Unregister all existing slots
+		for slot in all_registered_slots:
+			if slot and is_instance_valid(slot):
+				toolkit_container.unregister_slot(slot)
 	else:
 		# Slots already exist and are valid - don't rebuild
 		print("[HudInitializer] Slots already exist and are valid - skipping rebuild")
@@ -125,7 +129,9 @@ func _setup_toolkit_slots() -> void:
 		# Add to container and scene
 		slots_container.add_child(new_slot)
 		slots_container.move_child(new_slot, i) # Maintain order
-		toolkit_container.slots.append(new_slot)
+		
+		# Register slot with container using API (for data sync)
+		toolkit_container.register_slot(new_slot)
 		
 		# Re-add Highlight child to new slot
 		if highlight_node:
@@ -141,7 +147,8 @@ func _setup_toolkit_slots() -> void:
 	# Sync UI to show migrated data
 	toolkit_container.sync_ui()
 	
-	print("[HudInitializer] Created %d toolkit slots" % toolkit_container.slots.size())
+	var registered_count = toolkit_container.get_all_registered_slots().size()
+	print("[HudInitializer] Created %d toolkit slots" % registered_count)
 	
 	# InventoryManager reference is set automatically by container registration
 	# No need to set manually here
