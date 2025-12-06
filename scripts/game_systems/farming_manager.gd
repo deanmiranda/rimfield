@@ -11,6 +11,7 @@ const ENERGY_COST_HOE = 2
 const ENERGY_COST_WATERING_CAN = 1
 const ENERGY_COST_PICKAXE = 3
 const ENERGY_COST_SEED = 1
+const ENERGY_COST_CHEST = 0 # Chest placement is free
 
 # Atlas coordinate constants
 const SOURCE_ID := 0
@@ -70,10 +71,13 @@ func set_hud(hud_scene_instance: Node) -> void:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 			tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
 
-func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
+func _on_tool_changed(slot_index: int, item_texture: Texture) -> void:
 	if item_texture:
-		if tool_config and tool_config.has_method("get_tool_name"):
-			current_tool = tool_config.get_tool_name(item_texture)
+		if tool_config:
+			if tool_config.has_method("get_tool_name"):
+				current_tool = tool_config.get_tool_name(item_texture)
+			else:
+				current_tool = "unknown"
 		else:
 			current_tool = "unknown"
 	else:
@@ -109,7 +113,10 @@ func _is_soil(cell: Vector2i) -> bool:
 # TOOL INTERACTIONS
 # ============================================================================
 
-func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
+func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool: String = "", override_slot_index: int = -1) -> void:
+	# Use override tool if provided, otherwise use current_tool
+	var tool_to_use = override_tool if override_tool != "" else current_tool
+	
 	if not farmable_layer:
 		return
 	
@@ -125,15 +132,18 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 	var cell_distance_x = abs(target_cell.x - player_cell.x)
 	var cell_distance_y = abs(target_cell.y - player_cell.y)
 	
+	
 	if cell_distance_x == 0 and cell_distance_y == 0:
 		return
 	
-	if cell_distance_x > 1 or cell_distance_y > 1:
+	# Allow chest placement at slightly greater distance (2 cells) for better UX
+	var max_distance = 2 if tool_to_use == "chest" else 1
+	if cell_distance_x > max_distance or cell_distance_y > max_distance:
 		return
 	
 	# Get energy cost
 	var energy_cost := 0
-	match current_tool:
+	match tool_to_use:
 		"hoe":
 			energy_cost = ENERGY_COST_HOE
 		"watering_can":
@@ -142,13 +152,16 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 			energy_cost = ENERGY_COST_PICKAXE
 		"seed":
 			energy_cost = ENERGY_COST_SEED
+		"chest":
+			energy_cost = ENERGY_COST_CHEST
+	
 	
 	if PlayerStatsManager and energy_cost > 0:
 		if not PlayerStatsManager.consume_energy(energy_cost):
 			return
 	
 	# Execute tool action
-	match current_tool:
+	match tool_to_use:
 		"hoe":
 			_use_hoe(target_cell)
 		"watering_can":
@@ -157,6 +170,8 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2) -> void:
 			_use_pickaxe(target_cell)
 		"seed":
 			_use_seed(target_cell)
+		"chest":
+			_use_chest(target_cell, target_pos, override_slot_index)
 
 func _use_hoe(cell: Vector2i) -> void:
 	"""
@@ -228,9 +243,40 @@ func _use_watering_can(cell: Vector2i) -> void:
 
 func _use_pickaxe(cell: Vector2i) -> void:
 	"""
-	PICKAXE: Allowed if tile is soil OR has a crop.
-	Action: Remove crop, replace tile with FARM_TILE_ATLAS, clear all tile state
+	PICKAXE: Allowed if tile is soil OR has a crop OR has a chest.
+	Action: Remove crop, replace tile with FARM_TILE_ATLAS, clear all tile state, OR remove chest
 	"""
+	# FIRST: Check for chest at this position
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if chest_manager:
+		# Calculate tile center position
+		var tile_center_pos: Vector2
+		if farmable_layer:
+			tile_center_pos = farmable_layer.map_to_local(cell) + Vector2(8, 8)
+		else:
+			tile_center_pos = Vector2(cell.x * 16 + 8, cell.y * 16 + 8)
+		
+		# Check if there's a chest at this position
+		var chest_at_pos = chest_manager.find_chest_at_position(tile_center_pos, 12.0)
+		if chest_at_pos:
+			# Get HUD for droppable spawning (use group for reliable lookup)
+			var hud = get_tree().get_first_node_in_group("hud")
+			if not hud:
+				hud = get_tree().root.get_node_or_null("Hud")
+			if not hud:
+				hud = get_tree().current_scene.get_node_or_null("Hud")
+			
+			# Attempt to remove chest and spawn drop
+			var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
+			
+			if removal_success:
+				print("[CHEST PICKAXE] Successfully removed chest and spawned droppable")
+			else:
+				print("[CHEST PICKAXE] Failed to remove chest (chest not empty or error)")
+			
+			return # Chest handling done, don't process soil/crops
+	
+	# SECOND: Check for crops and soil (existing logic)
 	# Check if there's a crop
 	var has_crop = false
 	if crop_layer and crop_layer.get_cell_source_id(cell) != -1:
@@ -340,6 +386,122 @@ func _use_seed(cell: Vector2i) -> void:
 	GameState.update_tile_state(cell, "planted")
 	
 
+func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -1) -> void:
+	"""
+	CHEST: Place a chest at the target position.
+	Allowed if: tile is farmable/soil, no existing chest at position, player has chest in toolkit.
+	Action: Instantiate chest scene, consume chest from toolkit.
+	"""
+	
+	if override_slot_index < 0:
+		return
+	
+	if not InventoryManager:
+		return
+	
+	var texture := InventoryManager.get_toolkit_item(override_slot_index)
+	var count := InventoryManager.get_toolkit_item_count(override_slot_index)
+	
+	
+	if texture == null or count <= 0:
+		return
+	
+	# Identify tool using ToolConfig
+	var tool_name := ""
+	var tool_config_resource = load("res://resources/data/tool_config.tres")
+	if tool_config_resource and tool_config_resource.has_method("get_tool_name"):
+		tool_name = tool_config_resource.get_tool_name(texture)
+	
+	if tool_name != "chest":
+		return
+	
+	# Get ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		return
+	
+	if not farm_scene:
+		return
+	
+	# Calculate tile center position
+	var tile_center_pos: Vector2
+	if farmable_layer:
+		tile_center_pos = farmable_layer.map_to_local(cell) + Vector2(8, 8) # Center of 16x16 tile
+	else:
+		tile_center_pos = world_pos
+	
+	
+	# Check if there's already a chest at this position
+	var existing_chests = chest_manager.chest_registry
+	for chest_id in existing_chests.keys():
+		var chest_data = existing_chests[chest_id]
+		var chest_node = chest_data.get("node")
+		if chest_node and is_instance_valid(chest_node):
+			var distance = chest_node.global_position.distance_to(tile_center_pos)
+			if distance < 16.0:
+				return
+	
+	# Check if position is valid - CANNOT place on soil/farmable tiles
+	# Only allow placement on grass (FARM_TILE_ATLAS) that is NOT soil or watered
+	var is_soil = _is_soil(cell)
+	
+	# Check if tile is watered or has a crop
+	var is_watered = false
+	var has_crop = false
+	if GameState and GameState.farm_state.has(cell):
+		var tile_data = GameState.get_tile_data(cell)
+		if tile_data:
+			is_watered = tile_data.get("is_watered", false)
+			has_crop = tile_data.get("tile_state") == "planted"
+	
+	if is_soil or is_watered or has_crop:
+		return
+	
+	# Validate placement: allow on grass/empty ground, block on soil/water
+	if farmable_layer:
+		var source_id = farmable_layer.get_cell_source_id(cell)
+		
+		# If source_id == -1, there's no tile on farmable layer (regular grass/ground) - ALLOW
+		if source_id == -1:
+			print("[CHEST FARM] ALLOW placement at cell=%s reason=empty_ground (no farmable tile)" % [cell])
+		else:
+			# There IS a tile on farmable layer - check what it is
+			var atlas_coords = farmable_layer.get_cell_atlas_coords(cell)
+			
+			# FARM_TILE_ATLAS (12, 0) is garden dirt - allow placement
+			# SOIL_DRY_ATLAS and SOIL_WET_ATLAS are tilled soil - block (already checked above)
+			if atlas_coords == FARM_TILE_ATLAS:
+				print("[CHEST FARM] ALLOW placement at cell=%s reason=grass_tile" % [cell])
+			elif atlas_coords == SOIL_DRY_ATLAS:
+				return
+			elif atlas_coords == SOIL_WET_ATLAS:
+				return
+	else:
+		return
+	
+	# Create chest at position
+	var chest = chest_manager.create_chest_at_position(tile_center_pos)
+	if chest == null:
+		print("[CHEST FARM] FAILED - ChestManager.create_chest_at_position returned null")
+		return
+	
+	# Call async helper to consume chest and sync UI
+	_consume_chest_and_sync_ui(override_slot_index)
+
+
+func _consume_chest_and_sync_ui(slot_index: int) -> void:
+	"""Async helper to consume chest from toolkit and sync UI with deferred frame."""
+	# Log BEFORE decrement
+	
+	# Consume one chest item from the toolkit slot
+	InventoryManager.decrement_toolkit_item_count(slot_index, 1)
+	
+	# Deferred sync to ensure drag state is cleared
+	await get_tree().process_frame
+	InventoryManager.sync_toolkit_ui()
+	
+	# Log AFTER sync
+
 func _create_crop_layer() -> void:
 	"""Create crop layer if missing"""
 	if not farm_scene:
@@ -377,7 +539,7 @@ func _create_crop_layer() -> void:
 # MORNING RESET
 # ============================================================================
 
-func _on_day_changed(new_day: int, _new_season: int, _new_year: int) -> void:
+func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
 	if not GameState or not farmable_layer:
 		return
 	

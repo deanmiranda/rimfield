@@ -1,7 +1,8 @@
-[gd_scene load_steps=12 format=3 uid="uid://u1mvuy8l6k23"]
+[gd_scene load_steps=14 format=3 uid="uid://u1mvuy8l6k23"]
 
+[ext_resource type="Script" uid="uid://ip6jgi6c8nei" path="res://scripts/ui/hud_initializer.gd" id="1_initializer"]
 [ext_resource type="FontFile" uid="uid://bkp4jc2xoj60g" path="res://assets/fonts/Xolonium-Regular.ttf" id="1_kicr4"]
-[ext_resource type="Script" uid="uid://dcsuoeae6kf4a" path="res://scripts/ui/hud_slot.gd" id="2_muuh7"]
+[ext_resource type="Script" uid="uid://cq6y2fof5w18t" path="res://scripts/ui/slot_base.gd" id="2_slotbase"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="3_5va86"]
 [ext_resource type="Texture2D" uid="uid://b5vipdhn607jm" path="res://assets/tiles/tools/shovel.png" id="4_ahcmr"]
 [ext_resource type="Texture2D" uid="uid://pvomfbirjwkh" path="res://assets/tiles/tools/watering-can.png" id="5_g2ra6"]
@@ -9,6 +10,7 @@
 [ext_resource type="Script" uid="uid://bhs3bktcaktft" path="res://scripts/ui/hud_clock.gd" id="7_h022r"]
 [ext_resource type="Texture2D" uid="uid://cfnt5tyopipyn" path="res://assets/tilesets/full version/tiles/FartSnipSeeds.png" id="7_t5p3x"]
 [ext_resource type="Script" uid="uid://ckttirqhdk8x0" path="res://scripts/ui/tool_switcher.gd" id="8_d4ui7"]
+[ext_resource type="Texture2D" uid="uid://dfp03truvrrtn" path="res://assets/icons/chest_icon.png" id="8_mj13f"]
 [ext_resource type="PackedScene" uid="uid://b8k3j2m4n5p6q" path="res://scenes/ui/sleep_prompt_ui.tscn" id="9_sleep_prompt"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_mj13f"]
@@ -16,6 +18,7 @@ font = ExtResource("1_kicr4")
 font_size = 12
 
 [node name="Hud" type="Node"]
+script = ExtResource("1_initializer")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 process_mode = 3
@@ -94,7 +97,7 @@ size_flags_horizontal = 4
 size_flags_vertical = 4
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 empty_texture = ExtResource("3_5va86")
 
 [node name="Hud_slot_0" type="TextureRect" parent="HUD/MarginContainer/HBoxContainer/TextureButton_0"]
@@ -132,7 +135,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 1
 empty_texture = ExtResource("3_5va86")
 
@@ -170,7 +173,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 2
 empty_texture = ExtResource("3_5va86")
 
@@ -209,7 +212,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 3
 empty_texture = ExtResource("3_5va86")
 
@@ -248,7 +251,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 4
 empty_texture = ExtResource("3_5va86")
 
@@ -261,6 +264,7 @@ offset_left = 30.0
 offset_top = 30.0
 offset_right = 70.0
 offset_bottom = 70.0
+texture = ExtResource("8_mj13f")
 expand_mode = 3
 stretch_mode = 5
 
@@ -286,7 +290,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 5
 empty_texture = ExtResource("3_5va86")
 
@@ -324,7 +328,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 6
 empty_texture = ExtResource("3_5va86")
 
@@ -362,7 +366,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 7
 empty_texture = ExtResource("3_5va86")
 
@@ -400,7 +404,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 8
 empty_texture = ExtResource("3_5va86")
 
@@ -438,7 +442,7 @@ custom_minimum_size = Vector2(100, 100)
 layout_mode = 2
 ignore_texture_size = true
 stretch_mode = 5
-script = ExtResource("2_muuh7")
+script = ExtResource("2_slotbase")
 slot_index = 9
 empty_texture = ExtResource("3_5va86")
 

@@ -12,7 +12,7 @@ var farming_manager: Node = null # Reference to the farming system
 var current_interaction: String = "" # Track the current interaction
 
 # Interaction system - signal-based sets (no polling)
-var nearby_pickables: Array = [] # Array of nearby pickable items
+# REMOVED: nearby_pickables array (now using auto-pickup on area_entered)
 var pickup_radius: float = 48.0 # Default (will be overridden by GameConfig)
 
 @onready var inventory_manager = InventoryManager # Singleton reference
@@ -38,7 +38,8 @@ func _ready() -> void:
 	# Create collision shape for interaction radius
 	var collision_shape = CollisionShape2D.new()
 	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = pickup_radius
+	# Pickup radius: 32 pixels = two tiles (gives player time to react and run away)
+	circle_shape.radius = 32.0
 	collision_shape.shape = circle_shape
 	interaction_area.add_child(collision_shape)
 
@@ -125,36 +126,87 @@ func _unhandled_input(event: InputEvent) -> void:
 	# This ensures UI elements (toolkit, inventory) get priority over world interactions
 	# Handle left-click for farming interactions (only if not handled by UI)
 	if event.is_action_pressed("ui_mouse_left") and not event.is_echo():
-		# CRITICAL: Don't trigger tool actions if player is dragging an item
-		if _is_any_slot_dragging():
-			return # Block tool action when dragging
 		
-		# Only process farming if UI didn't handle the click
-		if farming_manager:
-			var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
-			# Let farming_manager handle the interaction
-			# CRITICAL: This should only be called once per click, not every frame
-			farming_manager.interact_with_tile(mouse_pos, global_position)
-	
-	# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
-	# Tools are now managed entirely by ToolSwitcher based on slot selection
-	# Keyboard shortcuts (1-0) select slots via ToolSwitcher, which then updates farming_manager
-	# This ensures tools are tied to tool textures, not slot positions
-	# Handle E key for door interactions (house entrance)
-	if event.is_action_pressed("ui_interact"):
-		if current_interaction == "house":
-			# Door interaction is handled by house_interaction.gd
-			# This is just a fallback - door should handle its own input
-			pass
+		# CRITICAL: Detect drag state BEFORE stopping it
+		var was_dragging = _is_any_slot_dragging()
+		
+		# Extract drag information WITHOUT stopping the drag yet
+		var dragged_slot_tool: String = ""
+		var dragged_slot_index: int = -1
+		var dragged_slot = null
+		if was_dragging:
+			dragged_slot = _get_dragging_slot()
+			if dragged_slot:
+				if "slot_index" in dragged_slot:
+					dragged_slot_index = dragged_slot.slot_index
+				# Get the tool texture from the slot
+				var tool_texture = dragged_slot.get("item_texture") if "item_texture" in dragged_slot else null
+				if not tool_texture:
+					# Try to get it from the slot's get_item() method
+					if dragged_slot.has_method("get_item"):
+						tool_texture = dragged_slot.get_item()
+				if tool_texture:
+					# Extract base texture if it's an AtlasTexture
+					if tool_texture is AtlasTexture:
+						tool_texture = tool_texture.atlas
+					# Look up tool name
+					var tool_config = load("res://resources/data/tool_config.tres")
+					if tool_config and tool_config.has_method("get_tool_name"):
+						dragged_slot_tool = tool_config.get_tool_name(tool_texture)
+		
+		# CHEST PLACEMENT HANDLING - special case, must prevent _throw_to_world()
+		if was_dragging and dragged_slot_tool == "chest" and dragged_slot_index >= 0:
+			
+			var world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+			
+			# Mark input as handled to prevent _stop_drag() from throwing to world
+			get_viewport().set_input_as_handled()
+			
+			# Cancel the drag manually without triggering throw-to-world
+			if dragged_slot and dragged_slot.has_method("_cancel_drag"):
+				dragged_slot._cancel_drag()
+			
+			# Now attempt placement
+			var placement_success = false
+			if farming_manager:
+				# Farm scene - use farming_manager
+				farming_manager.interact_with_tile(world_pos, global_position, dragged_slot_tool, dragged_slot_index)
+				placement_success = true # Assume success for now (farming_manager handles it)
+			else:
+				# House scene - direct placement (async call)
+				placement_success = await _handle_chest_placement_in_house_and_return_success(dragged_slot_index)
+			
+			return
+		
+		# For non-chest drags, stop them normally
+		if was_dragging:
+			_stop_all_drags()
+		
+		# Only process farming if UI didn't handle the click and we're not dragging
+		if not was_dragging:
+			if farming_manager:
+				var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
+				farming_manager.interact_with_tile(mouse_pos, global_position)
+			else:
+				# House scene - handle pickaxe for chest removal
+				var current_tool = _get_current_tool()
+				if current_tool == "pickaxe":
+					_handle_pickaxe_in_house()
 
-	# Handle right-click for item pickup (vegetables, dropped items)
-	# Note: This won't conflict with toolkit right-click drag because UI elements
-	# capture input first. If right-click is over a toolkit slot, it won't reach here.
-	if event is InputEventMouseButton:
-		if event.button_index == 2 and event.pressed: # MOUSE_BUTTON_RIGHT = 2
-			# Right-click to pick up nearby items
-			if nearby_pickables.size() > 0:
-				_pickup_nearest_item()
+		# REMOVED: Direct tool shortcuts that bypass ToolSwitcher
+		# Tools are now managed entirely by ToolSwitcher based on slot selection
+		# Keyboard shortcuts (1-0) select slots via ToolSwitcher, which then updates farming_manager
+		# This ensures tools are tied to tool textures, not slot positions
+
+		# Handle E key for door interactions (house entrance)
+		if event.is_action_pressed("ui_interact"):
+			if current_interaction == "house":
+				# Door interaction is handled by house_interaction.gd
+				# This is just a fallback - door should handle its own input
+				pass
+
+		# REMOVED: Right-click pickup (now auto-pickup on proximity)
+		# Right-click will be used for harvesting from trees/plants in the future
 
 
 func _is_any_slot_dragging() -> bool:
@@ -176,8 +228,9 @@ func _is_any_slot_dragging() -> bool:
 					for i in range(toolkit_container.get_child_count()):
 						var slot = toolkit_container.get_child(i)
 						if slot and slot is TextureButton:
-							if "is_dragging" in slot and slot.is_dragging:
-								return true
+							if "is_dragging" in slot:
+								if slot.is_dragging:
+									return true
 	
 	# Check inventory slots (only if pause menu is visible)
 	var pause_menu = null
@@ -198,77 +251,257 @@ func _is_any_slot_dragging() -> bool:
 	return false
 
 
+func _get_dragging_slot() -> Node:
+	"""Get the slot that is currently dragging, or null if none"""
+	# Check toolkit slots
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	if hud:
+		var hud_canvas = hud.get_node_or_null("HUD")
+		if hud_canvas:
+			var margin_container = hud_canvas.get_node_or_null("MarginContainer")
+			if margin_container:
+				var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
+				if toolkit_container:
+					for i in range(toolkit_container.get_child_count()):
+						var slot = toolkit_container.get_child(i)
+						if slot and slot is TextureButton:
+							if "is_dragging" in slot and slot.is_dragging:
+								return slot
+	
+	# Check inventory slots (only if pause menu is visible)
+	var pause_menu = null
+	if UiManager and "pause_menu" in UiManager:
+		pause_menu = UiManager.pause_menu
+	
+	if pause_menu and pause_menu.visible:
+		var inventory_grid = pause_menu.get_node_or_null(
+			"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+		)
+		if inventory_grid:
+			for i in range(inventory_grid.get_child_count()):
+				var slot = inventory_grid.get_child(i)
+				if slot and slot is TextureButton:
+					if "is_dragging" in slot and slot.is_dragging:
+						return slot
+	
+	return null
+
+
+func _stop_all_drags() -> void:
+	"""Stop all active drag operations from toolkit and inventory slots"""
+	# Check toolkit slots
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	if hud:
+		var hud_canvas = hud.get_node_or_null("HUD")
+		if hud_canvas:
+			var margin_container = hud_canvas.get_node_or_null("MarginContainer")
+			if margin_container:
+				var toolkit_container = margin_container.get_node_or_null("HBoxContainer")
+				if toolkit_container:
+					for i in range(toolkit_container.get_child_count()):
+						var slot = toolkit_container.get_child(i)
+						if slot and slot is TextureButton:
+							if "is_dragging" in slot and slot.is_dragging:
+								if slot.has_method("_stop_drag"):
+									slot._stop_drag()
+								elif slot.has_method("_cancel_drag"):
+									slot._cancel_drag()
+	
+	# Check inventory slots
+	var pause_menu = null
+	if UiManager and "pause_menu" in UiManager:
+		pause_menu = UiManager.pause_menu
+	
+	if pause_menu and pause_menu.visible:
+		var inventory_grid = pause_menu.get_node_or_null(
+			"CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid"
+		)
+		if inventory_grid:
+			for i in range(inventory_grid.get_child_count()):
+				var slot = inventory_grid.get_child(i)
+				if slot and slot is TextureButton:
+					if "is_dragging" in slot and slot.is_dragging:
+						if slot.has_method("_stop_drag"):
+							slot._stop_drag()
+						elif slot.has_method("_cancel_drag"):
+							slot._cancel_drag()
+
+
 func _on_interaction_area_body_entered(body: Node2D) -> void:
-	# Track pickable items in the interaction area
-	if body.is_in_group("pickable"):
-		if not nearby_pickables.has(body):
-			nearby_pickables.append(body)
+	# REMOVED: Manual pickup tracking (now auto-pickup via area_entered)
+	pass
 
 
 func _on_interaction_area_body_exited(body: Node2D) -> void:
-	# Remove pickable items when they leave the interaction area
-	if body.is_in_group("pickable"):
-		var index = nearby_pickables.find(body)
-		if index >= 0:
-			nearby_pickables.remove_at(index)
+	# REMOVED: Manual pickup tracking (now auto-pickup via area_entered)
+	pass
 
 
 func _on_interaction_area_area_entered(area: Area2D) -> void:
-	# Track pickable items (Area2D parent)
+	# Auto-pickup pickable items when player walks near them
 	var parent = area.get_parent()
 	if parent and parent.is_in_group("pickable"):
-		if not nearby_pickables.has(parent):
-			nearby_pickables.append(parent)
+		# Auto-pickup immediately
+		if parent.has_method("pickup_item"):
+			# Set HUD reference if needed
+			if not parent.hud:
+				var hud_ref = get_tree().root.get_node_or_null("Hud")
+				if not hud_ref:
+					hud_ref = get_tree().current_scene.get_node_or_null("Hud")
+				parent.hud = hud_ref
+			
+			# Trigger pickup
+			parent.pickup_item()
 
 
 func _on_interaction_area_area_exited(area: Area2D) -> void:
-	# Remove pickable items when they leave
-	var parent = area.get_parent()
-	if parent and parent.is_in_group("pickable"):
-		var index = nearby_pickables.find(parent)
-		if index >= 0:
-			nearby_pickables.remove_at(index)
+	# REMOVED: Manual pickup tracking (now auto-pickup via area_entered)
+	pass
+
+
+func _handle_chest_placement_in_house_and_return_success(slot_index_override: int) -> bool:
+	"""Handle chest placement when farming_manager is not available (e.g., in house scene). Returns true if successful."""
+	
+	# Validate slot index
+	if slot_index_override < 0:
+		return false
+	
+	# Read item from toolkit via InventoryManager
+	if not InventoryManager:
+		return false
+	
+	var texture := InventoryManager.get_toolkit_item(slot_index_override)
+	var count := InventoryManager.get_toolkit_item_count(slot_index_override)
+	
+	
+	if texture == null or count <= 0:
+		return false
+	
+	# Identify tool using ToolConfig
+	var tool_name := ""
+	var tool_config = load("res://resources/data/tool_config.tres")
+	if tool_config and tool_config.has_method("get_tool_name"):
+		tool_name = tool_config.get_tool_name(texture)
+	else:
+		# Fallback: check resource path
+		if texture.resource_path.findn("chest") != -1:
+			tool_name = "chest"
+	
+	if tool_name != "chest":
+		return false
+	
+	# Get mouse position in world and snap to grid
+	var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	var world_pos = Vector2(floor(mouse_pos.x / 16.0) * 16.0 + 8, floor(mouse_pos.y / 16.0) * 16.0 + 8)
+	
+	# Get ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		return false
+	
+	# Check if there's already a chest at this position
+	var existing_chests = chest_manager.chest_registry
+	for chest_id in existing_chests.keys():
+		var chest_data = existing_chests[chest_id]
+		var chest_node = chest_data.get("node")
+		if chest_node and is_instance_valid(chest_node):
+			var distance = chest_node.global_position.distance_to(world_pos)
+			if distance < 16.0:
+				return false
+	
+	# Create chest at position
+	var chest = chest_manager.create_chest_at_position(world_pos)
+	if chest == null:
+		return false
+	
+	
+	# Log BEFORE decrement
+	
+	# Consume one chest item from the toolkit slot
+	InventoryManager.decrement_toolkit_item_count(slot_index_override, 1)
+	
+	# Deferred sync to ensure drag state is cleared
+	await get_tree().process_frame
+	InventoryManager.sync_toolkit_ui()
+	
+	# Log AFTER sync
+	return true
 
 
 func _pickup_nearest_item() -> void:
-	# Find the nearest pickable item
-	var nearest_item = null
-	var nearest_distance = INF
-
-	for item in nearby_pickables:
-		if not is_instance_valid(item):
-			continue
-
-		var distance = global_position.distance_to(item.global_position)
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest_item = item
-
-	# Pick up the nearest item
-	if nearest_item:
-		if nearest_item.has_method("pickup_item"):
-			# Set HUD reference if needed (get from current scene)
-			if not nearest_item.hud:
-				var current_scene = get_tree().current_scene
-				if (
-					current_scene
-					and current_scene.has_method("get")
-					and current_scene.has("hud_instance")
-				):
-					nearest_item.hud = current_scene.hud_instance
-				elif HUD and HUD.hud_scene_instance:
-					nearest_item.hud = HUD.hud_scene_instance
-
-			nearest_item.pickup_item()
-			# Remove from nearby set
-			var index = nearby_pickables.find(nearest_item)
-			if index >= 0:
-				nearby_pickables.remove_at(index)
+	# REMOVED: Manual pickup (now auto-pickup on proximity)
+	pass
 
 
+func _get_current_tool() -> String:
+	"""Get the currently selected tool name from ToolSwitcher."""
+	# ToolSwitcher is a child of HUD, not an autoload
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	var tool_switcher = null
+	if hud:
+		tool_switcher = hud.get_node_or_null("ToolSwitcher")
+	
+	if not tool_switcher:
+		return ""
+	
+	# ToolSwitcher uses "current_hud_slot", not "selected_slot"
+	var selected_slot = -1
+	if "current_hud_slot" in tool_switcher:
+		selected_slot = tool_switcher.current_hud_slot
+	else:
+		return ""
+	
+	if selected_slot < 0:
+		return ""
+	
+	var tool_texture = InventoryManager.get_toolkit_item(selected_slot)
+	if not tool_texture:
+		return ""
+	
+	
+	var tool_config = load("res://resources/data/tool_config.tres")
+	if tool_config and tool_config.has_method("get_tool_name"):
+		var tool_name = tool_config.get_tool_name(tool_texture)
+		return tool_name
+	
+	return ""
+
+
+func _handle_pickaxe_in_house() -> void:
+	"""Handle pickaxe usage in house scene (for chest removal)."""
+	# Get mouse position
+	var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	
+	# Get ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		return
+	
+	# Find chest at mouse position
+	var chest_at_pos = chest_manager.find_chest_at_position(mouse_pos, 16.0)
+	if not chest_at_pos:
+		return
+	
+	
+	# Get HUD for droppable spawning
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	# Attempt to remove chest and spawn drop
+	var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
+	
 func start_interaction(interaction_type: String):
 	current_interaction = interaction_type
-	# print("Player can interact with:", interaction_type)
 
 
 func stop_interaction():

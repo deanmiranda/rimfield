@@ -15,6 +15,14 @@ var main_menu_tab: Control = $CenterContainer/PanelContainer/VBoxContainer/TabCo
 @onready
 var inventory_grid: GridContainer = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid
 
+# NEW SYSTEM: Player inventory container (singleton instance)
+# Type will show linter error until Godot restarts - this is normal for new class_name
+var player_inventory_container = null # Will be PlayerInventoryContainer instance
+
+# Local array of pause menu's own SlotBase nodes (for UI-specific behavior like drop target toggling)
+# Do NOT use player_inventory_container.slots for UI control - that's shared with ChestPanel
+var pause_inventory_slots: Array[SlotBase] = []
+
 # Player info references
 @onready
 var player_sprite: TextureRect = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlayerSpriteContainer/PlayerSprite
@@ -49,11 +57,15 @@ var back_to_main_menu_button: Button = $CenterContainer/PanelContainer/VBoxConta
 @onready
 var exit_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ExitButton
 @onready
+var mute_music_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/MuteMusicButton
+@onready
+var skip_song_button: Button = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SkipSongButton
+@onready
 var save_feedback_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveFeedbackLabel
 
 # Constants
-const INVENTORY_SLOTS_TOTAL = 30 # 3x10 grid
-const INVENTORY_SLOTS_ACTIVE = 24 # Top 8 rows (24 slots)
+const INVENTORY_SLOTS_TOTAL = 36 # 3x12 grid
+const INVENTORY_SLOTS_ACTIVE = 30 # Top 10 rows (30 slots)
 const INVENTORY_SLOTS_LOCKED = 6 # Bottom 2 rows (6 slots)
 
 # Game state (to be connected to GameState singleton later)
@@ -79,6 +91,9 @@ func _ready() -> void:
 	
 	# FIRST: Initialize inventory slots (create the 30 TextureButton children)
 	_setup_inventory_slots()
+	
+	# Connect visibility changed signal to toggle drop targets
+	visibility_changed.connect(_on_visibility_changed)
 	
 
 	# THEN: Register with InventoryManager and sync (now that slots exist!)
@@ -133,6 +148,9 @@ func _ready() -> void:
 	# Connect tab change signal for extensibility
 	if tab_container:
 		tab_container.tab_changed.connect(_on_tab_changed)
+	
+	# Update mute button text based on current state
+	_update_mute_button_text()
 
 
 func refresh_date_label() -> void:
@@ -155,7 +173,7 @@ func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
 
 
 func _setup_inventory_slots() -> void:
-	"""Create and configure all inventory slots (30 total, bottom 6 locked)"""
+	"""Create and configure all inventory slots (30 total, bottom 6 locked) - NEW SYSTEM"""
 	if not inventory_grid:
 		return
 	
@@ -164,38 +182,46 @@ func _setup_inventory_slots() -> void:
 	
 	# Load empty slot texture
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
-	var slot_script = load("res://scripts/ui/inventory_menu_slot.gd")
 	
-	if not slot_script:
+	# NEW SYSTEM: Use PlayerInventoryContainer singleton from InventoryManager
+	# Use get_or_create to ensure single instance
+	if InventoryManager:
+		player_inventory_container = await InventoryManager.get_or_create_player_inventory_container()
+		
+		if player_inventory_container:
+			print("[PauseMenu] Using PlayerInventoryContainer from InventoryManager (slot_count=%d)" % player_inventory_container.slot_count)
+		else:
+			push_error("[PauseMenu] Failed to get PlayerInventoryContainer from InventoryManager!")
+			return
+	else:
+		push_error("[PauseMenu] InventoryManager not found!")
 		return
 	
 	# Load border texture for slot outlines (like existing inventory)
 	var border_texture = preload("res://assets/ui/tile_outline.png")
 	
-	# Create 30 slots (3 columns x 10 rows)
-	var slots = []
+	# Create 30 slots (3 columns x 10 rows) using NEW SlotBase system
+	# Maintain local array for UI-specific behavior (drop target toggling)
+	# Clear any existing slots before rebuilding
+	pause_inventory_slots.clear()
 	for i in range(INVENTORY_SLOTS_TOTAL):
-		var slot = TextureButton.new()
+		var slot = SlotBase.new()
 		slot.name = "InventorySlot_" + str(i)
-		slot.custom_minimum_size = Vector2(64, 64) # Match toolkit size approximately
-		slot.set_script(slot_script)
-		if slot.has_method("set_slot_index"):
-			slot.call("set_slot_index", i)
-		else:
-			slot.slot_index = i
+		slot.slot_index = i
 		slot.empty_texture = empty_texture
-		slot.visible = true # Ensure slot is visible
-		slot.texture_normal = empty_texture # Set initial texture
+		slot.container_ref = player_inventory_container
+		slot.custom_minimum_size = Vector2(64, 64)
+		slot.visible = true
 		slot.ignore_texture_size = true
 		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		slot.flip_v = false
-		slot.flip_h = false
-		# CRITICAL: Ensure slot can receive mouse events for dragging
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
-		slot.focus_mode = Control.FOCUS_CLICK
-		slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		slot.focus_mode = Control.FOCUS_NONE
 		
-		# Add background style for slots (removed white test background)
+		# Optional: tag slot for logging (helps identify which UI owns it)
+		if not "ui_owner_tag" in slot:
+			slot.set_meta("ui_owner_tag", "PauseMenu")
+		
+		# Add background style for slots
 		var bg_style = StyleBoxFlat.new()
 		bg_style.bg_color = Color(0.3, 0.3, 0.3, 1.0) # Dark gray background
 		bg_style.border_width_left = 2
@@ -208,53 +234,29 @@ func _setup_inventory_slots() -> void:
 		slot.add_theme_stylebox_override("pressed", bg_style.duplicate())
 		slot.add_theme_stylebox_override("disabled", bg_style.duplicate())
 		
-		# Add border TextureRect as child (exactly like existing inventory slots)
-		# Must add AFTER slot is in tree for proper layout
-		# We'll add it after adding to grid
-		
-		# Lock bottom 2 rows (slots 24-29)
+		# Lock bottom 2 rows (slots 30-35)
+		# TODO: SlotBase doesn't have is_locked - we'll add it or handle differently
 		if i >= INVENTORY_SLOTS_ACTIVE:
-			slot.is_locked = true
+			slot.disabled = true # Use disabled for locked slots
 		
 		inventory_grid.add_child(slot)
-		slots.append({"slot": slot, "index": i})
 		
-		# Add border TextureRect AFTER slot is in tree (like existing inventory)
-		var border_rect = TextureRect.new()
-		border_rect.name = "Border"
-		border_rect.texture = border_texture
-		border_rect.custom_minimum_size = Vector2(64, 64)
-		border_rect.layout_mode = 1 # Use integer 1 for LAYOUT_MODE_ANCHORS (Godot 4.x)
-		border_rect.anchors_preset = Control.PRESET_FULL_RECT
-		border_rect.anchor_right = 1.0
-		border_rect.anchor_bottom = 1.0
-		border_rect.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		border_rect.grow_vertical = Control.GROW_DIRECTION_BOTH
-		border_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		border_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# CRITICAL: Ignore mouse events so they pass through to parent TextureButton for drag
-		border_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		border_rect.focus_mode = Control.FOCUS_NONE
-		border_rect.z_index = 101
-		border_rect.z_as_relative = false
-		border_rect.visible = true
-		slot.add_child(border_rect)
+		# Register slot with container using API (for data sync)
+		player_inventory_container.register_slot(slot)
 		
-	# Force grid to update layout
-	inventory_grid.queue_sort()
+		# Store in local array for UI-specific behavior
+		pause_inventory_slots.append(slot)
+		
+		# Initialize slot
+		slot._ready()
+		
+		# Sync slot UI from container data
+		player_inventory_container.sync_slot_ui(i)
 	
-	# Wait for layout to update
-	await get_tree().process_frame
-	await get_tree().process_frame
+	# Sync UI from container data
+	player_inventory_container.sync_ui()
 	
-	# Connect slot signals after all slots are added to tree
-	await get_tree().process_frame
-	for slot_data in slots:
-		var slot = slot_data.slot
-		if slot.has_signal("slot_clicked"):
-			slot.slot_clicked.connect(_on_inventory_slot_clicked)
-		if slot.has_signal("slot_drop_received"):
-			slot.slot_drop_received.connect(_on_inventory_slot_drop_received)
+	print("[PauseMenu] Created %d inventory slots (SlotBase)" % INVENTORY_SLOTS_TOTAL)
 
 
 func _setup_player_sprite() -> void:
@@ -425,13 +427,50 @@ func _input(event: InputEvent) -> void:
 	
 	# Handle ESC or E key to close menu when visible
 	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_interact"):
-		# Close the menu
+		# Close the menu (visibility_changed signal will handle drop target state)
 		self.visible = false
 		get_tree().paused = false
 		# Unpause game time when menu closes
 		if GameTimeManager:
 			GameTimeManager.set_paused(false)
 		get_viewport().set_input_as_handled() # Prevent further processing
+
+
+func _on_visibility_changed() -> void:
+	"""Handle pause menu visibility changes - toggle drop target state"""
+	if self.visible:
+		# Menu opened - enable drop targets
+		_set_inventory_drop_targets_enabled(true)
+		# Update mute button text when menu opens
+		_update_mute_button_text()
+	else:
+		# Menu closed - disable drop targets
+		_set_inventory_drop_targets_enabled(false)
+
+
+func _set_inventory_drop_targets_enabled(enabled: bool) -> void:
+	"""Enable or disable drop targets for pause menu's own inventory slots only"""
+	"""Do NOT touch ChestPanel's slots - each UI manages its own slot behavior"""
+	if not inventory_grid:
+		return
+	
+	# Toggle only pause menu's local slots (not container's shared registry)
+	var valid_slots = []
+	for slot in pause_inventory_slots:
+		if slot and is_instance_valid(slot):
+			slot.drop_target_enabled = enabled
+			# Also set mouse_filter to IGNORE when disabled to prevent hit tests
+			if enabled:
+				slot.mouse_filter = Control.MOUSE_FILTER_STOP
+			else:
+				slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			valid_slots.append(slot)
+	
+	# Clean up invalid references
+	if valid_slots.size() != pause_inventory_slots.size():
+		pause_inventory_slots = valid_slots
+	
+	print("[PauseMenu] Toggled drop targets for local slots count=%d enabled=%s" % [valid_slots.size(), enabled])
 
 
 func _on_resume_button_pressed() -> void:
@@ -446,6 +485,30 @@ func _on_resume_button_pressed() -> void:
 func _on_exit_button_pressed() -> void:
 	"""Exit game"""
 	get_tree().quit()
+
+
+func _on_mute_music_button_pressed() -> void:
+	"""Handle mute music button press"""
+	if MusicManager:
+		MusicManager.toggle_mute()
+		_update_mute_button_text()
+
+
+func _on_skip_song_button_pressed() -> void:
+	"""Handle skip song button press"""
+	if MusicManager:
+		MusicManager.skip_track()
+
+
+func _update_mute_button_text() -> void:
+	"""Update mute button text based on current mute state"""
+	if not mute_music_button:
+		return
+	
+	if MusicManager and MusicManager.is_muted:
+		mute_music_button.text = "Unmute Music"
+	else:
+		mute_music_button.text = "Mute Music"
 
 
 func _on_save_game_pressed() -> void:
@@ -503,6 +566,10 @@ func _on_save_game_pressed() -> void:
 
 func _on_back_to_main_menu_pressed() -> void:
 	"""Return to main menu"""
+	# Stop game music before returning to main menu
+	if MusicManager:
+		MusicManager.stop_music()
+	
 	# Unpause the game before switching to the main menu
 	get_tree().paused = false
 	# Unpause game time when menu closes

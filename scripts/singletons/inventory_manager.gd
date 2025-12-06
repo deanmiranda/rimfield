@@ -1,14 +1,17 @@
 extends Node
 
-# Inventory data to store the item textures, stack counts, and weight assigned to each slot
-# Format: {slot_index: {"texture": Texture, "count": int, "weight": float}}
-# Weight is a placeholder for future strength/weight system (defaults to 0.0)
-var inventory_slots: Dictionary = {}
+# NEW SYSTEM: Container registry (ensures one instance per container type)
+# CRITICAL: Initialize immediately, not in _ready(), so containers can register during their _ready()
+var containers: Dictionary = {} # {container_id: ContainerBase instance}
+var toolkit_container = null # Will be ToolkitContainer instance
+var player_inventory_container = null # Will be PlayerInventoryContainer instance
 
-# Toolkit data to store the item textures, stack counts, and weight assigned to each toolkit slot (HUD slots 0-9)
-# Format: {slot_index: {"texture": Texture, "count": int, "weight": float}}
-# Weight is a placeholder for future strength/weight system (defaults to 0.0)
-var toolkit_slots: Dictionary = {}
+# LEGACY SYSTEM: Data dictionaries (DEPRECATED - DO NOT USE IN NEW CODE)
+# Only kept for one-time migration from old save files
+# All new code MUST use containers instead
+var legacy_mode_enabled: bool = false # Set to true ONLY during save file migration
+var toolkit_slots: Dictionary = {} # LEGACY - DO NOT USE
+var inventory_slots: Dictionary = {} # LEGACY - DO NOT USE
 
 # Reference to the inventory UI scene and instance
 @export var inventory_scene: PackedScene
@@ -31,39 +34,240 @@ func _ready() -> void:
 		max_inventory_slots = game_config.inventory_slot_count
 		max_toolkit_slots = game_config.hud_slot_count
 
-	# Initialize inventory_slots with new format (includes weight placeholder)
-	for i in range(max_inventory_slots):
-		inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+	# CRITICAL: Don't clear containers dict - it may already have registrations
+	# from containers created before this autoload's _ready() runs
+	# This is because scene nodes can create containers before singletons finish initializing
+	
+	# LEGACY SYSTEM: Only initialize if legacy_mode_enabled (for migration)
+	# NEW CODE: Use containers instead
+	if legacy_mode_enabled:
+		print("[InventoryManager] LEGACY MODE ENABLED - initializing old dictionaries for migration")
+		for i in range(max_inventory_slots):
+			if not inventory_slots.has(i):
+				inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+		
+		for i in range(max_toolkit_slots):
+			if not toolkit_slots.has(i):
+				toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 
-	# Initialize toolkit_slots with new format (includes weight placeholder)
-	for i in range(max_toolkit_slots):
-		toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+	print("[InventoryManager] Initialized - Container registry ready (%d containers already registered)" % containers.size())
+	
+	# Bootstrap containers early to prevent startup crashes from early API calls
+	call_deferred("_bootstrap_containers")
 
-	# Note: _sync_initial_toolkit_from_ui() is called by hud_slot.gd after HUD is ready
+
+func register_container(container: ContainerBase) -> void:
+	"""Register a container to ensure only one instance per ID exists"""
+	if not container:
+		push_error("[InventoryManager] Attempted to register null container!")
+		return
+	
+	var container_id = container.container_id
+	
+	# Initialize containers dict if needed (safety check)
+	if containers == null:
+		containers = {}
+	
+	# Check for duplicates
+	if containers.has(container_id):
+		# Check if it's the SAME instance (reusing) vs a NEW instance (duplicate)
+		if containers[container_id] == container:
+			print("[InventoryManager] Container %s already registered (same instance)" % container_id)
+			return
+		else:
+			push_error("❌ DUPLICATE CONTAINER REGISTERED: %s" % container_id)
+			push_error("❌ Existing: %s" % containers[container_id])
+			push_error("❌ New: %s" % container)
+			assert(false, "Duplicate container_id: " + container_id)
+			return
+	
+	# Register container
+	containers[container_id] = container
+	
+	# Set typed references
+	if container_id == "player_toolkit":
+		toolkit_container = container
+		print("[InventoryManager] Registered toolkit_container")
+	elif container_id == "player_inventory":
+		player_inventory_container = container
+		print("[InventoryManager] Registered player_inventory_container")
+	
+	print("[InventoryManager] Registered container: %s (type: %s)" % [container_id, container.container_type])
 
 
-# Add an item to the inventory with auto-stacking (returns true if successful, false if full)
+func get_container(container_id: String) -> ContainerBase:
+	"""Get a registered container by ID"""
+	return containers.get(container_id, null)
+
+
+func unregister_container(container_id: String) -> void:
+	"""Unregister a container (e.g., on scene change)"""
+	if containers.has(container_id):
+		containers.erase(container_id)
+		print("[InventoryManager] Unregistered container: %s" % container_id)
+
+
+func _bootstrap_containers() -> void:
+	"""Bootstrap containers early to prevent startup crashes from early API calls"""
+	print("[InventoryManager] Bootstrapping containers...")
+	await _bootstrap_containers_async()
+	print("[InventoryManager] Container bootstrap complete")
+
+
+func _bootstrap_containers_async() -> void:
+	"""Async bootstrap - creates containers and waits for registration"""
+	# Create ToolkitContainer if needed
+	if not toolkit_container:
+		var existing = get_container("player_toolkit")
+		if existing:
+			toolkit_container = existing
+		else:
+			await _create_toolkit_container_async()
+	
+	# Create PlayerInventoryContainer if needed
+	if not player_inventory_container:
+		var existing = get_container("player_inventory")
+		if existing:
+			player_inventory_container = existing
+		else:
+			await _create_player_inventory_container_async()
+
+
+func get_or_create_toolkit_container() -> ContainerBase:
+	"""Get or create ToolkitContainer singleton - synchronous check only"""
+	# Return existing if already registered
+	if toolkit_container:
+		return toolkit_container
+	
+	# Check if already registered by ID
+	var existing = get_container("player_toolkit")
+	if existing:
+		toolkit_container = existing
+		return existing
+	
+	# Not created yet - return null (bootstrap will create it)
+	return null
+
+
+func get_or_create_player_inventory_container() -> ContainerBase:
+	"""Get or create PlayerInventoryContainer singleton - creates if missing"""
+	# Return existing if already registered
+	if player_inventory_container:
+		return player_inventory_container
+	
+	# Check if already registered by ID
+	var existing = get_container("player_inventory")
+	if existing:
+		player_inventory_container = existing
+		return existing
+	
+	# Not created yet - create it synchronously
+	print("[InventoryManager] Creating PlayerInventoryContainer synchronously...")
+	var container_script = load("res://scripts/ui/player_inventory_container.gd")
+	if not container_script:
+		push_error("[InventoryManager] Failed to load PlayerInventoryContainer script!")
+		return null
+	
+	var container_instance = container_script.new()
+	container_instance.name = "PlayerInventoryContainer"
+	
+	# Add to scene tree so _ready() runs and registration happens
+	# Use call_deferred to avoid "Parent node is busy setting up children" error
+	get_tree().root.add_child.call_deferred(container_instance)
+	
+	# Wait for add_child to complete
+	await get_tree().process_frame
+	
+	# Wait one more frame for _ready() to complete and registration to happen
+	await get_tree().process_frame
+	
+	# Return the registered container
+	if player_inventory_container:
+		return player_inventory_container
+	else:
+		push_error("[InventoryManager] PlayerInventoryContainer created but failed to register!")
+		return null
+
+
+func _create_toolkit_container_async() -> void:
+	"""Create ToolkitContainer asynchronously"""
+	print("[InventoryManager] Creating ToolkitContainer...")
+	var container_script = load("res://scripts/ui/toolkit_container.gd")
+	if not container_script:
+		push_error("[InventoryManager] Failed to load ToolkitContainer script!")
+		return
+	
+	var container_instance = container_script.new()
+	container_instance.name = "ToolkitContainer"
+	
+	# Add to scene tree so _ready() runs and registration happens
+	get_tree().root.add_child(container_instance)
+	
+	# Wait one frame for _ready() to complete and registration to happen
+	await get_tree().process_frame
+	
+	# Verify it was registered
+	if toolkit_container:
+		print("[InventoryManager] ToolkitContainer created and registered successfully")
+	else:
+		push_error("[InventoryManager] ToolkitContainer created but failed to register!")
+
+
+func _create_player_inventory_container_async() -> void:
+	"""Create PlayerInventoryContainer asynchronously"""
+	print("[InventoryManager] Creating PlayerInventoryContainer...")
+	var container_script = load("res://scripts/ui/player_inventory_container.gd")
+	if not container_script:
+		push_error("[InventoryManager] Failed to load PlayerInventoryContainer script!")
+		return
+	
+	var container_instance = container_script.new()
+	container_instance.name = "PlayerInventoryContainer"
+	
+	# Add to scene tree so _ready() runs and registration happens
+	get_tree().root.add_child(container_instance)
+	
+	# Wait one frame for _ready() to complete and registration to happen
+	await get_tree().process_frame
+	
+	# Verify it was registered
+	if player_inventory_container:
+		print("[InventoryManager] PlayerInventoryContainer created and registered successfully")
+	else:
+		push_error("[InventoryManager] PlayerInventoryContainer created but failed to register!")
+
+
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_to_slot() instead
 func add_item(slot_index: int, item_texture: Texture, count: int = 1) -> bool:
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		return player_inventory_container.add_item_to_slot(slot_index, item_texture, count)
+	
+	# LEGACY SYSTEM: Should never reach here unless in migration mode
+	assert(legacy_mode_enabled, "add_item() called but legacy_mode_enabled is false and no container exists")
 	if not inventory_slots.has(slot_index):
 		return false
-
 	inventory_slots[slot_index] = {"texture": item_texture, "count": count, "weight": 0.0}
 	return true
 
 
-# Add item with auto-stacking - finds existing stacks first
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_auto_stack() instead
 func add_item_auto_stack(item_texture: Texture, count: int = 1) -> int:
 	"""Add item to inventory with auto-stacking. Returns remaining count that couldn't be added."""
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		return player_inventory_container.add_item_auto_stack(item_texture, count)
+	
+	# LEGACY SYSTEM: Should never reach here unless in migration mode
+	assert(legacy_mode_enabled, "add_item_auto_stack() called but legacy_mode_enabled is false and no container exists")
+	
 	if not item_texture:
 		return count
 
 	var remaining = count
-
-	# First pass: Try to add to existing stacks
 	for i in range(max_inventory_slots):
 		if remaining <= 0:
 			break
-
 		var slot_data = inventory_slots.get(i, {"texture": null, "count": 0, "weight": 0.0})
 		if slot_data["texture"] == item_texture and slot_data["count"] > 0:
 			var space = MAX_INVENTORY_STACK - slot_data["count"]
@@ -72,26 +276,27 @@ func add_item_auto_stack(item_texture: Texture, count: int = 1) -> int:
 			inventory_slots[i] = slot_data
 			remaining -= add_amount
 
-	# Second pass: Use empty slots for remaining items
 	for i in range(max_inventory_slots):
 		if remaining <= 0:
 			break
-
 		var slot_data = inventory_slots.get(i, {"texture": null, "count": 0, "weight": 0.0})
 		if slot_data["texture"] == null or slot_data["count"] == 0:
 			var add_amount = mini(remaining, MAX_INVENTORY_STACK)
 			inventory_slots[i] = {"texture": item_texture, "count": add_amount, "weight": 0.0}
 			remaining -= add_amount
 
-	# Update UI
 	sync_inventory_ui()
-
-	return remaining # Return any overflow
+	return remaining
 
 
 # Add item to toolkit with auto-stacking
 func add_item_to_toolkit_auto_stack(item_texture: Texture, count: int = 1) -> int:
 	"""Add item to toolkit with auto-stacking. Returns remaining count that couldn't be added."""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		return toolkit_container.add_item_auto_stack(item_texture, count)
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if not item_texture:
 		return count
 
@@ -135,27 +340,79 @@ func get_first_empty_slot() -> int:
 	return -1
 
 
-# Remove an item from the inventory
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.remove_item_from_slot() instead
 func remove_item(slot_index: int) -> void:
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		player_inventory_container.remove_item_from_slot(slot_index)
+		return
+	
+	# LEGACY SYSTEM: Should never reach here unless in migration mode
+	assert(legacy_mode_enabled, "remove_item() called but legacy_mode_enabled is false and no container exists")
 	if inventory_slots.has(slot_index):
 		inventory_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 
 
-# Get an item texture from the inventory
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.get_slot_data() instead
 func get_item(slot_index: int) -> Texture:
-	var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	return slot_data["texture"]
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	# Ensure container exists first (safe read - don't crash on startup)
+	# For read methods, just check - don't create (bootstrap or UI will create it)
+	if not player_inventory_container:
+		# Check registry in case it was registered but reference not set
+		var existing = get_container("player_inventory")
+		if existing:
+			player_inventory_container = existing
+	
+	if player_inventory_container:
+		var slot_data = player_inventory_container.get_slot_data(slot_index)
+		return slot_data["texture"]
+	
+	# LEGACY SYSTEM: Only if legacy mode enabled
+	if legacy_mode_enabled:
+		var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+		return slot_data["texture"]
+	
+	# Safe default for read methods (don't crash on startup)
+	print("[InventoryManager] WARNING: get_item() called but no container exists - returning null")
+	return null
 
 
-# Get item count from inventory slot
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.get_slot_data() instead
 func get_item_count(slot_index: int) -> int:
-	var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	return slot_data["count"]
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	# Ensure container exists first (safe read - don't crash on startup)
+	# For read methods, just check - don't create (bootstrap or UI will create it)
+	if not player_inventory_container:
+		# Check registry in case it was registered but reference not set
+		var existing = get_container("player_inventory")
+		if existing:
+			player_inventory_container = existing
+	
+	if player_inventory_container:
+		var slot_data = player_inventory_container.get_slot_data(slot_index)
+		return slot_data["count"]
+	
+	# LEGACY SYSTEM: Only if legacy mode enabled
+	if legacy_mode_enabled:
+		var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+		return slot_data["count"]
+	
+	# Safe default for read methods (don't crash on startup)
+	print("[InventoryManager] WARNING: get_item_count() called but no container exists - returning 0")
+	return 0
 
 
-# Remove an item from inventory (for drag/drop)
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.remove_item_from_slot() instead
 func remove_item_from_inventory(slot_index: int) -> void:
 	"""Remove item from inventory slot (used when dragging to toolkit)"""
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		player_inventory_container.remove_item_from_slot(slot_index)
+		return
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "remove_item_from_inventory() called but legacy_mode_enabled is false and no container exists")
 	if inventory_slots.has(slot_index):
 		inventory_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 		sync_inventory_ui()
@@ -201,73 +458,85 @@ func set_inventory_instance(instance: Control) -> void:
 		inventory_instance = instance
 
 
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_auto_stack() instead
 func add_item_to_first_empty_slot(item_data: Resource) -> bool:
-	# Iterate over the slots in the inventory
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		var remaining = player_inventory_container.add_item_auto_stack(item_data.texture, 1)
+		return remaining == 0
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "add_item_to_first_empty_slot() called but legacy_mode_enabled is false and no container exists")
 	for slot_index in inventory_slots.keys():
-		var slot_data = inventory_slots.get(
-			slot_index, {"texture": null, "count": 0, "weight": 0.0}
-		)
-		if slot_data["texture"] == null or slot_data["count"] == 0: # Check if the slot is empty
-			#print("Found empty slot: ", slot_index)
+		var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+		if slot_data["texture"] == null or slot_data["count"] == 0:
 			inventory_slots[slot_index] = {"texture": item_data.texture, "count": 1, "weight": 0.0}
-			#print("Item added to slot: ", slot_index, " Item ID: ", item_data.item_id)
-			sync_inventory_ui() # Trigger UI update
+			sync_inventory_ui()
 			return true
 	return false
 
 
-#	Functions for the inventory panel
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_to_slot() instead
 func update_inventory_slots(slot_index: int, item_texture: Texture, count: int = 1) -> void:
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		player_inventory_container.add_item_to_slot(slot_index, item_texture, count)
+		return
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "update_inventory_slots() called but legacy_mode_enabled is false and no container exists")
 	if slot_index < 0 or slot_index >= max_inventory_slots:
 		return
-
 	if inventory_slots.has(slot_index):
 		inventory_slots[slot_index] = {"texture": item_texture, "count": count, "weight": 0.0}
 
 
+# LEGACY METHOD - DEPRECATED - Containers sync their own UI via sync_ui()
 func sync_inventory_ui() -> void:
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		player_inventory_container.sync_ui()
+		return
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "sync_inventory_ui() called but legacy_mode_enabled is false and no container exists")
+	
 	if not inventory_instance:
 		return
 
-	# Try multiple possible paths for the GridContainer
-	# Path 1: Standalone inventory (old system)
 	var grid_container = inventory_instance.get_node_or_null("CenterContainer/GridContainer")
-
-	# Path 2: Pause menu inventory (new system)
 	if not grid_container:
 		grid_container = inventory_instance.get_node_or_null("InventoryGrid")
-
-	# Path 3: Check if inventory_instance IS the GridContainer
 	if not grid_container and inventory_instance is GridContainer:
 		grid_container = inventory_instance
-
 	if not grid_container:
 		return
 
-	# Sync slots with inventory dictionary
 	for i in range(inventory_slots.size()):
 		if i >= grid_container.get_child_count():
-			break # Stop if we exceed the available slots in GridContainer
-
-		var slot = grid_container.get_child(i) # Get slot by index
+			break
+		var slot = grid_container.get_child(i)
 		if slot and slot is TextureButton:
 			var slot_data = inventory_slots.get(i, {"texture": null, "count": 0, "weight": 0.0})
 			var item_texture = slot_data["texture"]
 			var item_count = slot_data["count"]
-
-			# Update slot with texture and count
 			if slot.has_method("set_item"):
 				slot.set_item(item_texture, item_count)
 			else:
 				slot.texture_normal = item_texture if item_texture != null else null
 
 
-# Toolkit tracking functions for drag/drop
+# LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_to_slot() instead
 func add_item_from_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
 	"""Add item to inventory from toolkit slot"""
+	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	if player_inventory_container:
+		return player_inventory_container.add_item_to_slot(slot_index, texture, count)
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "add_item_from_toolkit() called but legacy_mode_enabled is false and no container exists")
 	if slot_index < 0 or slot_index >= max_inventory_slots:
 		return false
-
 	inventory_slots[slot_index] = {"texture": texture, "count": count, "weight": 0.0}
 	sync_inventory_ui()
 	return true
@@ -275,25 +544,86 @@ func add_item_from_toolkit(slot_index: int, texture: Texture, count: int = 1) ->
 
 func remove_item_from_toolkit(slot_index: int) -> void:
 	"""Remove item from toolkit slot (used when dragging to inventory)"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		toolkit_container.remove_item_from_slot(slot_index)
+		return
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if toolkit_slots.has(slot_index):
 		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 		sync_toolkit_ui()
 
 
+# LEGACY METHOD - DEPRECATED - Use ToolkitContainer directly
+func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
+	"""Decrement item count in toolkit slot. Removes item if count reaches 0."""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		var slot_data = toolkit_container.get_slot_data(slot_index)
+		var current_count = slot_data["count"]
+		var texture = slot_data["texture"]
+		if current_count <= 0 or texture == null:
+			return
+		var new_count = current_count - amount
+		if new_count > 0:
+			toolkit_container.add_item_to_slot(slot_index, texture, new_count)
+		else:
+			toolkit_container.remove_item_from_slot(slot_index)
+		return
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "decrement_toolkit_item_count() called but legacy_mode_enabled is false and no container exists")
+	if slot_index < 0 or slot_index >= max_toolkit_slots:
+		return
+	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+	var current_count = slot_data["count"]
+	var texture = slot_data["texture"]
+	if current_count <= 0 or texture == null:
+		return
+	var new_count = current_count - amount
+	if new_count > 0:
+		toolkit_slots[slot_index] = {"texture": texture, "count": new_count, "weight": 0.0}
+	else:
+		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+	sync_toolkit_ui()
+
+
+# LEGACY METHOD - DEPRECATED - Use ToolkitContainer.get_slot_data() instead
 func get_toolkit_item(slot_index: int) -> Texture:
 	"""Get item texture from toolkit slot"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		var slot_data = toolkit_container.get_slot_data(slot_index)
+		return slot_data["texture"]
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "get_toolkit_item() called but legacy_mode_enabled is false and no container exists")
 	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
 	return slot_data["texture"]
 
 
+# LEGACY METHOD - DEPRECATED - Use ToolkitContainer.get_slot_data() instead
 func get_toolkit_item_count(slot_index: int) -> int:
 	"""Get item count from toolkit slot"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		var slot_data = toolkit_container.get_slot_data(slot_index)
+		return slot_data["count"]
+	
+	# LEGACY SYSTEM
+	assert(legacy_mode_enabled, "get_toolkit_item_count() called but legacy_mode_enabled is false and no container exists")
 	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
 	return slot_data["count"]
 
 
 func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
 	"""Add item to toolkit slot (used when dragging from inventory)"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		return toolkit_container.add_item_to_slot(slot_index, texture, count)
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
 		return false
 
@@ -303,6 +633,12 @@ func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> b
 
 func sync_toolkit_ui(hud_instance: Node = null) -> void:
 	"""Sync toolkit UI with toolkit_slots dictionary"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		toolkit_container.sync_ui()
+		return
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if not hud_instance:
 		# Try to find HUD CanvasLayer in scene tree
 		# The hud.tscn is instantiated as "Hud" (Node), which contains "HUD" (CanvasLayer)
@@ -342,42 +678,9 @@ func sync_toolkit_ui(hud_instance: Node = null) -> void:
 			if is_dragging:
 				continue
 			
-			# CRITICAL: Check current UI state before updating
-			# If dictionary says slot is empty but UI has an item, preserve the UI item
-			var current_ui_texture: Texture = null
-			var current_ui_count: int = 0
+			# CRITICAL: toolkit_slots is the source of truth - always update UI from it
+			# Don't preserve UI state over dictionary state (causes infinite item bug)
 			
-			if texture_button.has_method("get_item"):
-				current_ui_texture = texture_button.get_item()
-				if texture_button.has_method("get_stack_count"):
-					current_ui_count = texture_button.get_stack_count()
-				elif current_ui_texture:
-					current_ui_count = 1
-			else:
-				# Fallback: check child TextureRect
-				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
-				if hud_slot and hud_slot is TextureRect:
-					current_ui_texture = hud_slot.texture
-					if current_ui_texture:
-						current_ui_count = 1
-			
-			# CRITICAL: If UI has an item but dictionary says empty, SKIP updating that slot
-			# This preserves pre-loaded items that aren't in the dictionary yet
-			if current_ui_texture and not item_texture:
-				# UI has item but dictionary doesn't - preserve UI item, update dictionary
-				toolkit_slots[i] = {"texture": current_ui_texture, "count": current_ui_count, "weight": 0.0}
-				continue # SKIP updating this slot - preserve what's in UI
-			
-			# Only update if the texture or count actually changed
-			var needs_update = false
-			if current_ui_texture != item_texture:
-				needs_update = true
-			elif current_ui_texture and current_ui_count != item_count:
-				needs_update = true
-			elif item_texture and not current_ui_texture:
-				needs_update = true
-			
-			if needs_update:
 				# Update the TextureButton itself (which is the hud_slot)
 				if texture_button.has_method("set_item"):
 					texture_button.set_item(item_texture, item_count)
@@ -508,96 +811,99 @@ func _find_hud_root(node: Node) -> Node:
 	return null
 
 
+# LEGACY METHOD - DEPRECATED - ToolkitContainer migrates data automatically in its _ready()
 func _sync_initial_toolkit_from_ui() -> void:
-	"""Read initial tools from HUD scene and populate toolkit_slots dictionary"""
+	"""Read initial tools from HUD scene and populate toolkit_slots dictionary - LEGACY ONLY"""
+	# NEW SYSTEM: ToolkitContainer handles migration in its _migrate_from_inventory_manager()
+	# This function should never be called in new system
+	assert(legacy_mode_enabled, "_sync_initial_toolkit_from_ui() called but legacy_mode_enabled is false")
+	
 	var hud_root = _find_hud_root(get_tree().root)
 	if not hud_root:
 		return
-
 	var hud_canvas = hud_root.get_node_or_null("HUD")
 	if not hud_canvas:
 		return
-
 	var slots_container = hud_canvas.get_node_or_null("MarginContainer/HBoxContainer")
 	if not slots_container:
 		return
 
-	# Read each toolkit slot from the UI
 	for i in range(min(max_toolkit_slots, slots_container.get_child_count())):
 		var texture_button = slots_container.get_child(i)
 		if texture_button and texture_button is TextureButton:
-			# Try to get the texture from the slot
 			var slot_texture: Texture = null
-
-			# Check if the button has get_item method
 			if texture_button.has_method("get_item"):
 				slot_texture = texture_button.get_item()
 			else:
-				# Fallback: check child TextureRect
 				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
 				if hud_slot and hud_slot is TextureRect:
 					slot_texture = hud_slot.texture
-
-			# Populate toolkit_slots with the found texture
 			if slot_texture:
-				# Check if this is a seed texture - set count to 10 for new games
 				var seed_texture_path = "res://assets/tilesets/full version/tiles/FartSnipSeeds.png"
+				var chest_texture_path = "res://assets/icons/chest_icon.png"
 				var initial_count = 1
 				if slot_texture.resource_path == seed_texture_path:
-					initial_count = 10 # Starting seed count should be 10
+					initial_count = 10
+				elif i == 4 and slot_texture.resource_path == chest_texture_path:
+					initial_count = 1
 				toolkit_slots[i] = {"texture": slot_texture, "count": initial_count, "weight": 0.0}
-				
-				# Update UI to show correct count (especially for seeds with count 10)
 				if texture_button.has_method("set_item"):
 					texture_button.set_item(slot_texture, initial_count)
+			elif i == 4:
+				var chest_texture = load("res://assets/icons/chest_icon.png")
+				if chest_texture:
+					toolkit_slots[i] = {"texture": chest_texture, "count": 1, "weight": 0.0}
+					if texture_button.has_method("set_item"):
+						texture_button.set_item(chest_texture, 1)
+					print("[InventoryManager] TESTING: Added chest to slot 4 for testing")
 
 
+# LEGACY METHOD - DEPRECATED - ToolkitContainer handles its own data
 func _sync_toolkit_from_ui() -> void:
-	"""Sync toolkit_slots dictionary FROM current UI state (preserves pre-loaded items)"""
-	# CRITICAL: Use HUD singleton's cached reference instead of searching tree
+	"""Sync toolkit_slots dictionary FROM current UI state - LEGACY ONLY"""
+	# NEW SYSTEM: ToolkitContainer owns its data, no need to sync from UI
+	# This function should never be called in new system
+	assert(legacy_mode_enabled, "_sync_toolkit_from_ui() called but legacy_mode_enabled is false")
+	
 	var hud_instance = null
 	if HUD and HUD.hud_scene_instance:
 		hud_instance = HUD.hud_scene_instance.get_node_or_null("HUD")
-	
-	# Fallback: search tree if cached reference not available
 	if not hud_instance:
 		var hud_root = _find_hud_root(get_tree().root)
 		if hud_root:
 			hud_instance = hud_root.get_node_or_null("HUD")
-	
 	if not hud_instance:
 		return
-
 	var slots_container = hud_instance.get_node_or_null("MarginContainer/HBoxContainer")
 	if not slots_container:
 		return
 
-	# Read each toolkit slot from the UI and update toolkit_slots dictionary
 	for i in range(min(max_toolkit_slots, slots_container.get_child_count())):
 		var texture_button = slots_container.get_child(i)
 		if texture_button and texture_button is TextureButton:
-			# Try to get the texture from the slot
 			var slot_texture: Texture = null
 			var slot_count: int = 0
-
-			# Check if the button has get_item method (hud_slot extends TextureButton)
 			if texture_button.has_method("get_item"):
 				slot_texture = texture_button.get_item()
-				# CRITICAL: Read actual stack count from hud_slot
 				if texture_button.has_method("get_stack_count"):
 					slot_count = texture_button.get_stack_count()
 				elif slot_texture:
-					slot_count = 1 # Default to 1 if texture exists but no count method
+					slot_count = 1
 			else:
-				# Fallback: check child TextureRect
 				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
 				if hud_slot and hud_slot is TextureRect:
 					slot_texture = hud_slot.texture
 					if slot_texture:
-						slot_count = 1 # TextureRect doesn't have count, default to 1
-
-			# Update toolkit_slots dictionary with current UI state
-			toolkit_slots[i] = {"texture": slot_texture, "count": slot_count, "weight": 0.0}
+						slot_count = 1
+			var final_count = slot_count
+			if slot_texture:
+				var seed_texture_path = "res://assets/tilesets/full version/tiles/FartSnipSeeds.png"
+				var chest_texture_path = "res://assets/icons/chest_icon.png"
+				if slot_texture.resource_path == seed_texture_path and (slot_count == 0 or slot_count == 1):
+					final_count = 10
+				elif i == 4 and slot_texture.resource_path == chest_texture_path and slot_count == 0:
+					final_count = 1
+			toolkit_slots[i] = {"texture": slot_texture, "count": final_count, "weight": 0.0}
 
 ##Debug functions
 ## Populate the inventory with only a single test item for drag-and-drop testing

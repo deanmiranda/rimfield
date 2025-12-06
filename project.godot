@@ -23,6 +23,7 @@ SceneManager="*res://scripts/singletons/scene_manager.gd"
 Player="*res://scripts/singletons/player.gd"
 UiManager="*res://scripts/singletons/ui_manager.gd"
 InventoryManager="*res://scripts/singletons/inventory_manager.gd"
+DragManager="*res://scripts/singletons/drag_manager.gd"
 HUD="*res://scripts/singletons/hud.gd"
 InteractionIndicator="*res://scripts/ui/interaction_indicator.gd"
 TransitionManager="*res://scripts/singletons/transition_manager.gd"
@@ -32,6 +33,8 @@ ScreenFadeManager="*res://scripts/singletons/screen_fade_manager.gd"
 DatePopupManager="*res://scripts/singletons/date_popup_manager.gd"
 PlayerStatsManager="*res://scripts/singletons/player_stats_manager.gd"
 DebugControls="*res://scripts/singletons/debug_controls.gd"
+ChestManager="*res://scripts/game_systems/chest_manager.gd"
+MusicManager="*res://scripts/singletons/music_manager.gd"
 
 [display]
 

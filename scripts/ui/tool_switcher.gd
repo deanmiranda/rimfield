@@ -22,11 +22,29 @@ func _ready() -> void:
 	tool_config = load("res://resources/data/tool_config.tres")
 	game_config = load("res://resources/data/game_config.tres")
 	
+	# NEW SYSTEM: Connect to ToolkitContainer signals
+	# Wait for ToolkitContainer to be registered in InventoryManager
+	await get_tree().create_timer(0.1).timeout
+	
+	if InventoryManager and InventoryManager.toolkit_container:
+		var toolkit = InventoryManager.toolkit_container
+		print("[ToolSwitcher] Connecting to ToolkitContainer...")
+		if not toolkit.active_slot_changed.is_connected(_on_active_slot_changed):
+			toolkit.active_slot_changed.connect(_on_active_slot_changed)
+		if not toolkit.item_changed.is_connected(_on_toolkit_item_changed):
+			toolkit.item_changed.connect(_on_toolkit_item_changed)
+		if not toolkit.tool_equipped.is_connected(_on_tool_equipped):
+			toolkit.tool_equipped.connect(_on_tool_equipped)
+		print("[ToolSwitcher] Connected to ToolkitContainer")
+	else:
+		print("[ToolSwitcher] WARNING: ToolkitContainer not available in InventoryManager - using fallback")
+	
 	# Use cached HUD reference
 	if hud:
 		if not is_connected("tool_changed", Callable(hud, "_highlight_active_tool")):
 			connect("tool_changed", Callable(hud, "_highlight_active_tool"))
-			# Find and connect all hud_slot signals
+		
+		# Connect to HUD slots (for backward compatibility during migration)
 		var tool_container = hud.get_node_or_null("MarginContainer/HBoxContainer")
 		if tool_container:
 			var tool_slots = tool_container.get_children()
@@ -41,54 +59,123 @@ func _on_tool_selected(slot_index: int) -> void:
 	set_hud_by_slot(slot_index) # Pass item_texture here
 
 
+func _on_active_slot_changed(slot_index: int) -> void:
+	"""Handle ToolkitContainer active slot change signal"""
+	current_hud_slot = slot_index
+	var toolkit = InventoryManager.toolkit_container if InventoryManager else null
+	var slot_data = toolkit.get_slot_data(slot_index) if toolkit else {}
+	current_tool_texture = slot_data.get("texture", null)
+	
+	if current_tool_texture and tool_config and tool_config.has_method("get_tool_name"):
+		current_tool = tool_config.get_tool_name(current_tool_texture)
+	else:
+		current_tool = "unknown"
+	
+	print("[ToolSwitcher] Active slot: %d, tool: %s" % [slot_index, current_tool])
+	emit_signal("tool_changed", slot_index, current_tool_texture)
+
+
+func _on_toolkit_item_changed(slot_index: int, texture: Texture, count: int) -> void:
+	"""Handle ToolkitContainer item change signal"""
+	# If this is the active slot, update current tool
+	if slot_index == current_hud_slot:
+		current_tool_texture = texture
+		if texture and tool_config and tool_config.has_method("get_tool_name"):
+			current_tool = tool_config.get_tool_name(texture)
+		else:
+			current_tool = "unknown"
+		emit_signal("tool_changed", slot_index, texture)
+
+
+func _on_tool_equipped(slot_index: int, texture: Texture) -> void:
+	"""Handle ToolkitContainer tool equipped signal"""
+	# This is emitted when set_active_slot is called
+	# Already handled by _on_active_slot_changed
+	pass
+
+
 func set_hud_by_slot(slot_index: int) -> void:
+	"""Set active HUD slot (delegates to ToolkitContainer in new system)"""
+	print("[ToolSwitcher] set_hud_by_slot called with slot_index: ", slot_index)
+	
+	# NEW SYSTEM: Delegate to ToolkitContainer via InventoryManager
+	if InventoryManager and InventoryManager.toolkit_container:
+		InventoryManager.toolkit_container.set_active_slot(slot_index)
+		return
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	# Use cached HUD reference instead of repeated get_node() call
 	if not hud:
-		print("Error: HUD not found.")
+		print("[ToolSwitcher] ERROR: HUD not found.")
 		return
 	# Access the TextureButton and list its children
 	var button_path = "MarginContainer/HBoxContainer/TextureButton_" + str(slot_index)
 	var texture_button = hud.get_node_or_null(button_path)
+	print("[ToolSwitcher] TextureButton found: ", texture_button != null)
 	
 	if texture_button:
 		# Access the Hud_slot_X child
 		var slot_path = button_path + "/Hud_slot_" + str(slot_index)
 		var hud_slot = hud.get_node_or_null(slot_path)
+		print("[ToolSwitcher] Hud_slot found: ", hud_slot != null)
 
 		if hud_slot:
 			# Use explicit if/else instead of ternary operator (follows .cursor/rules/godot.md)
 			var item_texture: Texture = null
 			if hud_slot.has_method("get_texture"):
 				item_texture = hud_slot.get_texture()
+			else:
+				# Try getting texture directly
+				if hud_slot is TextureRect:
+					item_texture = hud_slot.texture
+					# If it's an AtlasTexture, get the atlas
+					if item_texture is AtlasTexture:
+						item_texture = item_texture.atlas
+						print("[ToolSwitcher] Found AtlasTexture, using atlas: ", item_texture.resource_path if item_texture else "null")
+			
+			print("[ToolSwitcher] Item texture: ", item_texture, " path: ", item_texture.resource_path if item_texture else "null")
 			
 			if item_texture:
 				current_hud_slot = slot_index
 				current_tool_texture = item_texture
 				# Map texture to tool name using shared ToolConfig
+				print("[ToolSwitcher] tool_config exists: ", tool_config != null)
 				if tool_config and tool_config.has_method("get_tool_name"):
 					current_tool = tool_config.get_tool_name(item_texture)
+					print("[ToolSwitcher] Tool name from config: ", current_tool)
 				else:
 					current_tool = "unknown"
+					print("[ToolSwitcher] tool_config missing or no get_tool_name method")
 				
 				# Update tool slot mapping
 				tool_slot_map[item_texture] = slot_index
 				
+				print("[ToolSwitcher] Emitting tool_changed signal - slot: ", slot_index, " tool: ", current_tool)
 				emit_signal("tool_changed", slot_index, item_texture)
 			else:
 				# Slot is empty - ALWAYS clear the active tool when selecting an empty slot
+				print("[ToolSwitcher] Slot is empty, clearing tool")
 				current_tool_texture = null
 				current_tool = "unknown"
 				current_hud_slot = slot_index # Track which slot is selected, but it's empty
 				emit_signal("tool_changed", slot_index, null)
 		else:
-			print("Tool slot not found at path:", slot_path)
+			print("[ToolSwitcher] ERROR: Tool slot not found at path:", slot_path)
 	else:
-		print("TextureButton not found at path:", button_path)
+		print("[ToolSwitcher] ERROR: TextureButton not found at path:", button_path)
 		
 		
 func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 	"""Update toolkit slot and emit tool_changed if active tool was moved"""
+	# NEW SYSTEM: Delegate to ToolkitContainer (it will emit item_changed signal)
+	if InventoryManager and InventoryManager.toolkit_container:
+		var toolkit = InventoryManager.toolkit_container
+		var current_data = toolkit.get_slot_data(slot_index)
+		var count = current_data.get("count", 1) if texture else 0
+		toolkit.add_item_to_slot(slot_index, texture, count)
+		return
 	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	# Update the slot texture in the HUD
 	if not hud:
 		print("Error: HUD not found.")
@@ -167,8 +254,28 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 					current_tool_texture = null
 					emit_signal("tool_changed", slot_index, null)
 
+func select_toolkit_slot(index: int) -> void:
+	"""Clean function to select toolkit slot via keyboard - uses new container system"""
+	if not InventoryManager or not InventoryManager.toolkit_container:
+		return
+	
+	if DragManager and DragManager.is_dragging:
+		return
+	
+	InventoryManager.toolkit_container.set_active_slot(index)
+
+
 func _input(event: InputEvent) -> void:
-	# Handle key inputs to switch tools based on slot numbers (1-0)
+	"""Handle key inputs to switch tools based on slot numbers (1-0)"""
+	# Ignore when pause menu is visible
+	if UiManager and UiManager.pause_menu and UiManager.pause_menu.visible:
+		return
+	
+	# Ignore when typing into text fields (check if any LineEdit has focus)
+	var focused = get_viewport().gui_get_focus_owner()
+	if focused and focused is LineEdit:
+		return
+	
 	# Use GameConfig instead of magic number (follows .cursor/rules/godot.md)
 	var hud_slot_count: int = 10
 	if game_config:
@@ -179,4 +286,5 @@ func _input(event: InputEvent) -> void:
 		if i == 9: # Special case for "0" key (maps to slot 9)
 			action = "ui_hud_0"
 		if event.is_action_pressed(action):
-			set_hud_by_slot(i)
+			select_toolkit_slot(i)
+			get_viewport().set_input_as_handled()

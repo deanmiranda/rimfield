@@ -17,17 +17,18 @@ var inventory_instance: Control = null
 # Reference to FarmingManager (set during initialization)
 var farming_manager: Node = null
 
-# Background music player
-var farm_music_player: AudioStreamPlayer = null
-
 
 func _ready() -> void:
 	# Temporary test: Verify FarmingTerrain.tres loads
 	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
 	
-	# Setup background music - randomly select one of three farm tracks
-	# Call immediately - _setup_farm_music will handle async operations
-	_setup_farm_music()
+	# Restore chests for this scene
+	if ChestManager:
+		ChestManager.restore_chests_for_scene("Farm")
+	
+	# Restore droppables for this scene
+	if DroppableFactory:
+		DroppableFactory.restore_droppables_for_scene("Farm")
 	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
@@ -73,7 +74,17 @@ func _ready() -> void:
 		print("Error: HUD scene not assigned!")
 
 	# Spawn droppables asynchronously to avoid scene load delay
-	spawn_random_droppables_async(40)
+	# TESTING: Increased to 80 for inventory-full testing
+	spawn_random_droppables_async(80)
+	
+	# Connect to DragManager world drop signal for chest placement
+	if DragManager:
+		if not DragManager.dropped_on_world.is_connected(_on_toolkit_world_drop):
+			DragManager.dropped_on_world.connect(_on_toolkit_world_drop)
+		
+		# Connect to cursor-hold world drop signal
+		if not DragManager.cursor_hold_dropped_on_world.is_connected(_on_cursor_hold_dropped_on_world):
+			DragManager.cursor_hold_dropped_on_world.connect(_on_cursor_hold_dropped_on_world)
 
 
 func spawn_random_droppables_async(count: int) -> void:
@@ -103,7 +114,6 @@ func spawn_random_droppables_async(count: int) -> void:
 func spawn_random_droppables(count: int) -> void:
 	"""Legacy synchronous spawn - kept for compatibility"""
 	if not hud_instance:
-		print("Error: HUD instance is null! Droppables cannot be spawned.")
 		return
 
 	for i in range(count):
@@ -208,6 +218,9 @@ func _load_farm_state() -> void:
 		print("Error: TileMapLayer not found!")
 		return
 	
+	# Restore chests from save data
+	_restore_chests()
+	
 	# CRITICAL FIX: Get crop layer from FarmingManager (it creates/manages it)
 	var crop_layer: TileMapLayer = null
 	# Use get() to safely retrieve the property (has() doesn't work on Node objects)
@@ -304,10 +317,40 @@ func _load_farm_state() -> void:
 				if GameState:
 					GameState.update_tile_state(tile_position, "soil")
 			_:
-				# No state or unknown state - check if farmable layer has farm tile
-				# If not, leave it unchanged (non-farmable area)
-				# If yes, leave it as farm tile (already correct)
-				pass
+				# No state or unknown state - leave it unchanged (non-farmable area)
+				return
+
+
+func _restore_chests() -> void:
+	"""Restore chests from save data."""
+	if not ChestManager:
+		return
+	
+	# Get pending restore data from ChestManager
+	var pending_data = ChestManager.get_pending_restore_data()
+	if pending_data.size() == 0:
+		return
+	
+	# Instantiate chests at their saved positions
+	var chest_scene = preload("res://scenes/world/chest.tscn")
+	if not chest_scene:
+		push_error("FarmScene: Could not load chest scene")
+		return
+	
+	for chest_data in pending_data:
+		var chest_id = chest_data.get("chest_id", "")
+		var position_data = chest_data.get("position", {"x": 0, "y": 0})
+		var position = Vector2(position_data.get("x", 0), position_data.get("y", 0))
+		
+		# Instantiate chest
+		var chest_instance = chest_scene.instantiate()
+		if chest_instance:
+			chest_instance.global_position = position
+			# Set chest ID before registration so it matches save data
+			if chest_instance.has_method("set_chest_id"):
+				chest_instance.set_chest_id(chest_id)
+			add_child(chest_instance)
+			# Chest will register itself in _ready() and restore inventory
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
@@ -325,99 +368,285 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
 
-func _setup_farm_music() -> void:
-	"""Setup and play random farm background music (no loop)."""
-	# Aggressively stop ALL audio players first
-	_stop_all_music()
-	
-	# Create AudioStreamPlayer node if it doesn't exist
-	if farm_music_player == null:
-		farm_music_player = AudioStreamPlayer.new()
-		farm_music_player.name = "FarmMusic"
-		farm_music_player.add_to_group("music") # Add to music group for easy management
-		add_child(farm_music_player)
-	
-	# List of available farm music tracks
-	var farm_tracks: Array[String] = [
-		"res://assets/audio/Farm-1.mp3",
-		"res://assets/audio/Farm-2.mp3",
-		"res://assets/audio/Farm-3.mp3"
-	]
-	
-	# Randomly select one track
-	var random_index = randi() % farm_tracks.size()
-	var selected_track = farm_tracks[random_index]
-	
-	# Load the selected track
-	var audio_stream = load(selected_track)
-	if audio_stream == null:
-		push_error("[FarmScene] CRITICAL: Failed to load farm music file: %s" % selected_track)
-		push_error("[FarmScene] File exists check: %s" % ResourceLoader.exists(selected_track))
+func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
+	"""Handle item dropped on world from drag (any item, or chest placement)"""
+	if texture == null:
 		return
 	
+	var tex_path = texture.resource_path
 	
-	# Ensure the stream doesn't loop
-	if audio_stream is AudioStreamMP3:
-		audio_stream.loop = false
+	# Special case: chest icon from toolkit → place chest
+	if tex_path == "res://assets/icons/chest_icon.png":
+		_handle_chest_placement(source_container, source_slot, texture, count, mouse_pos)
+		return
 	
-	# Set the stream and volume
-	farm_music_player.stream = audio_stream
-	farm_music_player.volume_db = 0.0
-	
-	
-	# Wait a frame to ensure everything is set up, then play
-	call_deferred("_play_farm_music", selected_track)
+	# General case: any other item → spawn as droppable
+	_handle_item_world_drop(texture, count, mouse_pos, source_container, source_slot)
 
-func _play_farm_music(track_path: String) -> void:
-	"""Play the farm music (called deferred to ensure node is ready)."""
-	if farm_music_player == null:
-		push_error("[FarmScene] Cannot play farm music - player is null")
-		return
-	
-	if farm_music_player.stream == null:
-		push_error("[FarmScene] Cannot play farm music - stream is null")
-		return
-	
-	# Stop any existing playback
-	farm_music_player.stop()
-	
-	# Ensure we're in the scene tree
-	if not is_inside_tree():
-		push_error("[FarmScene] Cannot play farm music - not in scene tree")
-		return
-	
-	# Play the music
-	farm_music_player.play()
 
-func _stop_all_music() -> void:
-	"""Stop all music players in the scene tree (safety check)."""
-	# Stop all AudioStreamPlayer nodes in the entire scene tree
-	var all_nodes = get_tree().get_nodes_in_group("")
-	var music_nodes = []
+func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
+	"""Handle chest placement on world"""
 	
-	# Find all AudioStreamPlayer nodes recursively
-	_find_audio_players_recursive(self, music_nodes)
+	# Convert screen mouse_pos to world position using MouseUtil
+	var world_pos = mouse_pos
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	else:
+		# Fallback: use viewport
+		var viewport = get_viewport()
+		if viewport:
+			var camera = viewport.get_camera_2d()
+			if camera:
+				var viewport_size = viewport.size
+				var camera_pos = camera.global_position
+				var mouse_screen = mouse_pos
+				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
 	
-	# Also check the scene tree
-	if is_inside_tree():
-		var audio_players = get_tree().get_nodes_in_group("music")
-		for player in audio_players:
-			if player is AudioStreamPlayer and not player in music_nodes:
-				music_nodes.append(player)
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
 	
-	# Stop all found music players
-	for player in music_nodes:
-		if player is AudioStreamPlayer:
-			player.stop()
+	# Get ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		print("[FarmScene] ChestManager not found - cannot place chest")
+		return
 	
-	# Explicitly stop farm music player if it exists
-	if farm_music_player and farm_music_player.playing:
-		farm_music_player.stop()
+	# Check if there's already a chest at this position
+	var existing_chest = chest_manager.find_chest_at_position(snapped_pos, 16.0)
+	if existing_chest:
+		print("[FarmScene] Chest already exists at position %s" % snapped_pos)
+		return
+	
+	# Check if position is valid using farming_manager if available
+	if farming_manager:
+		# Use farming_manager's validation logic
+		var cell = Vector2i(floor(snapped_pos.x / 16.0), floor(snapped_pos.y / 16.0))
+		if farming_manager.has_method("_is_soil"):
+			var is_soil = farming_manager._is_soil(cell)
+			if is_soil:
+				print("[FarmScene] Cannot place chest on soil")
+				return
+		
+		# Check if tile has crop or is watered
+		if GameState and GameState.farm_state.has(cell):
+			var tile_data = GameState.get_tile_data(cell)
+			if tile_data:
+				var is_watered = tile_data.get("is_watered", false)
+				var has_crop = tile_data.get("tile_state") == "planted"
+				if is_watered or has_crop:
+					print("[FarmScene] Cannot place chest on watered/crop tile")
+					return
+	
+	# Create chest at position
+	var chest = chest_manager.create_chest_at_position(snapped_pos)
+	if chest == null:
+		print("[FarmScene] Failed to create chest at position %s" % snapped_pos)
+		return
+	
+	print("[FarmScene] Chest placed at world position %s" % snapped_pos)
+	
+	# Remove 1 chest from toolkit slot
+	if source_container and source_container.has_method("get_slot_data"):
+		var slot_data = source_container.get_slot_data(source_slot)
+		var current_count = slot_data.get("count", 0)
+		if current_count > 1:
+			# Decrement count by 1
+			if source_container.has_method("set_slot_data"):
+				source_container.set_slot_data(source_slot, texture, current_count - 1)
+			else:
+				# Fallback: remove and re-add with decremented count
+				source_container.remove_item_from_slot(source_slot)
+				source_container.add_item_to_slot(source_slot, texture, current_count - 1)
+		else:
+			# Only 1 item - remove completely
+			source_container.remove_item_from_slot(source_slot)
+	elif source_container and source_container.has_method("remove_item_from_slot"):
+		# Fallback: just remove the slot
+		source_container.remove_item_from_slot(source_slot)
+	
+	# CRITICAL: Clear drag state and preview after successful world placement
+	if DragManager:
+		DragManager.clear_drag_state()
 
-func _find_audio_players_recursive(node: Node, result: Array) -> void:
-	"""Recursively find all AudioStreamPlayer nodes."""
-	if node is AudioStreamPlayer:
-		result.append(node)
+
+func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, source_container: Node, source_slot: int) -> void:
+	"""Handle any item dropped on world (spawn as droppable)"""
+	# Convert screen mouse_pos to world position using MouseUtil
+	var world_pos = mouse_pos
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	else:
+		# Fallback: use viewport
+		var viewport = get_viewport()
+		if viewport:
+			var camera = viewport.get_camera_2d()
+			if camera:
+				var viewport_size = viewport.size
+				var camera_pos = camera.global_position
+				var mouse_screen = mouse_pos
+				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
 	
-	for child in node.get_children():
-		_find_audio_players_recursive(child, result)
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
+	
+	# Spawn droppable item(s) using DroppableFactory
+	if DroppableFactory and hud_instance:
+		# Try to get item_id from texture
+		var item_id = DroppableFactory.get_item_id_from_texture(texture)
+		
+		if item_id.is_empty():
+			# No matching item_id - spawn generic droppable with texture
+			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
+			var droppable_instance = droppable_scene.instantiate()
+			
+			# Create minimal item data resource
+			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
+			item_data.texture = texture
+			
+			droppable_instance.item_data = item_data
+			droppable_instance.global_position = snapped_pos
+			droppable_instance.hud = hud_instance
+			droppable_instance.scale = Vector2(0.75, 0.75)
+			
+			add_child(droppable_instance)
+			
+			# If count > 1, spawn additional instances
+			for i in range(count - 1):
+				var additional = droppable_scene.instantiate()
+				additional.item_data = item_data
+				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
+				additional.hud = hud_instance
+				additional.scale = Vector2(0.75, 0.75)
+				add_child(additional)
+		else:
+			# Use existing item_id - spawn via factory
+			for i in range(count):
+				var spawn_offset = Vector2(randf_range(-4, 4), randf_range(-4, 4)) if count > 1 else Vector2.ZERO
+				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
+				if droppable:
+					droppable.scale = Vector2(0.75, 0.75)
+		
+		print("[FarmScene] Item world drop: texture=%s count=%d at %s" % [
+			texture.resource_path if texture else "null",
+			count,
+			snapped_pos
+		])
+	
+	# Remove items from source container BEFORE clearing drag state
+	if source_container and is_instance_valid(source_container):
+		if source_container.has_method("remove_item_from_slot"):
+			var removed = source_container.remove_item_from_slot(source_slot)
+			print("[FarmScene] Removed items from source container: slot=%d container=%s removed=%s" % [
+				source_slot,
+				source_container.container_id if "container_id" in source_container else "unknown",
+				removed
+			])
+			# Ensure UI is synced after removal
+			if source_container.has_method("sync_slot_ui"):
+				source_container.sync_slot_ui(source_slot)
+		else:
+			print("[FarmScene] ERROR: Source container has no remove_item_from_slot method")
+	else:
+		print("[FarmScene] ERROR: Source container is invalid or null - container=%s slot=%d" % [
+			"null" if not source_container else "invalid",
+			source_slot
+		])
+	
+	# Clear drag state AFTER removing items
+	if DragManager:
+		DragManager.clear_drag_state()
+
+
+func _on_cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: Vector2) -> void:
+	"""Handle cursor-hold items dropped on world"""
+	if texture == null or count <= 0:
+		return
+	
+	# Convert screen mouse_pos to world position using MouseUtil
+	var world_pos = mouse_pos
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	else:
+		# Fallback: use viewport
+		var viewport = get_viewport()
+		if viewport:
+			var camera = viewport.get_camera_2d()
+			if camera:
+				var viewport_size = viewport.size
+				var camera_pos = camera.global_position
+				var mouse_screen = mouse_pos
+				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
+	
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
+	
+	# Spawn droppable item(s) using DroppableFactory
+	if DroppableFactory and hud_instance:
+		# Try to get item_id from texture
+		var item_id = DroppableFactory.get_item_id_from_texture(texture)
+		
+		if item_id.is_empty():
+			# No matching item_id - spawn generic droppable with texture
+			# Create minimal droppable instance
+			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
+			var droppable_instance = droppable_scene.instantiate()
+			
+			# Create minimal item data resource
+			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
+			item_data.texture = texture
+			
+			droppable_instance.item_data = item_data
+			droppable_instance.global_position = snapped_pos
+			droppable_instance.hud = hud_instance
+			droppable_instance.scale = Vector2(0.75, 0.75)
+			
+			add_child(droppable_instance)
+			
+			# If count > 1, spawn additional instances
+			for i in range(count - 1):
+				var additional = droppable_scene.instantiate()
+				additional.item_data = item_data
+				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
+				additional.hud = hud_instance
+				additional.scale = Vector2(0.75, 0.75)
+				add_child(additional)
+		else:
+			# Use existing item_id - spawn via factory
+			for i in range(count):
+				var spawn_offset = Vector2(randf_range(-4, 4), randf_range(-4, 4)) if count > 1 else Vector2.ZERO
+				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
+				if droppable:
+					droppable.scale = Vector2(0.75, 0.75)
+		
+		print("[FarmScene] Cursor-hold world drop: texture=%s count=%d at %s" % [
+			texture.resource_path if texture else "null",
+			count,
+			snapped_pos
+		])
+		
+		# Consume from cursor-hold after successful spawn
+		if DragManager:
+			DragManager.consume_from_cursor_hold(count)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	"""Handle world clicks for cursor-hold world drops"""
+	if not DragManager or not DragManager.cursor_hold_active:
+		return
+	
+	# Check for left/right mouse button press
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+		if mb.pressed and (mb.button_index == MOUSE_BUTTON_LEFT or mb.button_index == MOUSE_BUTTON_RIGHT):
+			# Check if mouse is over any UI Control
+			var viewport = get_viewport()
+			if viewport:
+				var hovered_control = viewport.gui_get_hovered_control()
+				
+				# If no UI control is hovered, treat as world click
+				if hovered_control == null:
+					var is_right_click = (mb.button_index == MOUSE_BUTTON_RIGHT)
+					if DragManager.try_world_click_drop(is_right_click):
+						# Consume the event to prevent other handlers
+						get_viewport().set_input_as_handled()
+						return

@@ -212,12 +212,24 @@ func save_game(file: String = "") -> void:
 			if player_body:
 				player_position = player_body.global_position
 	
+	# Get chest data from ChestManager
+	var chest_data = []
+	if ChestManager:
+		chest_data = ChestManager.serialize_all_chests()
+	
+	# Get droppable data from DroppableFactory (house/farm only)
+	var droppable_data = []
+	if DroppableFactory:
+		droppable_data = DroppableFactory.serialize_droppables()
+	
 	var save_data = {
 		"farm_state": serialized_farm_state,
 		"current_scene": current_scene,
 		"player_position": {"x": player_position.x, "y": player_position.y},
 		"toolkit_items": toolkit_items,
 		"inventory_items": inventory_items,
+		"chest_data": chest_data,
+		"droppable_data": droppable_data,
 		"game_time": {
 			"day": GameTimeManager.day if GameTimeManager else 1,
 			"season": GameTimeManager.season if GameTimeManager else 0,
@@ -333,22 +345,36 @@ func load_game(file: String = "") -> bool:
 			
 			# Debug: Log what items were loaded
 			if toolkit_count > 0:
-				print("[GameState] Toolkit items loaded:")
 				for item in save_data.get("toolkit_items", []):
 					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
 			if inventory_count > 0:
-				print("[GameState] Inventory items loaded:")
 				for item in save_data.get("inventory_items", []):
 					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
 			
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
 			InventoryManager.sync_toolkit_ui()
+		
+		# Restore chest data
+		if save_data.has("chest_data") and ChestManager:
+			ChestManager.restore_chests_from_save(save_data["chest_data"])
+		
+		# Restore droppable data (house/farm only)
+		if save_data.has("droppable_data") and DroppableFactory:
+			DroppableFactory.restore_droppables_from_save(save_data["droppable_data"])
 
 		emit_signal("game_loaded")
 
 		# Always start in house scene after loading (save data is already applied)
 		get_tree().paused = false # Unpause the game if paused
+		
+		# Stop intro music if it's playing (from main menu)
+		_stop_intro_music()
+		
+		# Start background music if not already playing
+		if MusicManager and not MusicManager.is_playing:
+			MusicManager.start_music()
+		
 		SceneManager.start_in_house(false)
 
 		return true
@@ -406,9 +432,19 @@ func manage_save_files() -> void:
 			var delete_result = delete_dir.remove(oldest_file_name)
 			if delete_result == OK:
 				var mod_date = Time.get_datetime_dict_from_unix_time(oldest_save.time)
-				print("[GameState] Deleted old save file (FIFO): %s (modified: %d/%d/%d)" % [oldest_file_name, mod_date.month, mod_date.day, mod_date.year])
 			else:
 				print("[GameState] Error: Failed to delete old save file:", oldest_file_name)
+
+
+# Helper function to stop intro music from main menu
+func _stop_intro_music() -> void:
+	"""Stop intro music if it's playing (from main menu scene)"""
+	var main_menu = get_tree().current_scene
+	if main_menu and main_menu.name == "Main_Menu":
+		var intro_music = main_menu.get_node_or_null("IntroMusic")
+		if intro_music and intro_music is AudioStreamPlayer:
+			intro_music.stop()
+			print("[GameState] Stopped intro music")
 
 
 # Helper function to extract timestamp from save file name
@@ -426,3 +462,27 @@ func new_game() -> void:
 
 	# Clear all tile states
 	farm_state.clear()
+	
+	# Clear all chests
+	if ChestManager:
+		ChestManager.reset_all()
+	
+	# Clear all droppables
+	if DroppableFactory:
+		DroppableFactory.reset_all_droppables()
+	
+	# Clear toolkit_slots so HUD will re-sync from the scene file
+	if InventoryManager:
+		for i in range(InventoryManager.max_toolkit_slots):
+			InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+	
+	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
+	# The test chest is in the HUD scene file, so it will be loaded automatically
+	# TODO: When chest crafting is implemented, remove chest from HUD scene file
+	
+	# Stop intro music if it's playing (from main menu)
+	_stop_intro_music()
+	
+	# Start background music
+	if MusicManager:
+		MusicManager.start_music()

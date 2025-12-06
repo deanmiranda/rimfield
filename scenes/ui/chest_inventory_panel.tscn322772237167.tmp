@@ -1,0 +1,111 @@
+[gd_scene load_steps=4 format=3 uid="uid://d0oecxugrdiar"]
+
+[ext_resource type="Script" uid="uid://dh3phnfvm4d8a" path="res://scripts/ui/chest_inventory_panel.gd" id="1_chest_panel"]
+[ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.2, 0.2, 0.25, 0.95)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.4, 0.4, 0.5, 1)
+
+[node name="ChestInventoryPanel" type="CanvasLayer"]
+layer = 11
+
+[node name="Control" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_chest_panel")
+
+[node name="CenterContainer" type="CenterContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="Control/CenterContainer"]
+custom_minimum_size = Vector2(1000, 600)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TitleLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 24
+text = "Chest"
+horizontal_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ChestContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ChestLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/HBoxContainer/ChestContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 18
+text = "Chest"
+horizontal_alignment = 1
+
+[node name="ChestInventoryGrid" type="GridContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/HBoxContainer/ChestContainer"]
+custom_minimum_size = Vector2(480, 320)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+columns = 6
+
+[node name="PlayerContainer" type="VBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="PlayerLabel" type="Label" parent="Control/CenterContainer/PanelContainer/VBoxContainer/HBoxContainer/PlayerContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 18
+text = "Player Inventory"
+horizontal_alignment = 1
+
+[node name="PlayerInventoryGrid" type="GridContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer/HBoxContainer/PlayerContainer"]
+custom_minimum_size = Vector2(480, 320)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+columns = 6
+
+[node name="ButtonContainer" type="HBoxContainer" parent="Control/CenterContainer/PanelContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+
+[node name="AutoSortButton" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 16
+text = "Auto Sort"
+
+[node name="CloseButton" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/ButtonContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 16
+text = "Close"

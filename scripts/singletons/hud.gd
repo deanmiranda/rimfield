@@ -13,6 +13,9 @@ var tool_switcher: Node = null # Cached reference to ToolSwitcher node
 
 
 func _ready() -> void:
+	# Add to "hud" group for easy lookup
+	add_to_group("hud")
+	
 # Connect the signal to highlight the active tool
 	connect("tool_changed", Callable(self, "_highlight_active_tool"))
 
@@ -39,7 +42,6 @@ func setup_hud() -> void:
 	# farming_manager should already be set via set_farming_manager() from farm_scene
 	if not farming_manager:
 		if not _farming_manager_error_logged:
-			print("Error: FarmingManager not linked. Ensure set_farming_manager() is called.")
 			_farming_manager_error_logged = true
 
 	# Connect to ToolSwitcher using cached reference
@@ -47,61 +49,37 @@ func setup_hud() -> void:
 		if not tool_switcher.is_connected("tool_changed", Callable(self, "_highlight_active_tool")):
 			tool_switcher.connect("tool_changed", Callable(self, "_highlight_active_tool"))
 	else:
-		print("Error: ToolSwitcher not cached. Ensure set_hud_scene_instance() is called.")
 		return
 
 	# Use cached slots container instead of absolute path
 	if not slots_container:
-		print("Error: Slots container not cached. Ensure set_hud_scene_instance() is called.")
 		return
 
-	# Dynamically connect signals for each TextureButton node
+	# NEW SYSTEM: Connect to SlotBase signals
 	var tool_buttons = slots_container.get_children()
-	#for i in range(tool_buttons.size()):
-	#print("Tool button:", tool_buttons[i], "Children:", tool_buttons[i].get_children())
 
 	for i in range(tool_buttons.size()):
 		if tool_buttons[i] is TextureButton:
-			var hud_slot = tool_buttons[i].get_node("Hud_slot_" + str(i))
-			if hud_slot and hud_slot is TextureRect: # Adjust for TextureRect
-				hud_slot.set_meta("slot_index", i) # Assign slot index for tracking
-				tool_buttons[i].connect(
-					"gui_input", Callable(self, "_on_tool_clicked").bind(hud_slot)
-				) # No need to cast
+			# SlotBase emits tool_selected signal directly (no child nodes)
+			if tool_buttons[i].has_signal("tool_selected"):
+				if not tool_buttons[i].is_connected("tool_selected", Callable(self, "_on_tool_selected")):
+					tool_buttons[i].connect("tool_selected", Callable(self, "_on_tool_selected"))
 			else:
-				print("Error: hud_slot not found or invalid for tool button", i)
+				print("[HUD] Slot %d doesn't have tool_selected signal" % i)
 
-	# CRITICAL: Check if InventoryManager has existing data (from previous scene or save file)
-	# If yes, sync FROM InventoryManager TO UI (restore state)
-	# If no, sync FROM UI TO InventoryManager (first-time setup with pre-loaded tools)
-	if InventoryManager:
-		var has_existing_data = false
-		# Check if any toolkit slot has data
-		for i in range(InventoryManager.max_toolkit_slots):
-			var slot_data = InventoryManager.toolkit_slots.get(i, {"texture": null, "count": 0})
-			if slot_data["texture"] != null and slot_data["count"] > 0:
-				has_existing_data = true
-				break
-
-		if has_existing_data:
-			# Restore toolkit from InventoryManager (scene transition or load game)
-			InventoryManager.sync_toolkit_ui()
-			# Also sync inventory
-			InventoryManager.sync_inventory_ui()
+	# NEW SYSTEM: Data is owned by ToolkitContainer
+	# Sync is handled by HudInitializer during migration
+	# Set default active tool (slot 0)
+	if InventoryManager and InventoryManager.toolkit_container:
+		var toolkit = InventoryManager.toolkit_container
+		var first_slot_data = toolkit.get_slot_data(0)
+		var first_texture = first_slot_data.get("texture", null)
+		if first_texture:
+			toolkit.set_active_slot(0)
+			emit_signal("tool_changed", 0, first_texture)
+			_update_farming_manager_tool(0, first_texture)
 		else:
-			# First-time setup: Read pre-loaded tools from UI
-			if InventoryManager.has_method("_sync_initial_toolkit_from_ui"):
-				InventoryManager._sync_initial_toolkit_from_ui()
-
-	# Emit tool_changed for the first slot (slot 0)
-	if tool_buttons.size() > 0:
-		var first_slot = tool_buttons[0].get_node("Hud_slot_0")
-		#print("should have first tool assigned", first_slot)
-		if first_slot and first_slot.texture:
-			emit_signal("tool_changed", 0, first_slot.texture) # Emit signal with the texture from Hud_slot_0
-			_update_farming_manager_tool(0, first_slot.texture) # Sync farming manager with the initial tool texture
-		else:
-			print("Warning: No texture in Hud_slot_0. Defaulting to empty.")
+			print("[HUD] First slot empty - no default tool")
 			emit_signal("tool_changed", 0, null)
 	
 	# Sync stat bars with current values from PlayerStatsManager
@@ -138,10 +116,16 @@ func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> voi
 	#print("Updating farming manager with slot:", slot_index, "and texture:", item_texture)
 	if farming_manager:
 		farming_manager._on_tool_changed(slot_index, item_texture)
-	else:
-		print("Error: Farming manager is not linked.")
 
 
+func _on_tool_selected(slot_index: int, item_texture: Texture) -> void:
+	"""Handle tool_selected signal from SlotBase slots"""
+	print("[HUD] Tool selected: slot %d, texture: %s" % [slot_index, item_texture.resource_path if item_texture else "null"])
+	emit_signal("tool_changed", slot_index, item_texture)
+	_update_farming_manager_tool(slot_index, item_texture)
+
+
+# OLD SYSTEM - kept for compatibility during migration (DEPRECATED)
 func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if clicked_texture_rect and clicked_texture_rect.has_meta("slot_index"):
