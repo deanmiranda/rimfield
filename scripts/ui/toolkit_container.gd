@@ -168,15 +168,14 @@ func handle_shift_click(slot_index: int) -> void:
 
 func _find_transfer_target() -> ContainerBase:
 	"""Find the target container for shift-click transfers"""
-	# Check if chest panel is open
+	# Check if chest panel is open (highest priority)
 	var chest_panel = get_tree().get_first_node_in_group("chest_panel")
 	if chest_panel and chest_panel.visible and chest_panel is ContainerBase:
 		return chest_panel
 	
-	# Otherwise, transfer to player inventory
-	# TODO: Enable after PlayerInventoryContainer is created in Phase 2
-	# if PlayerInventoryContainer and PlayerInventoryContainer.instance:
-	# 	return PlayerInventoryContainer.instance
+	# Otherwise, transfer to player inventory (when PauseMenu is open or always available)
+	if InventoryManager and InventoryManager.player_inventory_container:
+		return InventoryManager.player_inventory_container
 	
 	return null
 

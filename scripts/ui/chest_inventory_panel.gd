@@ -25,7 +25,7 @@ var player_slots: Array = []
 var player_inventory_container = null # Will be PlayerInventoryContainer instance
 
 # Constants
-const CHEST_INVENTORY_SIZE: int = 24
+const CHEST_INVENTORY_SIZE: int = 36
 
 
 func _ready() -> void:
@@ -60,7 +60,7 @@ func _ready() -> void:
 
 
 func _setup_chest_slots() -> void:
-	"""Create 24 chest slots using SlotBase"""
+	"""Create 36 chest slots using SlotBase"""
 	if not chest_grid:
 		return
 	
@@ -73,7 +73,7 @@ func _setup_chest_slots() -> void:
 	# Load empty slot texture
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
 	
-	# Create 24 slots (6 columns x 4 rows)
+	# Create 36 slots (6 columns x 6 rows)
 	for i in range(CHEST_INVENTORY_SIZE):
 		var slot = SlotBase.new()
 		slot.slot_index = i

@@ -45,7 +45,7 @@ func _get_current_scene_name() -> String:
 		return current_scene.name
 	return ""
 
-const CHEST_INVENTORY_SIZE: int = 24
+const CHEST_INVENTORY_SIZE: int = 36
 const MAX_INVENTORY_STACK: int = 99
 
 

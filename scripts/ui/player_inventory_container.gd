@@ -1,5 +1,5 @@
 # player_inventory_container.gd
-# Container for the player's main inventory (backpack) - 30 slots, max stack 10
+# Container for the player's main inventory (backpack) - 36 slots, max stack 10
 # Extends ContainerBase for consistent inventory management
 
 extends ContainerBase
@@ -27,10 +27,10 @@ func _ready() -> void:
 	container_type = "inventory"
 	
 	# Get size from GameConfig or InventoryManager
-	# Use pause menu's INVENTORY_SLOTS_TOTAL constant (30) to match UI
+	# Use pause menu's INVENTORY_SLOTS_TOTAL constant (36) to match UI
 	# This ensures container slot_count matches the UI grid
-	# Pause menu creates 30 slots, so container must have 30 slots
-	slot_count = 30 # Match pause menu UI grid (INVENTORY_SLOTS_TOTAL)
+	# Pause menu creates 36 slots, so container must have 36 slots
+	slot_count = 36 # Match pause menu UI grid (INVENTORY_SLOTS_TOTAL)
 	
 	max_stack_size = ContainerBase.GLOBAL_MAX_STACK_SIZE
 	

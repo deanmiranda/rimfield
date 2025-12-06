@@ -64,8 +64,8 @@ var skip_song_button: Button = $CenterContainer/PanelContainer/VBoxContainer/Tab
 var save_feedback_label: Label = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveFeedbackLabel
 
 # Constants
-const INVENTORY_SLOTS_TOTAL = 30 # 3x10 grid
-const INVENTORY_SLOTS_ACTIVE = 24 # Top 8 rows (24 slots)
+const INVENTORY_SLOTS_TOTAL = 36 # 3x12 grid
+const INVENTORY_SLOTS_ACTIVE = 30 # Top 10 rows (30 slots)
 const INVENTORY_SLOTS_LOCKED = 6 # Bottom 2 rows (6 slots)
 
 # Game state (to be connected to GameState singleton later)
@@ -234,7 +234,7 @@ func _setup_inventory_slots() -> void:
 		slot.add_theme_stylebox_override("pressed", bg_style.duplicate())
 		slot.add_theme_stylebox_override("disabled", bg_style.duplicate())
 		
-		# Lock bottom 2 rows (slots 24-29)
+		# Lock bottom 2 rows (slots 30-35)
 		# TODO: SlotBase doesn't have is_locked - we'll add it or handle differently
 		if i >= INVENTORY_SLOTS_ACTIVE:
 			slot.disabled = true # Use disabled for locked slots

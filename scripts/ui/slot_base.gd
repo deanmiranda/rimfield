@@ -25,6 +25,10 @@ var drop_target_enabled: bool = true
 
 # Visual elements
 var stack_label: Label = null
+var item_icon: TextureRect = null
+
+# Item icon scaling
+const ITEM_ICON_SCALE := 0.75
 
 # Mouse state tracking
 var mouse_is_down: bool = false
@@ -55,11 +59,21 @@ func _ready() -> void:
 	# Create stack count label
 	_create_stack_label()
 	
+	# Create item icon (child TextureRect for scaled item display)
+	_create_item_icon()
+	
 	# Ensure child nodes don't block mouse events
 	call_deferred("_fix_children_mouse_filter")
 	
 	# Update visual to reflect initial item state
 	update_visual()
+
+
+func _notification(what: int) -> void:
+	"""Handle resize notifications to update icon layout"""
+	if what == NOTIFICATION_RESIZED:
+		if item_icon:
+			_apply_item_icon_layout()
 
 
 func is_drop_target_active() -> bool:
@@ -647,6 +661,10 @@ func _handle_shift_click() -> void:
 	if not container_ref or not item_texture:
 		return
 	
+	# Do not allow shift-click if cursor-hold is active
+	if DragManager and DragManager.cursor_hold_active:
+		return
+	
 	print("[SlotBase] Shift+click on slot %d" % slot_index)
 	
 	# Let container handle shift-click logic
@@ -678,15 +696,61 @@ func get_item_data() -> Dictionary:
 
 func update_visual() -> void:
 	"""Update visual appearance based on current item"""
-	if item_texture:
-		texture_normal = item_texture
-		modulate = Color.WHITE
-	else:
-		texture_normal = empty_texture if empty_texture else null
-		modulate = Color.WHITE
+	# Always show empty texture as background (the ring)
+	texture_normal = empty_texture if empty_texture else null
+	modulate = Color.WHITE
+	
+	# Update item icon (scaled child TextureRect)
+	if item_icon:
+		if item_texture:
+			item_icon.texture = item_texture
+			item_icon.visible = true
+		else:
+			item_icon.texture = null
+			item_icon.visible = false
+		# Ensure icon layout is correct (centered and scaled)
+		_apply_item_icon_layout()
 	
 	# Update stack label
 	_update_stack_label()
+
+
+func _create_item_icon() -> void:
+	"""Create child TextureRect for scaled item icon display"""
+	item_icon = TextureRect.new()
+	item_icon.name = "ItemIcon"
+	item_icon.texture = null
+	item_icon.visible = false
+	item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	item_icon.ignore_texture_size = true
+	add_child(item_icon)
+	
+	# Apply centered layout
+	_apply_item_icon_layout()
+
+
+func _apply_item_icon_layout() -> void:
+	"""Apply centered layout to item icon based on slot size"""
+	if item_icon == null:
+		return
+	
+	# Ensure icon is centered within the slot control
+	item_icon.anchor_left = 0.5
+	item_icon.anchor_right = 0.5
+	item_icon.anchor_top = 0.5
+	item_icon.anchor_bottom = 0.5
+	
+	var slot_size = size
+	if slot_size.x <= 0 or slot_size.y <= 0:
+		slot_size = get_rect().size
+	
+	var target_size = slot_size * ITEM_ICON_SCALE
+	
+	item_icon.offset_left = - target_size.x * 0.5
+	item_icon.offset_right = target_size.x * 0.5
+	item_icon.offset_top = - target_size.y * 0.5
+	item_icon.offset_bottom = target_size.y * 0.5
 
 
 func _create_stack_label() -> void:
