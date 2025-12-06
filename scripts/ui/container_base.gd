@@ -307,63 +307,79 @@ func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count
 		print("[Container:%s] Ignoring same-slot drop: %d → %d" % [container_id, from_slot, to_slot])
 		return
 	
-	var from_data = inventory_data[from_slot]
-	var to_data = inventory_data[to_slot]
+	# Use API to read data (not direct inventory_data access)
+	var from_data = get_slot_data(from_slot)
+	var to_data = get_slot_data(to_slot)
 	
 	# CRITICAL: For right-click drags, we need to calculate remaining count
 	# The from_slot still has its original data (we didn't modify it during drag)
 	var from_original_count = from_data["count"]
 	var remaining_in_source = from_original_count - count
 	
+	# Right-click with different texture: do not swap (per requirements)
+	if is_right_click and to_data["texture"] and to_data["texture"] != texture:
+		print("[Container:%s] Right-click drop on different texture - no swap allowed" % container_id)
+		return
+	
 	if not to_data["texture"]:
-		# Empty slot - move item
-		inventory_data[to_slot] = {"texture": texture, "count": count, "weight": 0.0}
+		# Empty slot - move item using API
+		var transfer_count = count
+		if is_right_click:
+			transfer_count = 1
+		
+		set_slot_data(to_slot, texture, transfer_count)
 		
 		# Update source slot based on remaining count
-		if remaining_in_source > 0:
-			# Right-click or partial drag: keep remaining items
-			inventory_data[from_slot] = {"texture": texture, "count": remaining_in_source, "weight": from_data.get("weight", 0.0)}
+		if is_right_click:
+			# Right-click: decrement by 1
+			var remaining = from_original_count - 1
+			if remaining > 0:
+				set_slot_data(from_slot, texture, remaining)
+			else:
+				remove_item_from_slot(from_slot)
 		else:
-			# Left-click full stack: clear source
-			inventory_data[from_slot] = {"texture": null, "count": 0, "weight": 0.0}
+			# Left-click: remove all
+			remove_item_from_slot(from_slot)
 	elif to_data["texture"] == texture:
-		# Same texture - stack
-		var combined = to_data["count"] + count
-		var new_to_count = min(combined, max_stack_size)
-		var overflow = combined - new_to_count
+		# Same texture - stack using API
+		var target_current = get_slot_data(to_slot)
 		
-		inventory_data[to_slot]["count"] = new_to_count
+		# For right-click, only try to move 1 item
+		var amount_to_move = count
+		if is_right_click:
+			amount_to_move = 1
 		
-		# Update source slot
-		if overflow > 0:
-			# Stack overflow: put overflow back in source
-			inventory_data[from_slot] = {"texture": texture, "count": overflow, "weight": from_data.get("weight", 0.0)}
-		elif remaining_in_source > 0:
-			# Right-click: keep remaining items in source
-			inventory_data[from_slot] = {"texture": texture, "count": remaining_in_source, "weight": from_data.get("weight", 0.0)}
+		# Compute space available and amount to move
+		var space = max_stack_size - target_current["count"]
+		var to_move = min(space, amount_to_move)
+		var remaining = from_original_count - to_move
+		
+		# Apply: move items to target
+		if to_move > 0:
+			add_item_to_slot(to_slot, texture, to_move)
+		
+		# Update source: either remove completely or set remaining count
+		if remaining <= 0:
+			# All items moved - remove from source
+			remove_item_from_slot(from_slot)
 		else:
-			# All items stacked: clear source
-			inventory_data[from_slot] = {"texture": null, "count": 0, "weight": 0.0}
+			# Some items remain - set source to remaining count
+			set_slot_data(from_slot, texture, remaining)
 	else:
-		# Different texture - swap
+		# Different texture - swap (only allowed on left-click, checked above)
 		var temp_texture = to_data["texture"]
 		var temp_count = to_data["count"]
 		
-		# Put dragged item in destination
-		inventory_data[to_slot] = {"texture": texture, "count": count, "weight": 0.0}
+		# Put dragged item in destination using API
+		set_slot_data(to_slot, texture, count)
 		
-		# Put destination item in source (if source has remaining items, they're lost in swap)
+		# Put destination item in source using API
 		if remaining_in_source > 0:
-			# Source has remaining items - this is a complex case
-			# For now, put swapped item in source and lose remaining items
-			# TODO: Could put remaining items back in destination or handle differently
-			inventory_data[from_slot] = {"texture": temp_texture, "count": temp_count, "weight": 0.0}
+			# Source has remaining items - put swapped item in source, lose remaining
+			set_slot_data(from_slot, temp_texture, temp_count)
 		else:
 			# Normal swap: source gets destination's item
-			inventory_data[from_slot] = {"texture": temp_texture, "count": temp_count, "weight": 0.0}
-	
-	sync_slot_ui(from_slot)
-	sync_slot_ui(to_slot)
+			set_slot_data(from_slot, temp_texture, temp_count)
 
 
 func _handle_external_drop(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int, is_right_click: bool = false) -> void:
@@ -442,7 +458,13 @@ func _handle_external_drop(source_container: Node, source_slot: int, target_slot
 				source_container.remove_item_from_slot(source_slot)
 				source_container.add_item_to_slot(source_slot, texture, remaining)
 	else:
-		# Different texture - swap using API (preserves both counts)
+		# Different texture - swap (only allowed on left-click)
+		# Right-click with different texture: do not swap (per requirements)
+		if is_right_click:
+			print("[Container:%s] Right-click drop on different texture - no swap allowed" % container_id)
+			return
+		
+		# Left-click swap using API (preserves both counts)
 		var temp_texture = target_data["texture"]
 		var temp_count = target_data["count"]
 		
