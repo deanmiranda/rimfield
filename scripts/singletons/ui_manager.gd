@@ -158,7 +158,14 @@ func _connect_to_chest_signals() -> void:
 func open_chest_ui(chest: Node) -> void:
 	"""Open the chest UI for the specified chest."""
 	if chest_inventory_panel and chest_inventory_panel.has_method("open_chest_ui"):
-		chest_inventory_panel.open_chest_ui(chest)
+		# Get chest_id from chest node
+		var chest_id = ""
+		if chest.has_method("get_chest_id"):
+			chest_id = chest.get_chest_id()
+		elif "chest_id" in chest:
+			chest_id = chest.chest_id
+		
+		chest_inventory_panel.open_chest_ui(chest, chest_id)
 
 
 func _input(event: InputEvent) -> void:
@@ -200,13 +207,8 @@ func _input(event: InputEvent) -> void:
 		# First, check if there are any interactable objects nearby
 		# If there are, let them handle the interaction instead of opening inventory
 		if _has_nearby_interactables():
-			# Check if it's a chest interaction
-			var player = _get_player()
-			if player and player.get("current_interaction") == "chest":
-				# Find the chest and open its UI
-				var chest = _find_nearby_chest(player)
-				if chest:
-					open_chest_ui(chest)
+			# NOTE: Chest now opens on right-click (handled in chest.gd), not "E" key
+			# Don't open chest UI here anymore - just block inventory opening
 			# There are interactables nearby - don't open inventory, let them handle it
 			return
 

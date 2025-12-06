@@ -22,11 +22,25 @@ func _ready() -> void:
 	tool_config = load("res://resources/data/tool_config.tres")
 	game_config = load("res://resources/data/game_config.tres")
 	
+	# NEW SYSTEM: Connect to ToolkitContainer signals
+	# Wait for ToolkitContainer to be created by HudInitializer
+	await get_tree().create_timer(0.1).timeout
+	
+	if ToolkitContainer and ToolkitContainer.instance:
+		print("[ToolSwitcher] Connecting to ToolkitContainer...")
+		ToolkitContainer.instance.active_slot_changed.connect(_on_active_slot_changed)
+		ToolkitContainer.instance.item_changed.connect(_on_toolkit_item_changed)
+		ToolkitContainer.instance.tool_equipped.connect(_on_tool_equipped)
+		print("[ToolSwitcher] Connected to ToolkitContainer")
+	else:
+		print("[ToolSwitcher] WARNING: ToolkitContainer not available - using fallback")
+	
 	# Use cached HUD reference
 	if hud:
 		if not is_connected("tool_changed", Callable(hud, "_highlight_active_tool")):
 			connect("tool_changed", Callable(hud, "_highlight_active_tool"))
-			# Find and connect all hud_slot signals
+		
+		# Connect to HUD slots (for backward compatibility during migration)
 		var tool_container = hud.get_node_or_null("MarginContainer/HBoxContainer")
 		if tool_container:
 			var tool_slots = tool_container.get_children()
@@ -41,8 +55,50 @@ func _on_tool_selected(slot_index: int) -> void:
 	set_hud_by_slot(slot_index) # Pass item_texture here
 
 
+func _on_active_slot_changed(slot_index: int) -> void:
+	"""Handle ToolkitContainer active slot change signal"""
+	current_hud_slot = slot_index
+	var slot_data = ToolkitContainer.instance.get_slot_data(slot_index) if ToolkitContainer.instance else {}
+	current_tool_texture = slot_data.get("texture", null)
+	
+	if current_tool_texture and tool_config and tool_config.has_method("get_tool_name"):
+		current_tool = tool_config.get_tool_name(current_tool_texture)
+	else:
+		current_tool = "unknown"
+	
+	print("[ToolSwitcher] Active slot: %d, tool: %s" % [slot_index, current_tool])
+	emit_signal("tool_changed", slot_index, current_tool_texture)
+
+
+func _on_toolkit_item_changed(slot_index: int, texture: Texture, count: int) -> void:
+	"""Handle ToolkitContainer item change signal"""
+	# If this is the active slot, update current tool
+	if slot_index == current_hud_slot:
+		current_tool_texture = texture
+		if texture and tool_config and tool_config.has_method("get_tool_name"):
+			current_tool = tool_config.get_tool_name(texture)
+		else:
+			current_tool = "unknown"
+		emit_signal("tool_changed", slot_index, texture)
+
+
+func _on_tool_equipped(slot_index: int, texture: Texture) -> void:
+	"""Handle ToolkitContainer tool equipped signal"""
+	# This is emitted when set_active_slot is called
+	# Already handled by _on_active_slot_changed
+	pass
+
+
 func set_hud_by_slot(slot_index: int) -> void:
+	"""Set active HUD slot (delegates to ToolkitContainer in new system)"""
 	print("[ToolSwitcher] set_hud_by_slot called with slot_index: ", slot_index)
+	
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if ToolkitContainer and ToolkitContainer.instance:
+		ToolkitContainer.instance.set_active_slot(slot_index)
+		return
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	# Use cached HUD reference instead of repeated get_node() call
 	if not hud:
 		print("[ToolSwitcher] ERROR: HUD not found.")
@@ -106,7 +162,14 @@ func set_hud_by_slot(slot_index: int) -> void:
 		
 func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 	"""Update toolkit slot and emit tool_changed if active tool was moved"""
+	# NEW SYSTEM: Delegate to ToolkitContainer (it will emit item_changed signal)
+	if ToolkitContainer and ToolkitContainer.instance:
+		var current_data = ToolkitContainer.instance.get_slot_data(slot_index)
+		var count = current_data.get("count", 1) if texture else 0
+		ToolkitContainer.instance.add_item_to_slot(slot_index, texture, count)
+		return
 	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	# Update the slot texture in the HUD
 	if not hud:
 		print("Error: HUD not found.")

@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://1f2tmqp37l13"]
+[gd_scene load_steps=4 format=3 uid="uid://d0oecxugrdiar"]
 
 [ext_resource type="Script" uid="uid://dh3phnfvm4d8a" path="res://scripts/ui/chest_inventory_panel.gd" id="1_chest_panel"]
 [ext_resource type="FontFile" uid="uid://dqlc0m5st3h4q" path="res://assets/fonts/xolonium-tutorial.tres" id="2_font"]

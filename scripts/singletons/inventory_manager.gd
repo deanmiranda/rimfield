@@ -5,9 +5,12 @@ extends Node
 # Weight is a placeholder for future strength/weight system (defaults to 0.0)
 var inventory_slots: Dictionary = {}
 
-# Toolkit data to store the item textures, stack counts, and weight assigned to each toolkit slot (HUD slots 0-9)
-# Format: {slot_index: {"texture": Texture, "count": int, "weight": float}}
-# Weight is a placeholder for future strength/weight system (defaults to 0.0)
+# NEW SYSTEM: Container reference (owns data)
+# Note: ToolkitContainer type may show linter error until Godot restarts
+var toolkit_container = null # Will be ToolkitContainer instance
+
+# OLD SYSTEM: Toolkit data (DEPRECATED - will be removed after Phase 1)
+# Keeping for backward compatibility during migration
 var toolkit_slots: Dictionary = {}
 
 # Reference to the inventory UI scene and instance
@@ -92,6 +95,11 @@ func add_item_auto_stack(item_texture: Texture, count: int = 1) -> int:
 # Add item to toolkit with auto-stacking
 func add_item_to_toolkit_auto_stack(item_texture: Texture, count: int = 1) -> int:
 	"""Add item to toolkit with auto-stacking. Returns remaining count that couldn't be added."""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		return toolkit_container.add_item_auto_stack(item_texture, count)
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if not item_texture:
 		return count
 
@@ -275,6 +283,12 @@ func add_item_from_toolkit(slot_index: int, texture: Texture, count: int = 1) ->
 
 func remove_item_from_toolkit(slot_index: int) -> void:
 	"""Remove item from toolkit slot (used when dragging to inventory)"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		toolkit_container.remove_item_from_slot(slot_index)
+		return
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if toolkit_slots.has(slot_index):
 		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 		sync_toolkit_ui()
@@ -315,6 +329,11 @@ func get_toolkit_item_count(slot_index: int) -> int:
 
 func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
 	"""Add item to toolkit slot (used when dragging from inventory)"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		return toolkit_container.add_item_to_slot(slot_index, texture, count)
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
 		return false
 
@@ -324,6 +343,12 @@ func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> b
 
 func sync_toolkit_ui(hud_instance: Node = null) -> void:
 	"""Sync toolkit UI with toolkit_slots dictionary"""
+	# NEW SYSTEM: Delegate to ToolkitContainer
+	if toolkit_container:
+		toolkit_container.sync_ui()
+		return
+	
+	# OLD SYSTEM: Fallback (DEPRECATED)
 	if not hud_instance:
 		# Try to find HUD CanvasLayer in scene tree
 		# The hud.tscn is instantiated as "Hud" (Node), which contains "HUD" (CanvasLayer)

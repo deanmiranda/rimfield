@@ -15,6 +15,9 @@ var main_menu_tab: Control = $CenterContainer/PanelContainer/VBoxContainer/TabCo
 @onready
 var inventory_grid: GridContainer = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/InventoryGrid
 
+# NEW SYSTEM: Temporary container for player inventory (Phase 2 will use PlayerInventoryContainer.instance)
+var temp_player_container: ContainerBase = null
+
 # Player info references
 @onready
 var player_sprite: TextureRect = $CenterContainer/PanelContainer/VBoxContainer/TabContainer/InventoryTab/VBoxContainer/PlayerInfoContainer/PlayerSpriteContainer/PlayerSprite
@@ -155,7 +158,7 @@ func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
 
 
 func _setup_inventory_slots() -> void:
-	"""Create and configure all inventory slots (30 total, bottom 6 locked)"""
+	"""Create and configure all inventory slots (30 total, bottom 6 locked) - NEW SYSTEM"""
 	if not inventory_grid:
 		return
 	
@@ -164,38 +167,43 @@ func _setup_inventory_slots() -> void:
 	
 	# Load empty slot texture
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
-	var slot_script = load("res://scripts/ui/inventory_menu_slot.gd")
 	
-	if not slot_script:
-		return
+	# NEW SYSTEM: Use SlotBase with temporary container
+	# TODO Phase 2: Use PlayerInventoryContainer.instance
+	var temp_player_container = ContainerBase.new()
+	temp_player_container.container_id = "temp_player_inventory_pause"
+	temp_player_container.container_type = "inventory"
+	temp_player_container.slot_count = INVENTORY_SLOTS_TOTAL
+	temp_player_container.max_stack_size = 99
+	add_child(temp_player_container)
+	temp_player_container._ready()
+	
+	# Migrate data from InventoryManager
+	if InventoryManager:
+		for i in range(INVENTORY_SLOTS_TOTAL):
+			var data = InventoryManager.inventory_slots.get(i, {})
+			if data.has("texture"):
+				temp_player_container.inventory_data[i] = data.duplicate()
 	
 	# Load border texture for slot outlines (like existing inventory)
 	var border_texture = preload("res://assets/ui/tile_outline.png")
 	
-	# Create 30 slots (3 columns x 10 rows)
+	# Create 30 slots (3 columns x 10 rows) using NEW SlotBase system
 	var slots = []
 	for i in range(INVENTORY_SLOTS_TOTAL):
-		var slot = TextureButton.new()
+		var slot = SlotBase.new()
 		slot.name = "InventorySlot_" + str(i)
-		slot.custom_minimum_size = Vector2(64, 64) # Match toolkit size approximately
-		slot.set_script(slot_script)
-		if slot.has_method("set_slot_index"):
-			slot.call("set_slot_index", i)
-		else:
-			slot.slot_index = i
+		slot.slot_index = i
 		slot.empty_texture = empty_texture
-		slot.visible = true # Ensure slot is visible
-		slot.texture_normal = empty_texture # Set initial texture
+		slot.container_ref = temp_player_container
+		slot.custom_minimum_size = Vector2(64, 64)
+		slot.visible = true
 		slot.ignore_texture_size = true
 		slot.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		slot.flip_v = false
-		slot.flip_h = false
-		# CRITICAL: Ensure slot can receive mouse events for dragging
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
-		slot.focus_mode = Control.FOCUS_CLICK
-		slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		slot.focus_mode = Control.FOCUS_NONE
 		
-		# Add background style for slots (removed white test background)
+		# Add background style for slots
 		var bg_style = StyleBoxFlat.new()
 		bg_style.bg_color = Color(0.3, 0.3, 0.3, 1.0) # Dark gray background
 		bg_style.border_width_left = 2
@@ -208,53 +216,22 @@ func _setup_inventory_slots() -> void:
 		slot.add_theme_stylebox_override("pressed", bg_style.duplicate())
 		slot.add_theme_stylebox_override("disabled", bg_style.duplicate())
 		
-		# Add border TextureRect as child (exactly like existing inventory slots)
-		# Must add AFTER slot is in tree for proper layout
-		# We'll add it after adding to grid
-		
 		# Lock bottom 2 rows (slots 24-29)
+		# TODO: SlotBase doesn't have is_locked - we'll add it or handle differently
 		if i >= INVENTORY_SLOTS_ACTIVE:
-			slot.is_locked = true
+			slot.disabled = true # Use disabled for locked slots
 		
 		inventory_grid.add_child(slot)
+		temp_player_container.slots.append(slot)
 		slots.append({"slot": slot, "index": i})
 		
-		# Add border TextureRect AFTER slot is in tree (like existing inventory)
-		var border_rect = TextureRect.new()
-		border_rect.name = "Border"
-		border_rect.texture = border_texture
-		border_rect.custom_minimum_size = Vector2(64, 64)
-		border_rect.layout_mode = 1 # Use integer 1 for LAYOUT_MODE_ANCHORS (Godot 4.x)
-		border_rect.anchors_preset = Control.PRESET_FULL_RECT
-		border_rect.anchor_right = 1.0
-		border_rect.anchor_bottom = 1.0
-		border_rect.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		border_rect.grow_vertical = Control.GROW_DIRECTION_BOTH
-		border_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		border_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# CRITICAL: Ignore mouse events so they pass through to parent TextureButton for drag
-		border_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		border_rect.focus_mode = Control.FOCUS_NONE
-		border_rect.z_index = 101
-		border_rect.z_as_relative = false
-		border_rect.visible = true
-		slot.add_child(border_rect)
-		
-	# Force grid to update layout
-	inventory_grid.queue_sort()
+		# Initialize slot
+		slot._ready()
 	
-	# Wait for layout to update
-	await get_tree().process_frame
-	await get_tree().process_frame
+	# Sync UI from container data
+	temp_player_container.sync_ui()
 	
-	# Connect slot signals after all slots are added to tree
-	await get_tree().process_frame
-	for slot_data in slots:
-		var slot = slot_data.slot
-		if slot.has_signal("slot_clicked"):
-			slot.slot_clicked.connect(_on_inventory_slot_clicked)
-		if slot.has_signal("slot_drop_received"):
-			slot.slot_drop_received.connect(_on_inventory_slot_drop_received)
+	print("[PauseMenu] Created %d inventory slots (SlotBase)" % INVENTORY_SLOTS_TOTAL)
 
 
 func _setup_player_sprite() -> void:

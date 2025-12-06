@@ -115,13 +115,34 @@ func _input(event: InputEvent) -> void:
 	if not player_in_area or not nearby_player:
 		return
 	
-	if event.is_action_pressed("ui_interact"):
-		# Check if player is facing the chest
-		if _check_player_facing(nearby_player):
-			if not is_open:
+	# CRITICAL: Don't process input if game is paused (chest UI or other menu is open)
+	if get_tree().paused:
+		return
+	
+	# CRITICAL: Don't process input if chest UI is already open
+	if is_open:
+		return
+	
+	# Right-click to open chest (ONLY when chest UI is closed)
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			# Check if event already handled (prevent duplicate processing)
+			if event.is_echo():
+				return
+			
+			# Don't process if DragManager is active (right-click is being used for drag)
+			if DragManager and DragManager.is_dragging:
+				return
+			
+			# Get mouse position in world space
+			var mouse_world_pos = get_global_mouse_position()
+			var distance_to_chest = mouse_world_pos.distance_to(global_position)
+			
+			# Check if clicking near chest (within 32 pixels)
+			if distance_to_chest < 32:
+				print("[Chest] Opening via right-click")
 				open_chest()
-			else:
-				close_chest()
+				get_viewport().set_input_as_handled()
 
 
 func _check_player_facing(player: CharacterBody2D) -> bool:
