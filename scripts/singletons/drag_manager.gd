@@ -15,6 +15,11 @@ var drag_item_texture: Texture = null
 var drag_item_count: int = 0
 var is_right_click_drag: bool = false
 
+# Cursor-hold state (separate from dragging - for right-click pickup/accumulate/place)
+var cursor_hold_active: bool = false
+var cursor_hold_texture: Texture = null
+var cursor_hold_count: int = 0
+
 # Visual elements
 var drag_preview: Control = null
 var drag_preview_layer: CanvasLayer = null
@@ -28,7 +33,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	"""Update drag preview position to follow mouse"""
-	if is_dragging and drag_preview:
+	if (is_dragging or cursor_hold_active) and drag_preview:
 		_update_drag_preview_position()
 
 
@@ -255,6 +260,165 @@ func _reset_state() -> void:
 	drag_item_texture = null
 	drag_item_count = 0
 	is_right_click_drag = false
+
+
+# ============================================================================
+# CURSOR-HOLD STATE (for right-click pickup/accumulate/place)
+# ============================================================================
+
+func start_cursor_hold(texture: Texture, count: int) -> void:
+	"""Start cursor-hold mode (pickup 1 item into cursor)"""
+	if is_dragging:
+		print("[DragManager] WARNING: Cannot start cursor-hold while dragging")
+		return
+	
+	cursor_hold_active = true
+	cursor_hold_texture = texture
+	cursor_hold_count = count
+	
+	print("[DragManager] Started cursor-hold: texture=%s count=%d" % [
+		texture.resource_path if texture else "null",
+		count
+	])
+	
+	# Reuse existing preview UI for cursor-hold
+	_create_preview(texture, count)
+	set_process(true)
+
+
+func add_one_to_cursor_from(source_container: Node, source_slot: int) -> bool:
+	"""Add 1 item from source slot to cursor (accumulate) - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not source_container or not source_container.has_method("get_slot_data"):
+		return false
+	
+	var source_data = source_container.get_slot_data(source_slot)
+	if not source_data["texture"] or source_data["count"] <= 0:
+		return false
+	
+	# Must be same texture
+	if source_data["texture"] != cursor_hold_texture:
+		return false
+	
+	# Check max stack (global max = 10)
+	if cursor_hold_count >= 10:
+		print("[DragManager] Cursor-hold at max stack (10) - cannot add more")
+		return false
+	
+	# Remove 1 from source using ContainerBase API
+	var remaining = source_data["count"] - 1
+	if remaining > 0:
+		if source_container.has_method("set_slot_data"):
+			source_container.set_slot_data(source_slot, source_data["texture"], remaining)
+		else:
+			source_container.remove_item_from_slot(source_slot)
+			source_container.add_item_to_slot(source_slot, source_data["texture"], remaining)
+	else:
+		source_container.remove_item_from_slot(source_slot)
+	
+	# Increment cursor count
+	cursor_hold_count += 1
+	
+	# Update preview
+	if drag_preview_label:
+		drag_preview_label.text = str(cursor_hold_count)
+	
+	print("[DragManager] Added 1 to cursor-hold: count=%d" % cursor_hold_count)
+	return true
+
+
+func place_one_from_cursor_to(target_container: Node, target_slot: int) -> bool:
+	"""Place 1 item from cursor to target slot - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not target_container or not target_container.has_method("get_slot_data"):
+		return false
+	
+	var target_data = target_container.get_slot_data(target_slot)
+	
+	# Check if target is empty or same texture
+	if target_data["texture"] and target_data["texture"] != cursor_hold_texture:
+		# Different texture - no swap on right-click
+		print("[DragManager] Cannot place cursor-hold: target has different texture")
+		return false
+	
+	# Check max stack
+	if target_data["texture"]:
+		# Same texture - check if can stack
+		if target_data["count"] >= 10:
+			print("[DragManager] Cannot place cursor-hold: target at max stack")
+			return false
+	
+	# Place 1 into target using ContainerBase API
+	target_container.add_item_to_slot(target_slot, cursor_hold_texture, 1)
+	
+	# Decrement cursor count
+	cursor_hold_count -= 1
+	
+	# Update preview or clear if empty
+	if cursor_hold_count <= 0:
+		clear_cursor_hold()
+	else:
+		if drag_preview_label:
+			drag_preview_label.text = str(cursor_hold_count)
+	
+	print("[DragManager] Placed 1 from cursor-hold: remaining=%d" % cursor_hold_count)
+	return true
+
+
+func place_all_from_cursor_to(target_container: Node, target_slot: int) -> bool:
+	"""Place all items from cursor to target slot (left-click) - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not target_container or not target_container.has_method("get_slot_data"):
+		return false
+	
+	var target_data = target_container.get_slot_data(target_slot)
+	
+	# Check if target is empty or same texture
+	if target_data["texture"] and target_data["texture"] != cursor_hold_texture:
+		# Different texture - use existing swap logic (left-click allows swap)
+		# For now, don't swap from cursor-hold - just return false
+		print("[DragManager] Cannot place cursor-hold: target has different texture")
+		return false
+	
+	# Compute how many can fit
+	var space = 10 - target_data["count"]
+	var to_place = min(space, cursor_hold_count)
+	
+	if to_place <= 0:
+		print("[DragManager] Cannot place cursor-hold: no space in target")
+		return false
+	
+	# Place items using ContainerBase API
+	target_container.add_item_to_slot(target_slot, cursor_hold_texture, to_place)
+	
+	# Update cursor count
+	cursor_hold_count -= to_place
+	
+	# Update preview or clear if empty
+	if cursor_hold_count <= 0:
+		clear_cursor_hold()
+	else:
+		if drag_preview_label:
+			drag_preview_label.text = str(cursor_hold_count)
+	
+	print("[DragManager] Placed %d from cursor-hold: remaining=%d" % [to_place, cursor_hold_count])
+	return true
+
+
+func clear_cursor_hold() -> void:
+	"""Clear cursor-hold state"""
+	if cursor_hold_active:
+		print("[DragManager] Clearing cursor-hold")
+		cursor_hold_active = false
+		cursor_hold_texture = null
+		cursor_hold_count = 0
+		cleanup_preview()
 
 
 func get_hovered_slot() -> Node:

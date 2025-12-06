@@ -181,8 +181,8 @@ func open_chest_ui(chest_node: Node, chest_id: String) -> void:
 	# Sync chest UI
 	sync_ui()
 	
-	# Sync player UI
-	sync_player_ui()
+	# Refresh player inventory view (ensures latest state is shown)
+	_refresh_player_inventory_view()
 	
 	# Open container (shows UI, emits signal)
 	open_container()
@@ -251,21 +251,26 @@ func _save_chest_inventory() -> void:
 	ChestManager.update_chest_inventory(current_chest_id, inventory_data)
 
 
-func sync_player_ui() -> void:
-	"""Sync player inventory UI in our panel (NEW SYSTEM)"""
-	if not player_grid:
+func _refresh_player_inventory_view() -> void:
+	"""Refresh player inventory view - ensures latest container state is shown"""
+	if not player_inventory_container:
 		return
 	
-	# NEW SYSTEM: Sync from PlayerInventoryContainer
-	if player_inventory_container:
-		# Sync container data from InventoryManager first (backward compatibility)
-		if InventoryManager:
-			for i in range(min(player_slots.size(), InventoryManager.max_inventory_slots)):
-				var slot_data = InventoryManager.inventory_slots.get(i, {"texture": null, "count": 0})
-				player_inventory_container.inventory_data[i] = slot_data.duplicate()
-		
-		# Sync UI from container
-		player_inventory_container.sync_ui()
+	# Ensure all player slots are registered with container
+	for slot in player_slots:
+		if slot and is_instance_valid(slot):
+			# Re-register to ensure container knows about this view
+			player_inventory_container.register_slot(slot)
+	
+	# Sync UI from container (single source of truth)
+	player_inventory_container.sync_ui()
+	
+	print("[ChestPanel] Refreshed player inventory view: %d slots registered" % player_slots.size())
+
+
+func sync_player_ui() -> void:
+	"""Sync player inventory UI in our panel (NEW SYSTEM) - DEPRECATED, use _refresh_player_inventory_view()"""
+	_refresh_player_inventory_view()
 
 
 func _on_auto_sort_pressed() -> void:

@@ -524,3 +524,42 @@ func get_total_item_count(texture: Texture) -> int:
 func is_full() -> bool:
 	"""Check if container has no empty slots"""
 	return find_empty_slot() == -1
+
+
+func add_item_auto_stack(texture: Texture, count: int) -> int:
+	"""Auto-stack items into container: fill existing stacks first, then empty slots"""
+	"""Returns remaining count (0 if fully placed)"""
+	if texture == null:
+		return count
+	
+	if count <= 0:
+		return 0
+	
+	var remaining = count
+	
+	# Pass 1: Top-off existing stacks of same texture
+	for i in range(slot_count):
+		var data = get_slot_data(i)
+		if data and data.get("texture") == texture:
+			var current = int(data.get("count", 0))
+			var space = max_stack_size - current
+			if space > 0:
+				var to_add = min(space, remaining)
+				if to_add > 0:
+					add_item_to_slot(i, texture, to_add)
+					remaining -= to_add
+					if remaining <= 0:
+						return 0
+	
+	# Pass 2: Fill empty slots
+	for i in range(slot_count):
+		var data = get_slot_data(i)
+		if not data or not data.get("texture"):
+			var to_add = min(max_stack_size, remaining)
+			if to_add > 0:
+				add_item_to_slot(i, texture, to_add)
+				remaining -= to_add
+				if remaining <= 0:
+					return 0
+	
+	return remaining

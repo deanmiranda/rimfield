@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dev2o7fsijrw5" path="res://scripts/scenes/main_menu.gd" id="1_7w23d"]
 [ext_resource type="Texture2D" uid="uid://bo8600bo2h7c0" path="res://assets/main/RimfieldValley.png" id="2_fe2o3"]
-[ext_resource type="AudioStream" path="res://assets/audio/RimWorld-Intro.mp3" id="3_intro"]
+[ext_resource type="AudioStream" uid="uid://cuo5d4jeab3bt" path="res://assets/audio/RimField-Intro.mp3" id="3_1g8jr"]
 
 [node name="Main_Menu" type="Control"]
 layout_mode = 3
@@ -69,7 +69,7 @@ layout_mode = 2
 text = "Exit"
 
 [node name="IntroMusic" type="AudioStreamPlayer" parent="."]
-stream = ExtResource("3_intro")
+stream = ExtResource("3_1g8jr")
 autoplay = true
 
 [connection signal="pressed" from="CenterContainer/VBoxContainer/NewGame" to="." method="_on_new_game_pressed"]
