@@ -367,6 +367,11 @@ func load_game(file: String = "") -> bool:
 
 		# Always start in house scene after loading (save data is already applied)
 		get_tree().paused = false # Unpause the game if paused
+		
+		# Start background music if not already playing
+		if MusicManager and not MusicManager.is_playing:
+			MusicManager.start_music()
+		
 		SceneManager.start_in_house(false)
 
 		return true
@@ -460,3 +465,7 @@ func new_game() -> void:
 	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
 	# The test chest is in the HUD scene file, so it will be loaded automatically
 	# TODO: When chest crafting is implemented, remove chest from HUD scene file
+	
+	# Start background music
+	if MusicManager:
+		MusicManager.start_music()

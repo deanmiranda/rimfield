@@ -34,6 +34,7 @@ DatePopupManager="*res://scripts/singletons/date_popup_manager.gd"
 PlayerStatsManager="*res://scripts/singletons/player_stats_manager.gd"
 DebugControls="*res://scripts/singletons/debug_controls.gd"
 ChestManager="*res://scripts/game_systems/chest_manager.gd"
+MusicManager="*res://scripts/singletons/music_manager.gd"
 
 [display]
 

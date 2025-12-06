@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://p7qhvxeu3y7v"
+path="res://.godot/imported/Adventure Time.mp3-8d8232a76807175d4b3e6198b24d9d30.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/Adventure Time.mp3"
+dest_files=["res://.godot/imported/Adventure Time.mp3-8d8232a76807175d4b3e6198b24d9d30.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

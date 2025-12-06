@@ -70,11 +70,12 @@ func setup_hud() -> void:
 	# NEW SYSTEM: Data is owned by ToolkitContainer
 	# Sync is handled by HudInitializer during migration
 	# Set default active tool (slot 0)
-	if ToolkitContainer and ToolkitContainer.instance:
-		var first_slot_data = ToolkitContainer.instance.get_slot_data(0)
+	if InventoryManager and InventoryManager.toolkit_container:
+		var toolkit = InventoryManager.toolkit_container
+		var first_slot_data = toolkit.get_slot_data(0)
 		var first_texture = first_slot_data.get("texture", null)
 		if first_texture:
-			ToolkitContainer.instance.set_active_slot(0)
+			toolkit.set_active_slot(0)
 			emit_signal("tool_changed", 0, first_texture)
 			_update_farming_manager_tool(0, first_texture)
 		else:

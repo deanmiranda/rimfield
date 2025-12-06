@@ -193,6 +193,18 @@ tooltip_text = "Save your game"
 theme_override_fonts/font = ExtResource("2_p544r")
 text = "Save"
 
+[node name="MuteMusicButton" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
+layout_mode = 2
+tooltip_text = "Toggle background music"
+theme_override_fonts/font = ExtResource("2_p544r")
+text = "Mute Music"
+
+[node name="SkipSongButton" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
+layout_mode = 2
+tooltip_text = "Skip to next song"
+theme_override_fonts/font = ExtResource("2_p544r")
+text = "Skip Song"
+
 [node name="BackToMainMenu" type="Button" parent="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_p544r")
@@ -215,5 +227,7 @@ autowrap_mode = 3
 
 [connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ResumeButton" to="Control" method="_on_resume_button_pressed"]
 [connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SaveGame" to="Control" method="_on_save_game_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/MuteMusicButton" to="Control" method="_on_mute_music_button_pressed"]
+[connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/SkipSongButton" to="Control" method="_on_skip_song_button_pressed"]
 [connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/BackToMainMenu" to="Control" method="_on_back_to_main_menu_pressed"]
 [connection signal="pressed" from="Control/CenterContainer/PanelContainer/VBoxContainer/TabContainer/MainMenuTab/MainMenuContent/CenterContainer/VBoxContainer/ExitButton" to="Control" method="_on_exit_button_pressed"]

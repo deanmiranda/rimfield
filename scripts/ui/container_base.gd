@@ -13,11 +13,14 @@ signal item_added(slot_index: int, texture: Texture, count: int)
 signal item_removed(slot_index: int)
 signal item_changed(slot_index: int, texture: Texture, count: int)
 
+# Global stack size constant - unified across all containers
+const GLOBAL_MAX_STACK_SIZE := 10
+
 # Container configuration (override in subclasses)
 var container_id: String = ""
 var container_type: String = "generic" # chest, fridge, trader, etc.
 var slot_count: int = 24
-var max_stack_size: int = 99
+var max_stack_size: int = GLOBAL_MAX_STACK_SIZE
 
 # Container data - dictionary of {slot_index: {texture, count, weight}}
 var inventory_data: Dictionary = {}
@@ -29,10 +32,27 @@ var slots: Array[SlotBase] = []
 var is_open: bool = false
 
 
+func register_slot(slot: SlotBase) -> void:
+	"""Register a SlotBase node with this container"""
+	if slot == null:
+		return
+	if slot.slot_index < 0:
+		return
+	# Ensure slots array is large enough
+	if slots.size() <= slot.slot_index:
+		slots.resize(slot.slot_index + 1)
+	slots[slot.slot_index] = slot
+	print("[Container:%s] Registered SlotBase index=%d" % [container_id, slot.slot_index])
+
+
 func _ready() -> void:
 	# Initialize inventory data
 	for i in range(slot_count):
 		inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+	
+	# Register with InventoryManager to prevent duplicates
+	if InventoryManager:
+		InventoryManager.register_container(self)
 	
 	print("[ContainerBase] Initialized: id=%s type=%s slots=%d" % [container_id, container_type, slot_count])
 
@@ -158,6 +178,22 @@ func get_slot_data(slot_index: int) -> Dictionary:
 	return inventory_data.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
 
 
+func set_slot_data(slot_index: int, texture: Texture, count: int) -> void:
+	"""Set exact slot data (texture and count) - updates inventory_data and syncs UI"""
+	if slot_index < 0 or slot_index >= slot_count:
+		print("[Container:%s] ERROR: Invalid slot index %d" % [container_id, slot_index])
+		return
+	
+	inventory_data[slot_index] = {"texture": texture, "count": count, "weight": 0.0}
+	
+	if texture:
+		emit_signal("item_changed", slot_index, texture, count)
+	else:
+		emit_signal("item_removed", slot_index)
+	
+	sync_slot_ui(slot_index)
+
+
 func sync_ui() -> void:
 	"""Update all slot visuals from inventory_data"""
 	for i in range(min(slots.size(), slot_count)):
@@ -199,8 +235,15 @@ func handle_drop_on_slot(target_slot_index: int) -> void:
 	
 	# Check if drop is within same container
 	if source_container == self:
+		print("[Container:%s] INTERNAL_DROP: source_slot=%d target_slot=%d" % [container_id, source_slot_index, target_slot_index])
 		_handle_internal_drop(source_slot_index, target_slot_index, drag_texture, drag_count, is_right_click)
 	else:
+		print("[Container:%s] EXTERNAL_DROP: from=%s source_slot=%d target_slot=%d" % [
+			container_id,
+			source_container.container_id if source_container and "container_id" in source_container else "unknown",
+			source_slot_index,
+			target_slot_index
+		])
 		_handle_external_drop(source_container, source_slot_index, target_slot_index, drag_texture, drag_count)
 
 
@@ -272,40 +315,75 @@ func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count
 
 func _handle_external_drop(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int) -> void:
 	"""Handle drop from external container (transfer or swap)"""
-	var target_data = inventory_data[target_slot]
+	var source_id_str = source_container.container_id if source_container and "container_id" in source_container else "unknown"
+	var target_id_str = container_id
+	
+	print("[Container:%s] EXTERNAL_DROP_START: source_id=%s target_id=%s source_slot=%d target_slot=%d texture=%s count=%d" % [
+		target_id_str,
+		source_id_str,
+		target_id_str,
+		source_slot,
+		target_slot,
+		texture.resource_path if texture else "null",
+		count
+	])
+	
+	# Use API to read data (not direct inventory_data access)
+	var target_data = get_slot_data(target_slot)
 	
 	if not target_data["texture"]:
-		# Empty target - transfer item
-		inventory_data[target_slot] = {"texture": texture, "count": count, "weight": 0.0}
+		# Empty target - transfer item using API (preserves count)
+		add_item_to_slot(target_slot, texture, count)
 		source_container.remove_item_from_slot(source_slot)
 	elif target_data["texture"] == texture:
-		# Same texture - stack
-		var combined = target_data["count"] + count
-		var new_count = min(combined, max_stack_size)
-		var overflow = combined - new_count
+		# Same texture - stack using clearer algorithm
+		# Read current state using APIs
+		var target_current = get_slot_data(target_slot)
 		
-		inventory_data[target_slot]["count"] = new_count
+		# Compute space available and amount to move
+		var space = max_stack_size - target_current["count"]
+		var to_move = min(space, count)
+		var remaining = count - to_move
 		
-		if overflow > 0:
-			# Update source with overflow
-			if source_container.has_method("get_slot_data"):
-				source_container.inventory_data[source_slot]["count"] = overflow
-				source_container.sync_slot_ui(source_slot)
-		else:
-			# Remove from source
+		# Apply: move items to target
+		if to_move > 0:
+			add_item_to_slot(target_slot, texture, to_move)
+		
+		# Update source: either remove completely or set remaining count
+		if remaining == 0:
+			# All items moved - remove from source
 			source_container.remove_item_from_slot(source_slot)
+		else:
+			# Some items remain - set source to remaining count using API
+			if source_container.has_method("set_slot_data"):
+				source_container.set_slot_data(source_slot, texture, remaining)
+			else:
+				# Fallback: remove and re-add with remaining count
+				source_container.remove_item_from_slot(source_slot)
+				source_container.add_item_to_slot(source_slot, texture, remaining)
 	else:
-		# Different texture - swap
+		# Different texture - swap using API (preserves both counts)
 		var temp_texture = target_data["texture"]
 		var temp_count = target_data["count"]
 		
-		inventory_data[target_slot] = {"texture": texture, "count": count, "weight": 0.0}
+		# Put dragged item in target using API
+		add_item_to_slot(target_slot, texture, count)
 		
+		# Put target's item in source using API
 		if source_container.has_method("add_item_to_slot"):
-			source_container.inventory_data[source_slot] = {"texture": temp_texture, "count": temp_count, "weight": 0.0}
-			source_container.sync_slot_ui(source_slot)
+			source_container.add_item_to_slot(source_slot, temp_texture, temp_count)
+		else:
+			push_error("[Container:%s] Source container doesn't have add_item_to_slot()!" % container_id)
 	
-	sync_slot_ui(target_slot)
+	# Get post-state for logging
+	var source_post_data = source_container.get_slot_data(source_slot) if source_container.has_method("get_slot_data") else {"texture": null, "count": 0}
+	var target_post_data = get_slot_data(target_slot)
+	
+	print("[Container:%s] EXTERNAL_DROP_POST: source_slot_data=%s target_slot_data=%s" % [
+		target_id_str,
+		"%s x%d" % [source_post_data["texture"].resource_path if source_post_data["texture"] else "null", source_post_data["count"]],
+		"%s x%d" % [target_post_data["texture"].resource_path if target_post_data["texture"] else "null", target_post_data["count"]]
+	])
 
 
 func handle_shift_click(slot_index: int) -> void:

@@ -1,5 +1,5 @@
 # toolkit_container.gd
-# Container for the player's HUD/toolkit (hotbar) - 10 slots, max stack 9
+# Container for the player's HUD/toolkit (hotbar) - 10 slots, max stack 10
 # Extends ContainerBase for consistent inventory management
 
 extends ContainerBase
@@ -18,27 +18,60 @@ var active_tool_texture: Texture = null
 
 
 func _ready() -> void:
+	# CRITICAL: Check for duplicate BEFORE doing anything
+	# Check both static instance AND InventoryManager registry
+	if instance != null and instance != self:
+		push_error("❌ DUPLICATE ToolkitContainer instance! Only one should exist.")
+		push_error("❌ Existing: %s" % instance)
+		push_error("❌ New: %s" % self)
+		queue_free() # Delete this duplicate
+		return
+	
+	# Check InventoryManager registry BEFORE registering
+	if InventoryManager:
+		if InventoryManager.toolkit_container and InventoryManager.toolkit_container != self:
+			push_error("❌ ToolkitContainer already registered in InventoryManager!")
+			push_error("❌ Existing: %s" % InventoryManager.toolkit_container)
+			push_error("❌ New: %s" % self)
+			queue_free() # Delete this duplicate
+			return
+		# If we're the registered one, reuse it
+		if InventoryManager.toolkit_container == self:
+			print("[ToolkitContainer] Already registered - skipping re-initialization")
+			return
+	
 	# Set singleton instance
 	instance = self
 	
-	# Configure container
+	# Configure container BEFORE calling super (so registration works)
 	container_id = "player_toolkit"
 	container_type = "toolkit"
 	slot_count = 10
-	max_stack_size = 9
+	max_stack_size = ContainerBase.GLOBAL_MAX_STACK_SIZE
 	
-	# Call parent _ready
+	# Call parent _ready (will register with InventoryManager)
 	super._ready()
 	
-	# Migrate existing data from InventoryManager
+	# Migrate existing data from InventoryManager (only once)
 	_migrate_from_inventory_manager()
 	
 	print("[ToolkitContainer] Initialized: %d slots, max stack %d" % [slot_count, max_stack_size])
 
 
 func _migrate_from_inventory_manager() -> void:
-	"""Migrate existing toolkit data from InventoryManager to this container"""
+	"""Migrate existing toolkit data from InventoryManager to this container (ONE TIME ONLY)"""
 	if not InventoryManager:
+		return
+	
+	# Check if we already have data (prevent duplicate migration)
+	var has_data = false
+	for i in range(slot_count):
+		if inventory_data[i]["texture"]:
+			has_data = true
+			break
+	
+	if has_data:
+		print("[ToolkitContainer] Already has data - skipping migration")
 		return
 	
 	if InventoryManager.toolkit_slots:

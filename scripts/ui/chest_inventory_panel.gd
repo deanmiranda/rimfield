@@ -16,9 +16,10 @@ signal panel_closed()
 var current_chest: Node = null
 var current_chest_id: String = ""
 
-# Player inventory slots (NEW SYSTEM: using SlotBase)
+# Player inventory slots (NEW SYSTEM: using SlotBase with PlayerInventoryContainer)
 var player_slots: Array = []
-var temp_player_container: ContainerBase = null # Temporary until Phase 2 PlayerInventoryContainer
+# Type will show linter error until Godot restarts - this is normal for new class_name
+var player_inventory_container = null # Will be PlayerInventoryContainer instance
 
 # Constants
 const CHEST_INVENTORY_SIZE: int = 24
@@ -29,7 +30,7 @@ func _ready() -> void:
 	container_id = "chest_temp" # Will be set when opening specific chest
 	container_type = "chest"
 	slot_count = CHEST_INVENTORY_SIZE
-	max_stack_size = 99
+	max_stack_size = ContainerBase.GLOBAL_MAX_STACK_SIZE
 	
 	# Call parent _ready
 	super._ready()
@@ -52,7 +53,7 @@ func _ready() -> void:
 	# Set up player inventory slots (still using old system for now)
 	_setup_player_slots()
 	
-	print("[ChestPanel] Ready: %d chest slots created" % slots.size())
+	print("[ChestPanel] Ready: %d chest slots created, max stack %d" % [slots.size(), max_stack_size])
 
 
 func _setup_chest_slots() -> void:
@@ -78,10 +79,15 @@ func _setup_chest_slots() -> void:
 		slot.name = "ChestSlot_%d" % i
 		
 		chest_grid.add_child(slot)
-		slots.append(slot)
+		
+		# Register slot with container using API
+		register_slot(slot)
 		
 		# Initialize slot
 		slot._ready()
+		
+		# Sync slot UI from container data
+		sync_slot_ui(i)
 	
 	print("[ChestPanel] Created %d chest slots" % slots.size())
 
@@ -102,31 +108,29 @@ func _setup_player_slots() -> void:
 	if not InventoryManager:
 		return
 	
-	var player_inventory_size = InventoryManager.max_inventory_slots
+	# NEW SYSTEM: Use PlayerInventoryContainer singleton from InventoryManager
+	# Use get_or_create to ensure single instance
+	if InventoryManager:
+		player_inventory_container = await InventoryManager.get_or_create_player_inventory_container()
+		
+		if player_inventory_container:
+			print("[ChestPanel] Using PlayerInventoryContainer from InventoryManager (slot_count=%d)" % player_inventory_container.slot_count)
+		else:
+			push_error("[ChestPanel] Failed to get PlayerInventoryContainer from InventoryManager!")
+			return
+	else:
+		push_error("[ChestPanel] InventoryManager not found!")
+		return
 	
-	# NEW SYSTEM: Create SlotBase slots for player inventory
-	# TODO Phase 2: These should reference PlayerInventoryContainer.instance
-	# For now, create temporary wrapper container
-	temp_player_container = ContainerBase.new()
-	temp_player_container.container_id = "temp_player_inventory"
-	temp_player_container.container_type = "inventory"
-	temp_player_container.slot_count = player_inventory_size
-	temp_player_container.max_stack_size = 99
-	add_child(temp_player_container)
-	temp_player_container._ready()
-	
-	# Migrate data from InventoryManager
-	for i in range(player_inventory_size):
-		var data = InventoryManager.inventory_slots.get(i, {})
-		if data.has("texture"):
-			temp_player_container.inventory_data[i] = data.duplicate()
+	# Use container's slot_count to ensure consistency
+	var player_inventory_size = player_inventory_container.slot_count
 	
 	# Create player inventory slots using SlotBase
 	for i in range(player_inventory_size):
 		var slot = SlotBase.new()
 		slot.slot_index = i
 		slot.empty_texture = empty_texture
-		slot.container_ref = temp_player_container
+		slot.container_ref = player_inventory_container
 		slot.name = "PlayerSlot_%d" % i
 		
 		slot.custom_minimum_size = Vector2(64, 64)
@@ -135,12 +139,17 @@ func _setup_player_slots() -> void:
 		
 		player_grid.add_child(slot)
 		player_slots.append(slot)
-		temp_player_container.slots.append(slot)
+		
+		# Register slot with container using API
+		player_inventory_container.register_slot(slot)
 		
 		slot._ready()
+		
+		# Sync slot UI from container data
+		player_inventory_container.sync_slot_ui(i)
 	
 	# Sync UI
-	temp_player_container.sync_ui()
+	player_inventory_container.sync_ui()
 	
 	print("[ChestPanel] Created %d player slots (SlotBase)" % player_slots.size())
 
@@ -231,28 +240,19 @@ func _save_chest_inventory() -> void:
 
 func sync_player_ui() -> void:
 	"""Sync player inventory UI in our panel (NEW SYSTEM)"""
-	if not player_grid or not InventoryManager:
+	if not player_grid:
 		return
 	
-	# NEW SYSTEM: Sync from temp container or InventoryManager
-	if temp_player_container:
-		# Sync container data from InventoryManager first
-		for i in range(min(player_slots.size(), InventoryManager.max_inventory_slots)):
-			var slot_data = InventoryManager.inventory_slots.get(i, {"texture": null, "count": 0})
-			temp_player_container.inventory_data[i] = slot_data.duplicate()
+	# NEW SYSTEM: Sync from PlayerInventoryContainer
+	if player_inventory_container:
+		# Sync container data from InventoryManager first (backward compatibility)
+		if InventoryManager:
+			for i in range(min(player_slots.size(), InventoryManager.max_inventory_slots)):
+				var slot_data = InventoryManager.inventory_slots.get(i, {"texture": null, "count": 0})
+				player_inventory_container.inventory_data[i] = slot_data.duplicate()
 		
 		# Sync UI from container
-		temp_player_container.sync_ui()
-	else:
-		# Fallback: direct sync (shouldn't happen)
-		for i in range(min(player_slots.size(), InventoryManager.max_inventory_slots)):
-			var slot = player_slots[i]
-			var slot_data = InventoryManager.inventory_slots.get(i, {"texture": null, "count": 0})
-			var item_texture = slot_data["texture"]
-			var item_count = slot_data["count"]
-			
-			if slot.has_method("set_item"):
-				slot.set_item(item_texture, item_count)
+		player_inventory_container.sync_ui()
 
 
 func _on_auto_sort_pressed() -> void:
@@ -316,30 +316,8 @@ func _on_close_pressed() -> void:
 	close_chest_ui()
 
 
-# Override handle_drop_on_slot to support drops from HUD/toolkit (external to chest system)
-func handle_drop_on_slot(target_slot_index: int) -> void:
-	"""Handle drop from DragManager onto a chest slot"""
-	var drag_data = DragManager.end_drag()
-	var source_container = drag_data["source_container"]
-	var source_slot_index = drag_data["slot_index"]
-	var drag_texture = drag_data["texture"]
-	var drag_count = drag_data["count"]
-	
-	print("[ChestPanel] Drop on slot %d: from=%s source_slot=%d texture=%s count=%d" % [
-		target_slot_index,
-		source_container.name if source_container else "unknown",
-		source_slot_index,
-		drag_texture.resource_path if drag_texture else "null",
-		drag_count
-	])
-	
-	# Check if drop is from within chest
-	if source_container == self:
-		var is_right_click = drag_data.get("is_right_click", false)
-		_handle_internal_drop(source_slot_index, target_slot_index, drag_texture, drag_count, is_right_click)
-	else:
-		# External drop (from HUD or player inventory)
-		_handle_external_drop_to_chest(source_container, source_slot_index, target_slot_index, drag_texture, drag_count)
+# Override removed - use ContainerBase.handle_drop_on_slot() which routes to _handle_external_drop()
+# This ensures source removal via ContainerBase API
 
 
 func _handle_external_drop_to_chest(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int) -> void:

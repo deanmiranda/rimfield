@@ -20,6 +20,9 @@ var stack_count: int = 0
 # Container reference (parent container that owns this slot)
 var container_ref: Node = null
 
+# Drop target state (can be disabled when UI panel is hidden)
+var drop_target_enabled: bool = true
+
 # Visual elements
 var stack_label: Label = null
 
@@ -42,6 +45,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_NONE
 	
+	# Add to group for hover detection
+	add_to_group("inventory_slots")
+	
 	# Set empty texture if provided
 	if empty_texture:
 		texture_normal = empty_texture
@@ -54,6 +60,11 @@ func _ready() -> void:
 	
 	# Update visual to reflect initial item state
 	update_visual()
+
+
+func is_drop_target_active() -> bool:
+	"""Check if this slot is a valid drop target (enabled and visible)"""
+	return drop_target_enabled and is_visible_in_tree()
 
 
 func _fix_children_mouse_filter() -> void:
@@ -133,22 +144,41 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 					get_viewport().set_input_as_handled()
 					return
 		
-		# We're receiving a drop - but first check if mouse is over HUD slot
-		# If so, don't handle it here - let HUD slot handle it
-		var viewport = get_viewport()
-		if viewport and container_ref:
-			var container_type = ""
-			if "container_type" in container_ref:
-				container_type = container_ref.container_type
-			if container_type == "chest" or container_type == "fridge" or container_type == "container":
-				var mouse_pos = viewport.get_mouse_position()
-				if _is_mouse_over_hud_slot(mouse_pos):
-					print("[SlotBase] Mouse over HUD slot - not handling drop here")
-					# Don't consume event - let HUD slot handle it
-					return
+		# CRITICAL: Find the actual hovered slot (target), not self (source)
+		var target_slot_node = DragManager.get_hovered_slot()
 		
-		# We're receiving a drop - handle it and STOP processing
-		_handle_drop()
+		if target_slot_node and target_slot_node.container_ref:
+			# Route drop to the hovered slot's container
+			var target_container_id = target_slot_node.container_ref.container_id if "container_id" in target_slot_node.container_ref else "unknown"
+			print("[SlotBase] Resolved drop: source_slot=%d target_slot=%d target_container=%s" % [
+				DragManager.drag_source_slot_index,
+				target_slot_node.slot_index,
+				target_container_id
+			])
+			target_slot_node.container_ref.handle_drop_on_slot(target_slot_node.slot_index)
+			
+			# Sync our visual in case we were the source
+			if container_ref.has_method("get_slot_data"):
+				var updated_data = container_ref.get_slot_data(slot_index)
+				item_texture = updated_data["texture"]
+				stack_count = updated_data["count"]
+				update_visual()
+			
+			# Clear stored original data (drop committed)
+			original_slot_data.clear()
+		else:
+			# No valid target found - check if item is world-placeable
+			if _is_world_placeable_drag():
+				print("[SlotBase] No hovered slot found, but item is world-placeable - emitting world drop")
+				DragManager.emit_world_drop()
+				# Clear stored original data (world drop committed)
+				original_slot_data.clear()
+			else:
+				# No valid target and not world-placeable - cancel drag
+				print("[SlotBase] No hovered slot found - canceling drag")
+				DragManager.cancel_drag()
+				_restore_after_cancel()
+		
 		accept_event() # Consume the event to prevent further processing
 		get_viewport().set_input_as_handled()
 		return # CRITICAL: Don't start a new drag!
@@ -188,12 +218,63 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 					get_viewport().set_input_as_handled()
 					return
 		
-		# Drop single item - handle it and STOP processing
-		print("[SlotBase] Right-click drop on slot %d" % slot_index)
-		_handle_drop()
+		# CRITICAL: Find the actual hovered slot (target), not self (source)
+		var target_slot_node = DragManager.get_hovered_slot()
+		
+		if target_slot_node and target_slot_node.container_ref:
+			# Route drop to the hovered slot's container
+			var target_container_id = target_slot_node.container_ref.container_id if "container_id" in target_slot_node.container_ref else "unknown"
+			print("[SlotBase] Resolved drop: source_slot=%d target_slot=%d target_container=%s" % [
+				DragManager.drag_source_slot_index,
+				target_slot_node.slot_index,
+				target_container_id
+			])
+			target_slot_node.container_ref.handle_drop_on_slot(target_slot_node.slot_index)
+			
+			# Sync our visual in case we were the source
+			if container_ref.has_method("get_slot_data"):
+				var updated_data = container_ref.get_slot_data(slot_index)
+				item_texture = updated_data["texture"]
+				stack_count = updated_data["count"]
+				update_visual()
+			
+			# Clear stored original data (drop committed)
+			original_slot_data.clear()
+		else:
+			# No valid target found - cancel drag
+			print("[SlotBase] No hovered slot found - canceling drag")
+			DragManager.cancel_drag()
+			_restore_after_cancel()
+		
 		accept_event() # Consume the event
 		get_viewport().set_input_as_handled()
 		return # CRITICAL: Don't start a new drag!
+
+
+func _is_world_placeable_drag() -> bool:
+	"""Check if the current drag should be placeable in the world"""
+	if not DragManager or not DragManager.is_dragging:
+		return false
+	
+	if DragManager.drag_source_container == null:
+		return false
+	
+	# Only toolkit items can be placed into world right now
+	var source_id = ""
+	if "container_id" in DragManager.drag_source_container:
+		source_id = DragManager.drag_source_container.container_id
+	
+	if source_id != "player_toolkit":
+		return false
+	
+	if DragManager.drag_item_texture == null:
+		return false
+	
+	var tex_path = DragManager.drag_item_texture.resource_path
+	if tex_path == "res://assets/icons/chest_icon.png":
+		return true
+	
+	return false
 
 
 func _start_drag(is_right_click: bool) -> void:
@@ -209,39 +290,49 @@ func _start_drag(is_right_click: bool) -> void:
 	if not item_texture or stack_count <= 0:
 		return
 	
-	# CRITICAL: Store original slot data BEFORE modifying anything
+	# CRITICAL: Store original slot data BEFORE any changes
 	# This allows us to restore on cancel
 	if container_ref.has_method("get_slot_data"):
 		original_slot_data = container_ref.get_slot_data(slot_index).duplicate(true)
 	else:
 		original_slot_data = {"texture": item_texture, "count": stack_count, "weight": 0.0}
 	
-	print("[SlotBase] Starting drag from slot %d: %s x%d right_click=%s" % [
+	print("[SlotBase] Drag START (read-only): slot=%d texture=%s count=%d right_click=%s" % [
 		slot_index,
 		item_texture.resource_path if item_texture else "null",
 		stack_count,
 		is_right_click
 	])
 	
-	# Final safety check (should never trigger due to check above)
+	# Start drag in DragManager
 	if DragManager:
 		DragManager.start_drag(container_ref, slot_index, item_texture, stack_count, is_right_click)
 		
-		# Update visual: make slot semi-transparent to show item is being dragged
+		# TRANSACTIONAL: Only update VISUAL, NOT container data!
+		# Container data will be updated on successful drop only
 		modulate = Color(1, 1, 1, 0.3)
 		
-		# CRITICAL: Only update VISUAL, NOT data!
-		# The container will update data when drop is successful
-		# This prevents data loss if drag is canceled
+		# Update visual preview only (local to this slot, not container data)
 		if is_right_click:
-			# Right-click: show reduced count visually only
+			# Show reduced count visually
 			var remaining = stack_count - 1
 			if remaining > 0:
-				# Update visual only (not data)
-				set_item(item_texture, remaining)
+				# Update LOCAL visual only (SlotBase state, NOT container data)
+				item_texture = item_texture # Keep same
+				stack_count = remaining
+				update_visual()
+			else:
+				# Show empty
+				item_texture = null
+				stack_count = 0
+				update_visual()
 		else:
-			# Left-click: show empty visually (full stack being dragged)
-			set_item(null, 0)
+			# Show empty (full stack being dragged)
+			item_texture = null
+			stack_count = 0
+			update_visual()
+		
+		print("[SlotBase] Visual updated (data NOT modified yet)")
 
 
 func _handle_drop() -> void:
@@ -275,23 +366,43 @@ func _handle_drop() -> void:
 				_restore_after_cancel()
 				return
 	
-	print("[SlotBase] Handling drop on slot %d" % slot_index)
+	var container_id_str = container_ref.container_id if container_ref and "container_id" in container_ref else "unknown"
+	var source_container_id = DragManager.drag_source_container.container_id if DragManager.drag_source_container and "container_id" in DragManager.drag_source_container else "unknown"
+	
+	print("[SlotBase] Handling drop: container_id=%s source_slot=%d target_slot=%d" % [
+		container_id_str,
+		DragManager.drag_source_slot_index,
+		slot_index
+	])
 	
 	if not container_ref:
 		print("[SlotBase] ERROR: No container_ref for drop on slot %d" % slot_index)
 		return
 	
-	# Restore modulate before handling drop (container will update slot data)
+	# Restore modulate before handling drop
 	modulate = Color.WHITE
 	
-	# Clear stored original data (drop is successful, no need to restore)
-	original_slot_data.clear()
+	print("[SlotBase] Drag DROP: letting container commit changes")
 	
-	# Let container handle the drop logic
+	# TRANSACTIONAL: Let container handle the drop logic and commit changes
+	# Container will update both source and destination data
 	if container_ref.has_method("handle_drop_on_slot"):
 		container_ref.handle_drop_on_slot(slot_index)
+		
+		# After drop, sync our visual from container (in case we were the source)
+		if container_ref.has_method("get_slot_data"):
+			var updated_data = container_ref.get_slot_data(slot_index)
+			item_texture = updated_data["texture"]
+			stack_count = updated_data["count"]
+			update_visual()
+			print("[SlotBase] Drop SUCCESS: synced visual from container")
+		
+		# Clear stored original data (drop committed)
+		original_slot_data.clear()
 	else:
 		print("[SlotBase] ERROR: Container %s doesn't have handle_drop_on_slot method" % container_ref.name)
+		# Restore on error
+		_restore_after_cancel()
 
 
 func _is_mouse_over_hud_slot(mouse_pos: Vector2) -> bool:
@@ -321,29 +432,29 @@ func _is_mouse_over_hud_slot(mouse_pos: Vector2) -> bool:
 
 
 func _restore_after_cancel() -> void:
-	"""Restore slot visual and data after drag is canceled"""
+	"""Restore slot visual after drag is canceled (TRANSACTIONAL)"""
 	modulate = Color.WHITE
 	
-	# CRITICAL: Restore from original_slot_data (stored before drag started)
-	# NOT from current container data (which may have been modified)
+	# TRANSACTIONAL: Container data was NEVER modified during drag
+	# Just restore visual from original_slot_data
 	if original_slot_data.size() > 0:
-		# Restore container data
-		if container_ref:
-			container_ref.inventory_data[slot_index] = original_slot_data.duplicate(true)
-			# Sync UI to ensure visual matches data
-			if container_ref.has_method("sync_slot_ui"):
-				container_ref.sync_slot_ui(slot_index)
-			else:
-				# Fallback: restore visual directly
-				set_item(original_slot_data["texture"], original_slot_data["count"])
+		# Restore LOCAL visual state (item_texture, stack_count)
+		item_texture = original_slot_data["texture"]
+		stack_count = original_slot_data["count"]
+		update_visual()
+		
+		print("[SlotBase] Drag CANCELED: restored visual from original data")
 		
 		# Clear stored data
 		original_slot_data.clear()
 	else:
-		# Fallback: try to restore from container
+		# Fallback: sync from container (which should still have original data)
 		if container_ref and container_ref.has_method("get_slot_data"):
 			var slot_data = container_ref.get_slot_data(slot_index)
-			set_item(slot_data["texture"], slot_data["count"])
+			item_texture = slot_data["texture"]
+			stack_count = slot_data["count"]
+			update_visual()
+			print("[SlotBase] Drag CANCELED: restored visual from container data")
 
 
 func _on_slot_clicked() -> void:

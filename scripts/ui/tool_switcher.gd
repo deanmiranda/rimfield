@@ -23,17 +23,21 @@ func _ready() -> void:
 	game_config = load("res://resources/data/game_config.tres")
 	
 	# NEW SYSTEM: Connect to ToolkitContainer signals
-	# Wait for ToolkitContainer to be created by HudInitializer
+	# Wait for ToolkitContainer to be registered in InventoryManager
 	await get_tree().create_timer(0.1).timeout
 	
-	if ToolkitContainer and ToolkitContainer.instance:
+	if InventoryManager and InventoryManager.toolkit_container:
+		var toolkit = InventoryManager.toolkit_container
 		print("[ToolSwitcher] Connecting to ToolkitContainer...")
-		ToolkitContainer.instance.active_slot_changed.connect(_on_active_slot_changed)
-		ToolkitContainer.instance.item_changed.connect(_on_toolkit_item_changed)
-		ToolkitContainer.instance.tool_equipped.connect(_on_tool_equipped)
+		if not toolkit.active_slot_changed.is_connected(_on_active_slot_changed):
+			toolkit.active_slot_changed.connect(_on_active_slot_changed)
+		if not toolkit.item_changed.is_connected(_on_toolkit_item_changed):
+			toolkit.item_changed.connect(_on_toolkit_item_changed)
+		if not toolkit.tool_equipped.is_connected(_on_tool_equipped):
+			toolkit.tool_equipped.connect(_on_tool_equipped)
 		print("[ToolSwitcher] Connected to ToolkitContainer")
 	else:
-		print("[ToolSwitcher] WARNING: ToolkitContainer not available - using fallback")
+		print("[ToolSwitcher] WARNING: ToolkitContainer not available in InventoryManager - using fallback")
 	
 	# Use cached HUD reference
 	if hud:
@@ -58,7 +62,8 @@ func _on_tool_selected(slot_index: int) -> void:
 func _on_active_slot_changed(slot_index: int) -> void:
 	"""Handle ToolkitContainer active slot change signal"""
 	current_hud_slot = slot_index
-	var slot_data = ToolkitContainer.instance.get_slot_data(slot_index) if ToolkitContainer.instance else {}
+	var toolkit = InventoryManager.toolkit_container if InventoryManager else null
+	var slot_data = toolkit.get_slot_data(slot_index) if toolkit else {}
 	current_tool_texture = slot_data.get("texture", null)
 	
 	if current_tool_texture and tool_config and tool_config.has_method("get_tool_name"):
@@ -93,9 +98,9 @@ func set_hud_by_slot(slot_index: int) -> void:
 	"""Set active HUD slot (delegates to ToolkitContainer in new system)"""
 	print("[ToolSwitcher] set_hud_by_slot called with slot_index: ", slot_index)
 	
-	# NEW SYSTEM: Delegate to ToolkitContainer
-	if ToolkitContainer and ToolkitContainer.instance:
-		ToolkitContainer.instance.set_active_slot(slot_index)
+	# NEW SYSTEM: Delegate to ToolkitContainer via InventoryManager
+	if InventoryManager and InventoryManager.toolkit_container:
+		InventoryManager.toolkit_container.set_active_slot(slot_index)
 		return
 	
 	# OLD SYSTEM: Fallback (DEPRECATED)
@@ -163,10 +168,11 @@ func set_hud_by_slot(slot_index: int) -> void:
 func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 	"""Update toolkit slot and emit tool_changed if active tool was moved"""
 	# NEW SYSTEM: Delegate to ToolkitContainer (it will emit item_changed signal)
-	if ToolkitContainer and ToolkitContainer.instance:
-		var current_data = ToolkitContainer.instance.get_slot_data(slot_index)
+	if InventoryManager and InventoryManager.toolkit_container:
+		var toolkit = InventoryManager.toolkit_container
+		var current_data = toolkit.get_slot_data(slot_index)
 		var count = current_data.get("count", 1) if texture else 0
-		ToolkitContainer.instance.add_item_to_slot(slot_index, texture, count)
+		toolkit.add_item_to_slot(slot_index, texture, count)
 		return
 	
 	# OLD SYSTEM: Fallback (DEPRECATED)
@@ -248,8 +254,28 @@ func update_toolkit_slot(slot_index: int, texture: Texture) -> void:
 					current_tool_texture = null
 					emit_signal("tool_changed", slot_index, null)
 
+func select_toolkit_slot(index: int) -> void:
+	"""Clean function to select toolkit slot via keyboard - uses new container system"""
+	if not InventoryManager or not InventoryManager.toolkit_container:
+		return
+	
+	if DragManager and DragManager.is_dragging:
+		return
+	
+	InventoryManager.toolkit_container.set_active_slot(index)
+
+
 func _input(event: InputEvent) -> void:
-	# Handle key inputs to switch tools based on slot numbers (1-0)
+	"""Handle key inputs to switch tools based on slot numbers (1-0)"""
+	# Ignore when pause menu is visible
+	if UiManager and UiManager.pause_menu and UiManager.pause_menu.visible:
+		return
+	
+	# Ignore when typing into text fields (check if any LineEdit has focus)
+	var focused = get_viewport().gui_get_focus_owner()
+	if focused and focused is LineEdit:
+		return
+	
 	# Use GameConfig instead of magic number (follows .cursor/rules/godot.md)
 	var hud_slot_count: int = 10
 	if game_config:
@@ -260,4 +286,5 @@ func _input(event: InputEvent) -> void:
 		if i == 9: # Special case for "0" key (maps to slot 9)
 			action = "ui_hud_0"
 		if event.is_action_pressed(action):
-			set_hud_by_slot(i)
+			select_toolkit_slot(i)
+			get_viewport().set_input_as_handled()

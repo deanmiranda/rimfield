@@ -17,17 +17,10 @@ var inventory_instance: Control = null
 # Reference to FarmingManager (set during initialization)
 var farming_manager: Node = null
 
-# Background music player
-var farm_music_player: AudioStreamPlayer = null
-
 
 func _ready() -> void:
 	# Temporary test: Verify FarmingTerrain.tres loads
 	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
-	
-	# Setup background music - randomly select one of three farm tracks
-	# Call immediately - _setup_farm_music will handle async operations
-	_setup_farm_music()
 	
 	# Restore chests for this scene
 	if ChestManager:
@@ -83,6 +76,11 @@ func _ready() -> void:
 	# Spawn droppables asynchronously to avoid scene load delay
 	# TESTING: Increased to 80 for inventory-full testing
 	spawn_random_droppables_async(80)
+	
+	# Connect to DragManager world drop signal for chest placement
+	if DragManager:
+		if not DragManager.dropped_on_world.is_connected(_on_toolkit_world_drop):
+			DragManager.dropped_on_world.connect(_on_toolkit_world_drop)
 
 
 func spawn_random_droppables_async(count: int) -> void:
@@ -366,99 +364,88 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	await get_tree().create_timer(particle_emitter.lifetime).timeout
 	particle_emitter.queue_free()
 
-func _setup_farm_music() -> void:
-	"""Setup and play random farm background music (no loop)."""
-	# Aggressively stop ALL audio players first
-	_stop_all_music()
-	
-	# Create AudioStreamPlayer node if it doesn't exist
-	if farm_music_player == null:
-		farm_music_player = AudioStreamPlayer.new()
-		farm_music_player.name = "FarmMusic"
-		farm_music_player.add_to_group("music") # Add to music group for easy management
-		add_child(farm_music_player)
-	
-	# List of available farm music tracks
-	var farm_tracks: Array[String] = [
-		"res://assets/audio/Farm-1.mp3",
-		"res://assets/audio/Farm-2.mp3",
-		"res://assets/audio/Farm-3.mp3"
-	]
-	
-	# Randomly select one track
-	var random_index = randi() % farm_tracks.size()
-	var selected_track = farm_tracks[random_index]
-	
-	# Load the selected track
-	var audio_stream = load(selected_track)
-	if audio_stream == null:
-		push_error("[FarmScene] CRITICAL: Failed to load farm music file: %s" % selected_track)
-		push_error("[FarmScene] File exists check: %s" % ResourceLoader.exists(selected_track))
+func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
+	"""Handle toolkit item dropped on world (e.g., chest placement)"""
+	if texture == null:
 		return
 	
-	
-	# Ensure the stream doesn't loop
-	if audio_stream is AudioStreamMP3:
-		audio_stream.loop = false
-	
-	# Set the stream and volume
-	farm_music_player.stream = audio_stream
-	farm_music_player.volume_db = 0.0
-	
-	
-	# Wait a frame to ensure everything is set up, then play
-	call_deferred("_play_farm_music", selected_track)
-
-func _play_farm_music(track_path: String) -> void:
-	"""Play the farm music (called deferred to ensure node is ready)."""
-	if farm_music_player == null:
-		push_error("[FarmScene] Cannot play farm music - player is null")
+	var tex_path = texture.resource_path
+	if tex_path != "res://assets/icons/chest_icon.png":
 		return
 	
-	if farm_music_player.stream == null:
-		push_error("[FarmScene] Cannot play farm music - stream is null")
+	# Convert screen mouse_pos to world position using MouseUtil
+	var world_pos = mouse_pos
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	else:
+		# Fallback: use viewport
+		var viewport = get_viewport()
+		if viewport:
+			var camera = viewport.get_camera_2d()
+			if camera:
+				var viewport_size = viewport.size
+				var camera_pos = camera.global_position
+				var mouse_screen = mouse_pos
+				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
+	
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
+	
+	# Get ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		print("[FarmScene] ChestManager not found - cannot place chest")
 		return
 	
-	# Stop any existing playback
-	farm_music_player.stop()
-	
-	# Ensure we're in the scene tree
-	if not is_inside_tree():
-		push_error("[FarmScene] Cannot play farm music - not in scene tree")
+	# Check if there's already a chest at this position
+	var existing_chest = chest_manager.find_chest_at_position(snapped_pos, 16.0)
+	if existing_chest:
+		print("[FarmScene] Chest already exists at position %s" % snapped_pos)
 		return
 	
-	# Play the music
-	farm_music_player.play()
-
-func _stop_all_music() -> void:
-	"""Stop all music players in the scene tree (safety check)."""
-	# Stop all AudioStreamPlayer nodes in the entire scene tree
-	var all_nodes = get_tree().get_nodes_in_group("")
-	var music_nodes = []
+	# Check if position is valid using farming_manager if available
+	if farming_manager:
+		# Use farming_manager's validation logic
+		var cell = Vector2i(floor(snapped_pos.x / 16.0), floor(snapped_pos.y / 16.0))
+		if farming_manager.has_method("_is_soil"):
+			var is_soil = farming_manager._is_soil(cell)
+			if is_soil:
+				print("[FarmScene] Cannot place chest on soil")
+				return
+		
+		# Check if tile has crop or is watered
+		if GameState and GameState.farm_state.has(cell):
+			var tile_data = GameState.get_tile_data(cell)
+			if tile_data:
+				var is_watered = tile_data.get("is_watered", false)
+				var has_crop = tile_data.get("tile_state") == "planted"
+				if is_watered or has_crop:
+					print("[FarmScene] Cannot place chest on watered/crop tile")
+					return
 	
-	# Find all AudioStreamPlayer nodes recursively
-	_find_audio_players_recursive(self, music_nodes)
+	# Create chest at position
+	var chest = chest_manager.create_chest_at_position(snapped_pos)
+	if chest == null:
+		print("[FarmScene] Failed to create chest at position %s" % snapped_pos)
+		return
 	
-	# Also check the scene tree
-	if is_inside_tree():
-		var audio_players = get_tree().get_nodes_in_group("music")
-		for player in audio_players:
-			if player is AudioStreamPlayer and not player in music_nodes:
-				music_nodes.append(player)
+	print("[FarmScene] Chest placed at world position %s" % snapped_pos)
 	
-	# Stop all found music players
-	for player in music_nodes:
-		if player is AudioStreamPlayer:
-			player.stop()
-	
-	# Explicitly stop farm music player if it exists
-	if farm_music_player and farm_music_player.playing:
-		farm_music_player.stop()
-
-func _find_audio_players_recursive(node: Node, result: Array) -> void:
-	"""Recursively find all AudioStreamPlayer nodes."""
-	if node is AudioStreamPlayer:
-		result.append(node)
-	
-	for child in node.get_children():
-		_find_audio_players_recursive(child, result)
+	# Remove 1 chest from toolkit slot
+	if source_container and source_container.has_method("get_slot_data"):
+		var slot_data = source_container.get_slot_data(source_slot)
+		var current_count = slot_data.get("count", 0)
+		if current_count > 1:
+			# Decrement count by 1
+			if source_container.has_method("set_slot_data"):
+				source_container.set_slot_data(source_slot, texture, current_count - 1)
+			else:
+				# Fallback: remove and re-add with decremented count
+				source_container.remove_item_from_slot(source_slot)
+				source_container.add_item_to_slot(source_slot, texture, current_count - 1)
+		else:
+			# Only 1 item - remove completely
+			source_container.remove_item_from_slot(source_slot)
+	elif source_container and source_container.has_method("remove_item_from_slot"):
+		# Fallback: just remove the slot
+		source_container.remove_item_from_slot(source_slot)

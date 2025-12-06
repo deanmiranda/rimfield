@@ -4,6 +4,9 @@
 
 extends Node
 
+# Signals
+signal dropped_on_world(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2)
+
 # Drag state
 var is_dragging: bool = false
 var drag_source_container: Node = null # Which container did drag start from
@@ -70,6 +73,31 @@ func start_drag(container: Node, slot_index: int, texture: Texture, count: int, 
 		if viewport:
 			var mouse_pos = viewport.get_mouse_position()
 			update_drag_preview_position(mouse_pos)
+
+
+func emit_world_drop() -> void:
+	"""Emit world drop signal with current drag data - does not mutate inventory"""
+	if not is_dragging:
+		return
+	
+	var viewport = get_viewport()
+	if viewport == null:
+		return
+	
+	var mouse_pos = viewport.get_mouse_position()
+	
+	dropped_on_world.emit(
+		drag_source_container,
+		drag_source_slot_index,
+		drag_item_texture,
+		drag_item_count,
+		mouse_pos
+	)
+	print("[DragManager] Emitted dropped_on_world: texture=%s count=%d pos=%s" % [
+		drag_item_texture.resource_path if drag_item_texture else "null",
+		drag_item_count,
+		mouse_pos
+	])
 
 
 func end_drag() -> Dictionary:
@@ -218,6 +246,85 @@ func _reset_state() -> void:
 	drag_item_texture = null
 	drag_item_count = 0
 	is_right_click_drag = false
+
+
+func get_hovered_slot() -> Node:
+	"""Get the SlotBase node currently under the mouse cursor"""
+	# Try gui_get_hovered_control() first (works for Control nodes)
+	var viewport = get_tree().root.get_viewport()
+	if not viewport:
+		return null
+	
+	var hovered = viewport.gui_get_hovered_control()
+	if not hovered:
+		# Fallback: use mouse position + hit test
+		var mouse_pos = viewport.get_mouse_position()
+		return _find_slot_at_position(mouse_pos)
+	
+	# Walk up the parent tree to find SlotBase
+	while hovered:
+		if hovered is SlotBase:
+			var slot = hovered as SlotBase
+			# Only return if slot is a valid drop target
+			if slot.is_drop_target_active():
+				var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
+				print("[DragManager] Hovered slot: slot_index=%d container_id=%s" % [slot.slot_index, container_id_str])
+				return slot
+		hovered = hovered.get_parent()
+	
+	# Fallback: use mouse position + hit test
+	var mouse_pos = viewport.get_mouse_position()
+	return _find_slot_at_position(mouse_pos)
+
+
+func _find_slot_at_position(mouse_pos: Vector2) -> Node:
+	"""Fallback: find SlotBase at mouse position using hit test"""
+	# Search all SlotBase nodes in the scene
+	var all_slots = get_tree().get_nodes_in_group("inventory_slots")
+	if all_slots.size() == 0:
+		# If no group, search manually
+		var hud = get_tree().root.get_node_or_null("Hud")
+		if hud:
+			var slots_container = hud.get_node_or_null("HUD/MarginContainer/HBoxContainer")
+			if slots_container:
+				for child in slots_container.get_children():
+					if child is SlotBase:
+						var slot = child as SlotBase
+						# Check visibility, mouse filter, and drop target enabled
+						if is_instance_valid(slot) and slot.is_visible_in_tree() and slot.is_drop_target_active():
+							if slot.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+								var slot_rect = slot.get_global_rect()
+								if slot_rect.has_point(mouse_pos):
+									var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
+									print("[DragManager] Fallback found slot: slot_index=%d container_id=%s is_visible=%s drop_enabled=%s" % [
+										slot.slot_index,
+										container_id_str,
+										slot.is_visible_in_tree(),
+										slot.drop_target_enabled
+									])
+									return slot
+	
+	# Check registered containers' slots
+	if InventoryManager:
+		for container_id in InventoryManager.containers:
+			var container = InventoryManager.containers[container_id]
+			if container and container.has_method("get") and "slots" in container:
+				for slot in container.slots:
+					if slot and is_instance_valid(slot):
+						# Check visibility, mouse filter, and drop target enabled
+						if slot.is_visible_in_tree() and slot.is_drop_target_active():
+							if slot.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+								var slot_rect = slot.get_global_rect()
+								if slot_rect.has_point(mouse_pos):
+									print("[DragManager] Fallback found slot: slot_index=%d container_id=%s is_visible=%s drop_enabled=%s" % [
+										slot.slot_index,
+										container_id,
+										slot.is_visible_in_tree(),
+										slot.drop_target_enabled
+									])
+									return slot
+	
+	return null
 
 
 func _input(event: InputEvent) -> void:

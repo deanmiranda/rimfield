@@ -51,6 +51,9 @@ func _ready() -> void:
 				toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 
 	print("[InventoryManager] Initialized - Container registry ready (%d containers already registered)" % containers.size())
+	
+	# Bootstrap containers early to prevent startup crashes from early API calls
+	call_deferred("_bootstrap_containers")
 
 
 func register_container(container: ContainerBase) -> void:
@@ -102,6 +105,136 @@ func unregister_container(container_id: String) -> void:
 	if containers.has(container_id):
 		containers.erase(container_id)
 		print("[InventoryManager] Unregistered container: %s" % container_id)
+
+
+func _bootstrap_containers() -> void:
+	"""Bootstrap containers early to prevent startup crashes from early API calls"""
+	print("[InventoryManager] Bootstrapping containers...")
+	await _bootstrap_containers_async()
+	print("[InventoryManager] Container bootstrap complete")
+
+
+func _bootstrap_containers_async() -> void:
+	"""Async bootstrap - creates containers and waits for registration"""
+	# Create ToolkitContainer if needed
+	if not toolkit_container:
+		var existing = get_container("player_toolkit")
+		if existing:
+			toolkit_container = existing
+		else:
+			await _create_toolkit_container_async()
+	
+	# Create PlayerInventoryContainer if needed
+	if not player_inventory_container:
+		var existing = get_container("player_inventory")
+		if existing:
+			player_inventory_container = existing
+		else:
+			await _create_player_inventory_container_async()
+
+
+func get_or_create_toolkit_container() -> ContainerBase:
+	"""Get or create ToolkitContainer singleton - synchronous check only"""
+	# Return existing if already registered
+	if toolkit_container:
+		return toolkit_container
+	
+	# Check if already registered by ID
+	var existing = get_container("player_toolkit")
+	if existing:
+		toolkit_container = existing
+		return existing
+	
+	# Not created yet - return null (bootstrap will create it)
+	return null
+
+
+func get_or_create_player_inventory_container() -> ContainerBase:
+	"""Get or create PlayerInventoryContainer singleton - creates if missing"""
+	# Return existing if already registered
+	if player_inventory_container:
+		return player_inventory_container
+	
+	# Check if already registered by ID
+	var existing = get_container("player_inventory")
+	if existing:
+		player_inventory_container = existing
+		return existing
+	
+	# Not created yet - create it synchronously
+	print("[InventoryManager] Creating PlayerInventoryContainer synchronously...")
+	var container_script = load("res://scripts/ui/player_inventory_container.gd")
+	if not container_script:
+		push_error("[InventoryManager] Failed to load PlayerInventoryContainer script!")
+		return null
+	
+	var container_instance = container_script.new()
+	container_instance.name = "PlayerInventoryContainer"
+	
+	# Add to scene tree so _ready() runs and registration happens
+	# Use call_deferred to avoid "Parent node is busy setting up children" error
+	get_tree().root.add_child.call_deferred(container_instance)
+	
+	# Wait for add_child to complete
+	await get_tree().process_frame
+	
+	# Wait one more frame for _ready() to complete and registration to happen
+	await get_tree().process_frame
+	
+	# Return the registered container
+	if player_inventory_container:
+		return player_inventory_container
+	else:
+		push_error("[InventoryManager] PlayerInventoryContainer created but failed to register!")
+		return null
+
+
+func _create_toolkit_container_async() -> void:
+	"""Create ToolkitContainer asynchronously"""
+	print("[InventoryManager] Creating ToolkitContainer...")
+	var container_script = load("res://scripts/ui/toolkit_container.gd")
+	if not container_script:
+		push_error("[InventoryManager] Failed to load ToolkitContainer script!")
+		return
+	
+	var container_instance = container_script.new()
+	container_instance.name = "ToolkitContainer"
+	
+	# Add to scene tree so _ready() runs and registration happens
+	get_tree().root.add_child(container_instance)
+	
+	# Wait one frame for _ready() to complete and registration to happen
+	await get_tree().process_frame
+	
+	# Verify it was registered
+	if toolkit_container:
+		print("[InventoryManager] ToolkitContainer created and registered successfully")
+	else:
+		push_error("[InventoryManager] ToolkitContainer created but failed to register!")
+
+
+func _create_player_inventory_container_async() -> void:
+	"""Create PlayerInventoryContainer asynchronously"""
+	print("[InventoryManager] Creating PlayerInventoryContainer...")
+	var container_script = load("res://scripts/ui/player_inventory_container.gd")
+	if not container_script:
+		push_error("[InventoryManager] Failed to load PlayerInventoryContainer script!")
+		return
+	
+	var container_instance = container_script.new()
+	container_instance.name = "PlayerInventoryContainer"
+	
+	# Add to scene tree so _ready() runs and registration happens
+	get_tree().root.add_child(container_instance)
+	
+	# Wait one frame for _ready() to complete and registration to happen
+	await get_tree().process_frame
+	
+	# Verify it was registered
+	if player_inventory_container:
+		print("[InventoryManager] PlayerInventoryContainer created and registered successfully")
+	else:
+		push_error("[InventoryManager] PlayerInventoryContainer created but failed to register!")
 
 
 # LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_to_slot() instead
@@ -223,27 +356,51 @@ func remove_item(slot_index: int) -> void:
 # LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.get_slot_data() instead
 func get_item(slot_index: int) -> Texture:
 	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	# Ensure container exists first (safe read - don't crash on startup)
+	# For read methods, just check - don't create (bootstrap or UI will create it)
+	if not player_inventory_container:
+		# Check registry in case it was registered but reference not set
+		var existing = get_container("player_inventory")
+		if existing:
+			player_inventory_container = existing
+	
 	if player_inventory_container:
 		var slot_data = player_inventory_container.get_slot_data(slot_index)
 		return slot_data["texture"]
 	
-	# LEGACY SYSTEM
-	assert(legacy_mode_enabled, "get_item() called but legacy_mode_enabled is false and no container exists")
-	var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	return slot_data["texture"]
+	# LEGACY SYSTEM: Only if legacy mode enabled
+	if legacy_mode_enabled:
+		var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+		return slot_data["texture"]
+	
+	# Safe default for read methods (don't crash on startup)
+	print("[InventoryManager] WARNING: get_item() called but no container exists - returning null")
+	return null
 
 
 # LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.get_slot_data() instead
 func get_item_count(slot_index: int) -> int:
 	# NEW SYSTEM: Delegate to PlayerInventoryContainer
+	# Ensure container exists first (safe read - don't crash on startup)
+	# For read methods, just check - don't create (bootstrap or UI will create it)
+	if not player_inventory_container:
+		# Check registry in case it was registered but reference not set
+		var existing = get_container("player_inventory")
+		if existing:
+			player_inventory_container = existing
+	
 	if player_inventory_container:
 		var slot_data = player_inventory_container.get_slot_data(slot_index)
 		return slot_data["count"]
 	
-	# LEGACY SYSTEM
-	assert(legacy_mode_enabled, "get_item_count() called but legacy_mode_enabled is false and no container exists")
-	var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	return slot_data["count"]
+	# LEGACY SYSTEM: Only if legacy mode enabled
+	if legacy_mode_enabled:
+		var slot_data = inventory_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+		return slot_data["count"]
+	
+	# Safe default for read methods (don't crash on startup)
+	print("[InventoryManager] WARNING: get_item_count() called but no container exists - returning 0")
+	return 0
 
 
 # LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.remove_item_from_slot() instead
