@@ -81,6 +81,10 @@ func _ready() -> void:
 	if DragManager:
 		if not DragManager.dropped_on_world.is_connected(_on_toolkit_world_drop):
 			DragManager.dropped_on_world.connect(_on_toolkit_world_drop)
+		
+		# Connect to cursor-hold world drop signal
+		if not DragManager.cursor_hold_dropped_on_world.is_connected(_on_cursor_hold_dropped_on_world):
+			DragManager.cursor_hold_dropped_on_world.connect(_on_cursor_hold_dropped_on_world)
 
 
 func spawn_random_droppables_async(count: int) -> void:
@@ -365,13 +369,23 @@ func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
 	particle_emitter.queue_free()
 
 func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
-	"""Handle toolkit item dropped on world (e.g., chest placement)"""
+	"""Handle item dropped on world from drag (any item, or chest placement)"""
 	if texture == null:
 		return
 	
 	var tex_path = texture.resource_path
-	if tex_path != "res://assets/icons/chest_icon.png":
+	
+	# Special case: chest icon from toolkit → place chest
+	if tex_path == "res://assets/icons/chest_icon.png":
+		_handle_chest_placement(source_container, source_slot, texture, count, mouse_pos)
 		return
+	
+	# General case: any other item → spawn as droppable
+	_handle_item_world_drop(texture, count, mouse_pos, source_container, source_slot)
+
+
+func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
+	"""Handle chest placement on world"""
 	
 	# Convert screen mouse_pos to world position using MouseUtil
 	var world_pos = mouse_pos
@@ -451,7 +465,188 @@ func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: T
 		source_container.remove_item_from_slot(source_slot)
 	
 	# CRITICAL: Clear drag state and preview after successful world placement
-	# Use clear_drag_state() instead of cancel_drag() to avoid restoring source visuals
-	# (source container was already mutated above)
 	if DragManager:
 		DragManager.clear_drag_state()
+
+
+func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, source_container: Node, source_slot: int) -> void:
+	"""Handle any item dropped on world (spawn as droppable)"""
+	# Convert screen mouse_pos to world position using MouseUtil
+	var world_pos = mouse_pos
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	else:
+		# Fallback: use viewport
+		var viewport = get_viewport()
+		if viewport:
+			var camera = viewport.get_camera_2d()
+			if camera:
+				var viewport_size = viewport.size
+				var camera_pos = camera.global_position
+				var mouse_screen = mouse_pos
+				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
+	
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
+	
+	# Spawn droppable item(s) using DroppableFactory
+	if DroppableFactory and hud_instance:
+		# Try to get item_id from texture
+		var item_id = DroppableFactory.get_item_id_from_texture(texture)
+		
+		if item_id.is_empty():
+			# No matching item_id - spawn generic droppable with texture
+			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
+			var droppable_instance = droppable_scene.instantiate()
+			
+			# Create minimal item data resource
+			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
+			item_data.texture = texture
+			
+			droppable_instance.item_data = item_data
+			droppable_instance.global_position = snapped_pos
+			droppable_instance.hud = hud_instance
+			droppable_instance.scale = Vector2(0.75, 0.75)
+			
+			add_child(droppable_instance)
+			
+			# If count > 1, spawn additional instances
+			for i in range(count - 1):
+				var additional = droppable_scene.instantiate()
+				additional.item_data = item_data
+				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
+				additional.hud = hud_instance
+				additional.scale = Vector2(0.75, 0.75)
+				add_child(additional)
+		else:
+			# Use existing item_id - spawn via factory
+			for i in range(count):
+				var spawn_offset = Vector2(randf_range(-4, 4), randf_range(-4, 4)) if count > 1 else Vector2.ZERO
+				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
+				if droppable:
+					droppable.scale = Vector2(0.75, 0.75)
+		
+		print("[FarmScene] Item world drop: texture=%s count=%d at %s" % [
+			texture.resource_path if texture else "null",
+			count,
+			snapped_pos
+		])
+	
+	# Remove items from source container BEFORE clearing drag state
+	if source_container and is_instance_valid(source_container):
+		if source_container.has_method("remove_item_from_slot"):
+			var removed = source_container.remove_item_from_slot(source_slot)
+			print("[FarmScene] Removed items from source container: slot=%d container=%s removed=%s" % [
+				source_slot,
+				source_container.container_id if "container_id" in source_container else "unknown",
+				removed
+			])
+			# Ensure UI is synced after removal
+			if source_container.has_method("sync_slot_ui"):
+				source_container.sync_slot_ui(source_slot)
+		else:
+			print("[FarmScene] ERROR: Source container has no remove_item_from_slot method")
+	else:
+		print("[FarmScene] ERROR: Source container is invalid or null - container=%s slot=%d" % [
+			"null" if not source_container else "invalid",
+			source_slot
+		])
+	
+	# Clear drag state AFTER removing items
+	if DragManager:
+		DragManager.clear_drag_state()
+
+
+func _on_cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: Vector2) -> void:
+	"""Handle cursor-hold items dropped on world"""
+	if texture == null or count <= 0:
+		return
+	
+	# Convert screen mouse_pos to world position using MouseUtil
+	var world_pos = mouse_pos
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(self)
+	else:
+		# Fallback: use viewport
+		var viewport = get_viewport()
+		if viewport:
+			var camera = viewport.get_camera_2d()
+			if camera:
+				var viewport_size = viewport.size
+				var camera_pos = camera.global_position
+				var mouse_screen = mouse_pos
+				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
+	
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
+	
+	# Spawn droppable item(s) using DroppableFactory
+	if DroppableFactory and hud_instance:
+		# Try to get item_id from texture
+		var item_id = DroppableFactory.get_item_id_from_texture(texture)
+		
+		if item_id.is_empty():
+			# No matching item_id - spawn generic droppable with texture
+			# Create minimal droppable instance
+			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
+			var droppable_instance = droppable_scene.instantiate()
+			
+			# Create minimal item data resource
+			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
+			item_data.texture = texture
+			
+			droppable_instance.item_data = item_data
+			droppable_instance.global_position = snapped_pos
+			droppable_instance.hud = hud_instance
+			droppable_instance.scale = Vector2(0.75, 0.75)
+			
+			add_child(droppable_instance)
+			
+			# If count > 1, spawn additional instances
+			for i in range(count - 1):
+				var additional = droppable_scene.instantiate()
+				additional.item_data = item_data
+				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
+				additional.hud = hud_instance
+				additional.scale = Vector2(0.75, 0.75)
+				add_child(additional)
+		else:
+			# Use existing item_id - spawn via factory
+			for i in range(count):
+				var spawn_offset = Vector2(randf_range(-4, 4), randf_range(-4, 4)) if count > 1 else Vector2.ZERO
+				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
+				if droppable:
+					droppable.scale = Vector2(0.75, 0.75)
+		
+		print("[FarmScene] Cursor-hold world drop: texture=%s count=%d at %s" % [
+			texture.resource_path if texture else "null",
+			count,
+			snapped_pos
+		])
+		
+		# Consume from cursor-hold after successful spawn
+		if DragManager:
+			DragManager.consume_from_cursor_hold(count)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	"""Handle world clicks for cursor-hold world drops"""
+	if not DragManager or not DragManager.cursor_hold_active:
+		return
+	
+	# Check for left/right mouse button press
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+		if mb.pressed and (mb.button_index == MOUSE_BUTTON_LEFT or mb.button_index == MOUSE_BUTTON_RIGHT):
+			# Check if mouse is over any UI Control
+			var viewport = get_viewport()
+			if viewport:
+				var hovered_control = viewport.gui_get_hovered_control()
+				
+				# If no UI control is hovered, treat as world click
+				if hovered_control == null:
+					var is_right_click = (mb.button_index == MOUSE_BUTTON_RIGHT)
+					if DragManager.try_world_click_drop(is_right_click):
+						# Consume the event to prevent other handlers
+						get_viewport().set_input_as_handled()
+						return

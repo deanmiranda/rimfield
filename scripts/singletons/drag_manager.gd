@@ -6,6 +6,7 @@ extends Node
 
 # Signals
 signal dropped_on_world(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2)
+signal cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: Vector2)
 
 # Drag state
 var is_dragging: bool = false
@@ -268,9 +269,10 @@ func _reset_state() -> void:
 
 func start_cursor_hold(texture: Texture, count: int) -> void:
 	"""Start cursor-hold mode (pickup 1 item into cursor)"""
+	# Clear any existing drag state first
 	if is_dragging:
-		print("[DragManager] WARNING: Cannot start cursor-hold while dragging")
-		return
+		print("[DragManager] Clearing drag state before starting cursor-hold")
+		clear_drag_state()
 	
 	cursor_hold_active = true
 	cursor_hold_texture = texture
@@ -284,6 +286,12 @@ func start_cursor_hold(texture: Texture, count: int) -> void:
 	# Reuse existing preview UI for cursor-hold
 	_create_preview(texture, count)
 	set_process(true)
+	
+	# Update preview position immediately
+	var viewport = get_viewport()
+	if viewport:
+		var mouse_pos = viewport.get_mouse_position()
+		update_drag_preview_position(mouse_pos)
 
 
 func add_one_to_cursor_from(source_container: Node, source_slot: int) -> bool:
@@ -411,6 +419,43 @@ func place_all_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	return true
 
 
+func pickup_full_stack_to_cursor_from(source_container: Node, source_slot: int) -> void:
+	"""Pickup full stack from source slot into cursor-hold"""
+	if not source_container or not source_container.has_method("get_slot_data"):
+		print("[DragManager] ERROR: Cannot pickup - invalid container")
+		return
+	
+	# Get slot data
+	var slot_data = source_container.get_slot_data(source_slot)
+	if not slot_data:
+		print("[DragManager] ERROR: Cannot pickup - no slot data")
+		return
+	
+	var texture = slot_data.get("texture")
+	var count = int(slot_data.get("count", 0))
+	
+	if not texture or count <= 0:
+		print("[DragManager] ERROR: Cannot pickup - empty slot")
+		return
+	
+	# Remove entire stack from source
+	if source_container.has_method("remove_item_from_slot"):
+		source_container.remove_item_from_slot(source_slot)
+	elif source_container.has_method("set_slot_data"):
+		source_container.set_slot_data(source_slot, null, 0)
+	else:
+		print("[DragManager] ERROR: Cannot pickup - container has no remove method")
+		return
+	
+	# Start cursor-hold with full stack
+	start_cursor_hold(texture, count)
+	
+	print("[DragManager] Picked up full stack to cursor-hold: texture=%s count=%d" % [
+		texture.resource_path if texture else "null",
+		count
+	])
+
+
 func clear_cursor_hold() -> void:
 	"""Clear cursor-hold state"""
 	if cursor_hold_active:
@@ -419,6 +464,79 @@ func clear_cursor_hold() -> void:
 		cursor_hold_texture = null
 		cursor_hold_count = 0
 		cleanup_preview()
+
+
+func emit_cursor_hold_world_drop(drop_count: int, mouse_pos: Vector2) -> void:
+	"""Emit cursor-hold world drop signal and update cursor state"""
+	if not cursor_hold_active:
+		return
+	
+	if not cursor_hold_texture:
+		return
+	
+	if drop_count <= 0:
+		return
+	
+	# Clamp drop_count to available
+	var actual_drop_count = min(drop_count, cursor_hold_count)
+	if actual_drop_count <= 0:
+		return
+	
+	# Emit signal (consumption happens in farm_scene after successful spawn)
+	cursor_hold_dropped_on_world.emit(cursor_hold_texture, actual_drop_count, mouse_pos)
+	
+	print("[DragManager] Cursor-hold world drop emitted: texture=%s count=%d" % [
+		cursor_hold_texture.resource_path if cursor_hold_texture else "null",
+		actual_drop_count
+	])
+
+
+func consume_from_cursor_hold(amount: int) -> int:
+	"""Consume amount from cursor-hold - returns actual amount consumed"""
+	if not cursor_hold_active:
+		return 0
+	
+	if amount <= 0:
+		return 0
+	
+	# Clamp to available
+	var actual_amount = min(amount, cursor_hold_count)
+	if actual_amount <= 0:
+		return 0
+	
+	# Decrement cursor count
+	cursor_hold_count -= actual_amount
+	
+	# Update preview or clear if empty
+	if cursor_hold_count <= 0:
+		clear_cursor_hold()
+	else:
+		if drag_preview_label:
+			drag_preview_label.text = str(cursor_hold_count)
+	
+	return actual_amount
+
+
+func try_world_click_drop(is_right_click: bool) -> bool:
+	"""Try to drop cursor-hold items to world - returns true if drop occurred"""
+	if not cursor_hold_active:
+		return false
+	
+	# Determine drop count
+	var drop_count = cursor_hold_count
+	if is_right_click:
+		drop_count = 1
+	
+	# Get mouse position
+	var viewport = get_viewport()
+	if not viewport:
+		return false
+	
+	var click_pos = viewport.get_mouse_position()
+	
+	# Emit world drop
+	emit_cursor_hold_world_drop(drop_count, click_pos)
+	return true
 
 
 func get_hovered_slot() -> Node:

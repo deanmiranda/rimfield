@@ -125,15 +125,29 @@ func _on_left_click_down(event: InputEventMouseButton) -> void:
 
 func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 	"""Handle left mouse button release"""
-	# Check cursor-hold first (place all from cursor)
+	# Check cursor-hold first (place all from cursor or world drop)
 	if DragManager and DragManager.cursor_hold_active:
-		if DragManager.place_all_from_cursor_to(container_ref, slot_index):
-			# Sync visual after placement
-			if container_ref.has_method("get_slot_data"):
-				var updated_data = container_ref.get_slot_data(slot_index)
-				item_texture = updated_data["texture"]
-				stack_count = updated_data["count"]
-				update_visual()
+		# Check if clicking on a slot (place all)
+		var target_slot_node = DragManager.get_hovered_slot()
+		if target_slot_node and target_slot_node == self:
+			# Clicking on this slot - place all from cursor
+			if container_ref:
+				if DragManager.place_all_from_cursor_to(container_ref, slot_index):
+					# Sync visual after placement
+					if container_ref.has_method("get_slot_data"):
+						var updated_data = container_ref.get_slot_data(slot_index)
+						item_texture = updated_data["texture"]
+						stack_count = updated_data["count"]
+						update_visual()
+					accept_event()
+					get_viewport().set_input_as_handled()
+					return
+		else:
+			# No hovered slot or clicking on different slot - drop all to world
+			var viewport = get_viewport()
+			if viewport:
+				var mouse_pos = viewport.get_mouse_position()
+				DragManager.emit_cursor_hold_world_drop(DragManager.cursor_hold_count, mouse_pos)
 			accept_event()
 			get_viewport().set_input_as_handled()
 			return
@@ -151,11 +165,26 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 					DragManager.cancel_drag()
 					_restore_after_cancel()
 					
-					# This was a click, not a drag - emit tool_selected for ToolSwitcher
+					# This was a click, not a drag - check for tool selection or full-stack pickup
 					if container_ref and "container_type" in container_ref:
 						if container_ref.container_type == "toolkit":
+							# Toolkit: emit tool_selected for ToolSwitcher
 							emit_signal("tool_selected", slot_index, item_texture)
 							print("[SlotBase] Emitted tool_selected: slot %d" % slot_index)
+						elif _can_left_click_pickup_full_stack():
+							# Non-toolkit: pickup full stack to cursor-hold
+							print("[SlotBase] Left-click short tap: picking up full stack from slot %d" % slot_index)
+							if DragManager:
+								# Ensure drag is fully cleared before starting cursor-hold
+								if DragManager.is_dragging:
+									DragManager.clear_drag_state()
+								DragManager.pickup_full_stack_to_cursor_from(container_ref, slot_index)
+								# Sync visual after removal
+								if container_ref.has_method("get_slot_data"):
+									var updated_data = container_ref.get_slot_data(slot_index)
+									item_texture = updated_data["texture"]
+									stack_count = updated_data["count"]
+									update_visual()
 					
 					accept_event()
 					get_viewport().set_input_as_handled()
@@ -184,17 +213,11 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - check if item is world-placeable
-			if _is_world_placeable_drag():
-				print("[SlotBase] No hovered slot found, but item is world-placeable - emitting world drop")
-				DragManager.emit_world_drop()
-				# Clear stored original data (world drop committed)
-				original_slot_data.clear()
-			else:
-				# No valid target and not world-placeable - cancel drag
-				print("[SlotBase] No hovered slot found - canceling drag")
-				DragManager.cancel_drag()
-				_restore_after_cancel()
+			# No valid target found - drop to world (any item can be dropped)
+			print("[SlotBase] No hovered slot found - dropping to world")
+			DragManager.emit_world_drop()
+			# Clear stored original data (world drop committed)
+			original_slot_data.clear()
 		
 		accept_event() # Consume the event to prevent further processing
 		get_viewport().set_input_as_handled()
@@ -239,33 +262,48 @@ func _on_right_click_down(_event: InputEventMouseButton) -> void:
 
 func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 	"""Handle right mouse button release - performs mutations here"""
-	# Check cursor-hold first (accumulate or place 1)
+	# Check cursor-hold first (accumulate or place 1 or world drop)
 	if _right_click_cursor_hold_consumed and DragManager and DragManager.cursor_hold_active:
-		# Check if clicking on source slot with same texture (accumulate)
-		if container_ref and item_texture and item_texture == DragManager.cursor_hold_texture:
-			# Add 1 from this slot to cursor (exactly one mutation)
-			print("[SlotBase] Right-click cursor-hold: accumulate 1 from slot %d" % slot_index)
-			if DragManager.add_one_to_cursor_from(container_ref, slot_index):
-				# Sync visual after removal
-				if container_ref.has_method("get_slot_data"):
-					var updated_data = container_ref.get_slot_data(slot_index)
-					item_texture = updated_data["texture"]
-					stack_count = updated_data["count"]
-					update_visual()
-				_right_click_cursor_hold_consumed = false
-				accept_event()
-				get_viewport().set_input_as_handled()
-				return
+		# Check if clicking on a slot
+		if container_ref:
+			# Check if clicking on source slot with same texture (accumulate)
+			if item_texture and item_texture == DragManager.cursor_hold_texture:
+				# Add 1 from this slot to cursor (exactly one mutation)
+				print("[SlotBase] Right-click cursor-hold: accumulate 1 from slot %d" % slot_index)
+				if DragManager.add_one_to_cursor_from(container_ref, slot_index):
+					# Sync visual after removal
+					if container_ref.has_method("get_slot_data"):
+						var updated_data = container_ref.get_slot_data(slot_index)
+						item_texture = updated_data["texture"]
+						stack_count = updated_data["count"]
+						update_visual()
+					_right_click_cursor_hold_consumed = false
+					accept_event()
+					get_viewport().set_input_as_handled()
+					return
+			else:
+				# Place 1 from cursor to this slot (exactly one mutation)
+				print("[SlotBase] Right-click cursor-hold: place 1 to slot %d" % slot_index)
+				if DragManager.place_one_from_cursor_to(container_ref, slot_index):
+					# Sync visual after placement
+					if container_ref.has_method("get_slot_data"):
+						var updated_data = container_ref.get_slot_data(slot_index)
+						item_texture = updated_data["texture"]
+						stack_count = updated_data["count"]
+						update_visual()
+					_right_click_cursor_hold_consumed = false
+					accept_event()
+					get_viewport().set_input_as_handled()
+					return
 		else:
-			# Place 1 from cursor to this slot (exactly one mutation)
-			print("[SlotBase] Right-click cursor-hold: place 1 to slot %d" % slot_index)
-			if DragManager.place_one_from_cursor_to(container_ref, slot_index):
-				# Sync visual after placement
-				if container_ref.has_method("get_slot_data"):
-					var updated_data = container_ref.get_slot_data(slot_index)
-					item_texture = updated_data["texture"]
-					stack_count = updated_data["count"]
-					update_visual()
+			# No container_ref - check if no hovered slot (world drop 1)
+			var target_slot_node = DragManager.get_hovered_slot()
+			if not target_slot_node:
+				# No hovered slot - drop 1 to world
+				var viewport = get_viewport()
+				if viewport:
+					var mouse_pos = viewport.get_mouse_position()
+					DragManager.emit_cursor_hold_world_drop(1, mouse_pos)
 				_right_click_cursor_hold_consumed = false
 				accept_event()
 				get_viewport().set_input_as_handled()
@@ -321,17 +359,11 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - check if item is world-placeable
-			if _is_world_placeable_drag():
-				print("[SlotBase] No hovered slot found, but item is world-placeable - emitting world drop")
-				DragManager.emit_world_drop()
-				# Clear stored original data (world drop committed)
-				original_slot_data.clear()
-			else:
-				# No valid target and not world-placeable - cancel drag
-				print("[SlotBase] No hovered slot found - canceling drag")
-				DragManager.cancel_drag()
-				_restore_after_cancel()
+			# No valid target found - drop to world (any item can be dropped)
+			print("[SlotBase] No hovered slot found - dropping to world")
+			DragManager.emit_world_drop()
+			# Clear stored original data (world drop committed)
+			original_slot_data.clear()
 		
 		accept_event() # Consume the event
 		get_viewport().set_input_as_handled()
@@ -366,25 +398,30 @@ func _is_world_placeable_drag() -> bool:
 
 func _pickup_one_to_cursor() -> void:
 	"""Pickup 1 item from this slot into cursor-hold"""
-	if not container_ref or not item_texture or stack_count <= 0:
+	# Get current slot data FIRST before any mutations
+	var current_texture = item_texture
+	var current_count = stack_count
+	
+	if not container_ref or not current_texture or current_count <= 0:
+		print("[SlotBase] ERROR: Cannot pickup - invalid slot data")
 		return
 	
 	if not DragManager:
 		return
 	
 	# Remove 1 from source using ContainerBase API
-	var remaining = stack_count - 1
+	var remaining = current_count - 1
 	if remaining > 0:
 		if container_ref.has_method("set_slot_data"):
-			container_ref.set_slot_data(slot_index, item_texture, remaining)
+			container_ref.set_slot_data(slot_index, current_texture, remaining)
 		else:
 			container_ref.remove_item_from_slot(slot_index)
-			container_ref.add_item_to_slot(slot_index, item_texture, remaining)
+			container_ref.add_item_to_slot(slot_index, current_texture, remaining)
 	else:
 		container_ref.remove_item_from_slot(slot_index)
 	
-	# Start cursor-hold with 1 item
-	DragManager.start_cursor_hold(item_texture, 1)
+	# Start cursor-hold with 1 item (use the texture we captured BEFORE mutation)
+	DragManager.start_cursor_hold(current_texture, 1)
 	
 	# Sync visual
 	if container_ref.has_method("get_slot_data"):
@@ -394,7 +431,7 @@ func _pickup_one_to_cursor() -> void:
 		update_visual()
 	
 	print("[SlotBase] Picked up 1 item to cursor-hold: texture=%s" % [
-		item_texture.resource_path if item_texture else "null"
+		current_texture.resource_path if current_texture else "null"
 	])
 
 
@@ -550,6 +587,27 @@ func _is_mouse_over_hud_slot(mouse_pos: Vector2) -> bool:
 				return true
 	
 	return false
+
+
+func _can_left_click_pickup_full_stack() -> bool:
+	"""Check if left-click should pickup full stack to cursor-hold"""
+	# Don't pickup if source container is toolkit/HUD
+	if not container_ref:
+		return false
+	
+	if "container_type" in container_ref:
+		if container_ref.container_type == "toolkit":
+			return false
+	
+	# Don't pickup if slot is empty
+	if not item_texture or stack_count <= 0:
+		return false
+	
+	# Don't pickup if cursor-hold is already active (ambiguous behavior)
+	if DragManager and DragManager.cursor_hold_active:
+		return false
+	
+	return true
 
 
 func _restore_after_cancel() -> void:
