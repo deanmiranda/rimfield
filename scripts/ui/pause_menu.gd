@@ -256,7 +256,6 @@ func _setup_inventory_slots() -> void:
 	player_inventory_container.sync_ui()
 	
 
-
 func _setup_player_sprite() -> void:
 	"""Setup player sprite using first frame of idle animation"""
 	if not player_sprite:
@@ -466,7 +465,6 @@ func _set_inventory_drop_targets_enabled(enabled: bool) -> void:
 	if valid_slots.size() != pause_inventory_slots.size():
 		pause_inventory_slots = valid_slots
 	
-
 
 func _on_resume_button_pressed() -> void:
 	"""Resume game"""

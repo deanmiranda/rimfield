@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=4 uid="uid://b4sckf0422b4q"]
+[gd_scene load_steps=26 format=4 uid="uid://b4sckf0422b4q"]
 
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_we3j4"]
 [ext_resource type="Script" uid="uid://c33axxd1pdh6i" path="res://scripts/scenes/farm_scene.gd" id="1_y06tk"]
@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://breduu05uy4ae" path="res://assets/particles/particle-dirt-1x1.png" id="6_t8wgt"]
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="7_5fkjj"]
 [ext_resource type="Texture2D" uid="uid://dhob787qfh1gf" path="res://assets/tiles/farm/crops_wet.png" id="8_0dol0"]
+[ext_resource type="PackedScene" uid="uid://b8p8amgkvuci8" path="res://scenes/world/tree.tscn" id="10_0dol0"]
 [ext_resource type="Script" uid="uid://ch30oq22mw118" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
 [ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="12_buildings"]
@@ -5731,6 +5732,25 @@ light_mask = 0
 material = SubResource("CanvasItemMaterial_4pxu5")
 position = Vector2(15, -14)
 shape = SubResource("RectangleShape2D_7nnll")
+
+[node name="WorldActors" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Tree2" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-128, 0)
+tree_type = 2
+
+[node name="Tree" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-128, -16)
+
+[node name="Tree3" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-144, -8)
+growth_stage = 0
+
+[node name="Tree4" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-120, 8)
+tree_type = 2
+growth_stage = 0
 
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]

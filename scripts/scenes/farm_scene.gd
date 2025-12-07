@@ -27,10 +27,34 @@ func _ready() -> void:
 	if DroppableFactory:
 		DroppableFactory.restore_droppables_for_scene("Farm")
 	
+	# Ensure WorldActors exists for Y-sorting
+	var world_actors = get_node_or_null("WorldActors")
+	if not world_actors:
+		world_actors = Node2D.new()
+		world_actors.name = "WorldActors"
+		world_actors.y_sort_enabled = true
+		add_child(world_actors)
+	
+	# Reparent any Tree instances from Farm root to WorldActors
+	_reparent_trees_to_world_actors(world_actors)
+	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()
-	add_child(player_instance)
+	
+	# Remove z_index from Player CharacterBody2D to allow Y-sorting
+	var player_body = player_instance.get_node_or_null("Player")
+	if player_body and player_body is CharacterBody2D:
+		player_body.z_index = 0
+	
+	# Add player to WorldActors for Y-sorting with trees and other placeables
+	var existing_player = world_actors.get_node_or_null("Player")
+	if existing_player:
+		# Player already exists, don't add duplicate
+		player_instance.queue_free()
+		player_instance = existing_player
+	else:
+		world_actors.add_child(player_instance)
 
 	# Use spawn position from SceneManager if set (e.g., exiting house)
 	if SceneManager and SceneManager.player_spawn_position != Vector2.ZERO:
@@ -57,6 +81,27 @@ func _ready() -> void:
 
 	# Defer farming initialization to allow TileSet to load asynchronously
 	call_deferred("_initialize_farming")
+
+
+func _reparent_trees_to_world_actors(world_actors: Node2D) -> void:
+	"""Reparent any Tree instances from Farm root to WorldActors for Y-sorting."""
+	# Find all children that are Tree instances
+	for child in get_children():
+		# Skip WorldActors itself
+		if child == world_actors:
+			continue
+		
+		# Check if this is a Tree instance by checking if it has the Tree script
+		if child is Node2D:
+			var child_script = child.get_script()
+			if child_script:
+				var script_path = child_script.resource_path
+				if script_path.ends_with("tree.gd"):
+					# This is a Tree instance, reparent it to WorldActors
+					var global_pos = child.global_position
+					remove_child(child)
+					world_actors.add_child(child)
+					child.global_position = global_pos
 	
 	# Instantiate and add the HUD (can happen immediately, linking happens in _initialize_farming)
 	if hud_scene_path:
