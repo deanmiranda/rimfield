@@ -838,24 +838,16 @@ func _sync_initial_toolkit_from_ui() -> void:
 				var hud_slot = texture_button.get_node_or_null("Hud_slot_" + str(i))
 				if hud_slot and hud_slot is TextureRect:
 					slot_texture = hud_slot.texture
+			# Tools/chest/seeds are now spawned as droppables on Day 1, not initialized in HUD
+			# Keep this code for legacy save file migration only
 			if slot_texture:
 				var seed_texture_path = "res://assets/tilesets/full version/tiles/FartSnipSeeds.png"
-				var chest_texture_path = "res://assets/icons/chest_icon.png"
 				var initial_count = 1
 				if slot_texture.resource_path == seed_texture_path:
 					initial_count = 10
-				elif i == 4 and slot_texture.resource_path == chest_texture_path:
-					initial_count = 1
 				toolkit_slots[i] = {"texture": slot_texture, "count": initial_count, "weight": 0.0}
 				if texture_button.has_method("set_item"):
 					texture_button.set_item(slot_texture, initial_count)
-			elif i == 4:
-				var chest_texture = load("res://assets/icons/chest_icon.png")
-				if chest_texture:
-					toolkit_slots[i] = {"texture": chest_texture, "count": 1, "weight": 0.0}
-					if texture_button.has_method("set_item"):
-						texture_button.set_item(chest_texture, 1)
-					print("[InventoryManager] TESTING: Added chest to slot 4 for testing")
 
 
 # LEGACY METHOD - DEPRECATED - ToolkitContainer handles its own data

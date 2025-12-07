@@ -73,9 +73,22 @@ func _ready() -> void:
 	else:
 		print("Error: HUD scene not assigned!")
 
-	# Spawn droppables asynchronously to avoid scene load delay
-	# TESTING: Increased to 80 for inventory-full testing
-	spawn_random_droppables_async(80)
+	# Spawn random droppables ONLY on Day 1 of new game (gate to prevent re-spawning)
+	var is_day1 := false
+	if GameTimeManager:
+		is_day1 = GameTimeManager.day == 1 and GameTimeManager.season == 0 and GameTimeManager.year == 1
+	
+	if GameState:
+		print("[FarmScene] Day1 droppable gate: is_day1=%s spawned_flag=%s" % [str(is_day1), str(GameState.day1_farm_random_droppables_spawned)])
+		
+		if is_day1 and not GameState.day1_farm_random_droppables_spawned:
+			# Set flag BEFORE spawning to prevent double-spawn if _ready() triggers twice
+			GameState.day1_farm_random_droppables_spawned = true
+			print("[FarmScene] Spawning Day 1 random droppables (80)")
+			spawn_random_droppables_async(80)
+			
+			# Spawn starter tools, chest, and seeds as droppables
+			spawn_starter_items_async()
 	
 	# Connect to DragManager world drop signal for chest placement
 	if DragManager:
@@ -132,6 +145,60 @@ func _get_random_farm_position() -> Vector2:
 	var random_x = randi() % int(farm_area.size.x) + farm_area.position.x
 	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
 	return Vector2(random_x, random_y)
+
+
+func spawn_starter_items_async() -> void:
+	"""Spawn starter tools, chest, and seeds as droppables on Day 1"""
+	if not hud_instance:
+		print("[FarmScene] Error: HUD instance is null! Starter items cannot be spawned.")
+		return
+	
+	await get_tree().process_frame
+	
+	# Load tool textures
+	var shovel_texture = load("res://assets/tiles/tools/shovel.png")
+	var watering_can_texture = load("res://assets/tiles/tools/watering-can.png")
+	var pickaxe_texture = load("res://assets/tiles/tools/pick-axe.png")
+	var chest_texture = load("res://assets/icons/chest_icon.png")
+	var seeds_texture = load("res://assets/tilesets/full version/tiles/FartSnipSeeds.png")
+	
+	# Spawn tools (one of each)
+	if shovel_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(shovel_texture, pos, hud_instance, 1)
+		print("[FarmScene] Spawned starter shovel at %s" % str(pos))
+	
+	await get_tree().process_frame
+	
+	if watering_can_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(watering_can_texture, pos, hud_instance, 1)
+		print("[FarmScene] Spawned starter watering can at %s" % str(pos))
+	
+	await get_tree().process_frame
+	
+	if pickaxe_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(pickaxe_texture, pos, hud_instance, 1)
+		print("[FarmScene] Spawned starter pickaxe at %s" % str(pos))
+	
+	await get_tree().process_frame
+	
+	# Spawn chest (one)
+	if chest_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(chest_texture, pos, hud_instance, 1)
+		print("[FarmScene] Spawned starter chest at %s" % str(pos))
+	
+	await get_tree().process_frame
+	
+	# Spawn seeds (stack of 10)
+	if seeds_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(seeds_texture, pos, hud_instance, 10)
+		print("[FarmScene] Spawned starter seeds (x10) at %s" % str(pos))
+	
+	print("[FarmScene] Finished spawning starter items")
 
 
 func _initialize_farming() -> void:
@@ -495,29 +562,10 @@ func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, s
 		var item_id = DroppableFactory.get_item_id_from_texture(texture)
 		
 		if item_id.is_empty():
-			# No matching item_id - spawn generic droppable with texture
-			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
-			var droppable_instance = droppable_scene.instantiate()
-			
-			# Create minimal item data resource
-			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
-			item_data.texture = texture
-			
-			droppable_instance.item_data = item_data
-			droppable_instance.global_position = snapped_pos
-			droppable_instance.hud = hud_instance
-			droppable_instance.scale = Vector2(0.75, 0.75)
-			
-			add_child(droppable_instance)
-			
-			# If count > 1, spawn additional instances
-			for i in range(count - 1):
-				var additional = droppable_scene.instantiate()
-				additional.item_data = item_data
-				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
-				additional.hud = hud_instance
-				additional.scale = Vector2(0.75, 0.75)
-				add_child(additional)
+			# No matching item_id - spawn generic droppable with texture via factory
+			# This ensures proper registration for persistence
+			if texture is Texture2D:
+				DroppableFactory.spawn_generic_droppable_from_texture(texture, snapped_pos, hud_instance, count)
 		else:
 			# Use existing item_id - spawn via factory
 			for i in range(count):
@@ -586,30 +634,10 @@ func _on_cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: V
 		var item_id = DroppableFactory.get_item_id_from_texture(texture)
 		
 		if item_id.is_empty():
-			# No matching item_id - spawn generic droppable with texture
-			# Create minimal droppable instance
-			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
-			var droppable_instance = droppable_scene.instantiate()
-			
-			# Create minimal item data resource
-			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
-			item_data.texture = texture
-			
-			droppable_instance.item_data = item_data
-			droppable_instance.global_position = snapped_pos
-			droppable_instance.hud = hud_instance
-			droppable_instance.scale = Vector2(0.75, 0.75)
-			
-			add_child(droppable_instance)
-			
-			# If count > 1, spawn additional instances
-			for i in range(count - 1):
-				var additional = droppable_scene.instantiate()
-				additional.item_data = item_data
-				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
-				additional.hud = hud_instance
-				additional.scale = Vector2(0.75, 0.75)
-				add_child(additional)
+			# No matching item_id - spawn generic droppable with texture via factory
+			# This ensures proper registration for persistence
+			if texture is Texture2D:
+				DroppableFactory.spawn_generic_droppable_from_texture(texture, snapped_pos, hud_instance, count)
 		else:
 			# Use existing item_id - spawn via factory
 			for i in range(count):

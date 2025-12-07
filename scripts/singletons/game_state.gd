@@ -24,6 +24,9 @@ var farm_state: Dictionary = {}
 # Current save file being used
 var current_save_file: String = "" # No default save file to prevent initial save issues
 
+# Day 1 spawn gate: prevents re-spawning farm random droppables across scene reloads
+var day1_farm_random_droppables_spawned: bool = false
+
 # Signal to notify when a game is loaded successfully
 signal game_loaded
 
@@ -230,6 +233,7 @@ func save_game(file: String = "") -> void:
 		"inventory_items": inventory_items,
 		"chest_data": chest_data,
 		"droppable_data": droppable_data,
+		"day1_farm_random_droppables_spawned": day1_farm_random_droppables_spawned,
 		"game_time": {
 			"day": GameTimeManager.day if GameTimeManager else 1,
 			"season": GameTimeManager.season if GameTimeManager else 0,
@@ -285,6 +289,9 @@ func load_game(file: String = "") -> bool:
 		
 		current_scene = save_data.get("current_scene", "farm_scene")
 		
+		# Restore Day 1 spawn flag
+		day1_farm_random_droppables_spawned = save_data.get("day1_farm_random_droppables_spawned", false)
+		
 		# Restore game time if present
 		if save_data.has("game_time") and GameTimeManager:
 			var time_data = save_data["game_time"]
@@ -300,7 +307,16 @@ func load_game(file: String = "") -> bool:
 
 		# Restore toolkit and inventory to InventoryManager
 		if InventoryManager:
-			# Clear existing data
+			# DEBUG: Log toolkit_slots BEFORE clear
+			print("[GameState] LOAD: toolkit_slots keys BEFORE clear:")
+			for k in InventoryManager.toolkit_slots.keys():
+				print("  key=%s type=%s" % [str(k), typeof(k)])
+			
+			# CRITICAL: Clear legacy dicts completely to prevent mixed-key bug
+			InventoryManager.toolkit_slots.clear()
+			InventoryManager.inventory_slots.clear()
+			
+			# Initialize with empty slots (int keys only)
 			for i in range(InventoryManager.max_toolkit_slots):
 				InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 			for i in range(InventoryManager.max_inventory_slots):
@@ -340,16 +356,15 @@ func load_game(file: String = "") -> bool:
 						else:
 							print("Warning: Could not load texture:", texture_path)
 
-			var toolkit_count = save_data.get("toolkit_items", []).size()
-			var inventory_count = save_data.get("inventory_items", []).size()
-			
-			# Debug: Log what items were loaded
-			if toolkit_count > 0:
-				for item in save_data.get("toolkit_items", []):
-					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
-			if inventory_count > 0:
-				for item in save_data.get("inventory_items", []):
-					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
+			# DEBUG: Log toolkit_slots AFTER load
+			print("[GameState] LOAD: toolkit_slots.size()=%d after load" % InventoryManager.toolkit_slots.size())
+			print("[GameState] LOAD: toolkit_slots keys AFTER load:")
+			for k in InventoryManager.toolkit_slots.keys():
+				var data = InventoryManager.toolkit_slots[k]
+				var tex_str = "null"
+				if data.has("texture") and data["texture"]:
+					tex_str = data["texture"].resource_path if data["texture"] is Texture2D else str(data["texture"])
+				print("  key=%s type=%s texture=%s count=%d" % [str(k), typeof(k), tex_str, data.get("count", 0)])
 			
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
@@ -416,6 +431,8 @@ func manage_save_files() -> void:
 	# Remove old saves, keeping only the 10 most recent (FIFO - First In First Out)
 	const MAX_SAVE_FILES = 10
 	
+	print("[GameState] Managing save files: found %d saves, max is %d" % [save_files_with_time.size(), MAX_SAVE_FILES])
+	
 	while save_files_with_time.size() > MAX_SAVE_FILES:
 		var oldest_save = save_files_with_time.pop_front()
 		var oldest_file_name = oldest_save.name
@@ -432,8 +449,14 @@ func manage_save_files() -> void:
 			var delete_result = delete_dir.remove(oldest_file_name)
 			if delete_result == OK:
 				var mod_date = Time.get_datetime_dict_from_unix_time(oldest_save.time)
+				print("[GameState] Deleted old save file: %s (modified: %02d/%02d/%d)" % [
+					oldest_file_name,
+					mod_date.month,
+					mod_date.day,
+					mod_date.year
+				])
 			else:
-				print("[GameState] Error: Failed to delete old save file:", oldest_file_name)
+				print("[GameState] Error: Failed to delete old save file: %s" % oldest_file_name)
 
 
 # Helper function to stop intro music from main menu
@@ -463,6 +486,9 @@ func new_game() -> void:
 	# Clear all tile states
 	farm_state.clear()
 	
+	# Reset Day 1 spawn flag
+	day1_farm_random_droppables_spawned = false
+	
 	# Clear all chests
 	if ChestManager:
 		ChestManager.reset_all()
@@ -471,14 +497,26 @@ func new_game() -> void:
 	if DroppableFactory:
 		DroppableFactory.reset_all_droppables()
 	
-	# Clear toolkit_slots so HUD will re-sync from the scene file
+	# Clear toolkit and inventory (both legacy dicts and new container system)
 	if InventoryManager:
+		# Clear legacy dicts
 		for i in range(InventoryManager.max_toolkit_slots):
 			InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+		for i in range(InventoryManager.max_inventory_slots):
+			InventoryManager.inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+		
+		# Clear new container system (clear inventory_data dictionaries)
+		if InventoryManager.toolkit_container:
+			for i in range(InventoryManager.toolkit_container.slot_count):
+				InventoryManager.toolkit_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+			InventoryManager.toolkit_container.sync_ui()
+		if InventoryManager.player_inventory_container:
+			for i in range(InventoryManager.player_inventory_container.slot_count):
+				InventoryManager.player_inventory_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+			InventoryManager.player_inventory_container.sync_ui()
 	
-	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
-	# The test chest is in the HUD scene file, so it will be loaded automatically
-	# TODO: When chest crafting is implemented, remove chest from HUD scene file
+	# Tools/chest/seeds are now spawned as droppables on Day 1, not initialized in HUD
+	# This ensures HUD is clear on new game
 	
 	# Stop intro music if it's playing (from main menu)
 	_stop_intro_music()

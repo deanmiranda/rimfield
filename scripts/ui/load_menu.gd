@@ -3,10 +3,12 @@ extends Control
 @export var dropdown: OptionButton # Reference to the dropdown UI for load slots
 @export var confirmation_panel: Control # Reference to a confirmation UI panel
 @export var load_button: Button # Reference to the Load button
+@export var delete_button: Button # Reference to the Delete button
 
 # Dictionary to hold save metadata for quick access when selecting
 var save_metadata: Dictionary = {}
 var save_counts: Dictionary = {} # Holds counts of saves by date for incrementing numbers
+var pending_delete_file: String = "" # Store file name when delete is pending confirmation
 
 func _ready() -> void:
 	# Populate the dropdown with save files
@@ -23,6 +25,15 @@ func _ready() -> void:
 	if load_button and not load_button.is_connected("pressed", Callable(self, "_on_load_button_pressed")):
 		load_button.connect("pressed", Callable(self, "_on_load_button_pressed"))
 		print("Connected load button pressed signal to _on_load_button_pressed")
+	
+	# Connect the Delete button signal
+	if delete_button and not delete_button.is_connected("pressed", Callable(self, "_on_delete_button_pressed")):
+		delete_button.connect("pressed", Callable(self, "_on_delete_button_pressed"))
+		print("Connected delete button pressed signal to _on_delete_button_pressed")
+	
+	# Initially hide delete button (will show when valid save is selected)
+	if delete_button:
+		delete_button.visible = false
 
 # Populates the dropdown with available save files
 func _populate_load_slots() -> void:
@@ -163,6 +174,12 @@ func _get_scene_name_from_save(file_name: String) -> String:
 			return save_data.get("current_scene", "Unknown Scene")
 	return "Unknown Scene"
 
+# Called when dropdown selection changes
+func _on_save_dropdown_item_selected(index: int) -> void:
+	# Show delete button only if a valid save is selected (not placeholder)
+	if delete_button:
+		delete_button.visible = (index > 0 and save_metadata.has(index))
+
 # Called when the Load button is pressed
 func _on_load_button_pressed() -> void:
 	var selected_index = dropdown.get_selected_id()
@@ -196,16 +213,50 @@ func _set_confirmation_text(confirmation_text: String) -> void:
 	else:
 		print("Error: ConfirmationLabel node not found.")
 		
-# Called when the player confirms the load action
-func _on_yes_button_pressed() -> void:
+# Called when the Delete button is pressed
+func _on_delete_button_pressed() -> void:
 	var selected_index = dropdown.get_selected_id()
-	if save_metadata.has(selected_index):
-		GameState.load_game(save_metadata[selected_index]) # Load the selected save
-		self.queue_free() # Hide and remove the load menu from the scene tree to clean up
-	confirmation_panel.visible = false # Hide the confirmation panel
+	
+	if save_metadata.has(selected_index) and selected_index != 0:
+		var file_name = save_metadata[selected_index]
+		var formatted_date = _get_formatted_date_from_save(file_name)
+		var scene_name = _get_scene_name_from_save(file_name)
+		
+		# Show confirmation with save file details
+		var confirmation_text = "Delete save: %s - %s?" % [formatted_date, scene_name]
+		_set_confirmation_text(confirmation_text)
+		# Store pending delete action
+		pending_delete_file = file_name
+		print("[LoadMenu] Delete requested for: %s" % file_name)
+	else:
+		print("Error: Please select a valid save slot to delete.")
 
-# Called when the player cancels the load action
+# Called when the player confirms the load or delete action
+func _on_yes_button_pressed() -> void:
+	if pending_delete_file != "":
+		# Delete the save file
+		var delete_dir = DirAccess.open("user://")
+		if delete_dir:
+			var delete_result = delete_dir.remove(pending_delete_file)
+			if delete_result == OK:
+				print("[LoadMenu] Deleted save file: %s" % pending_delete_file)
+				# Refresh dropdown to reflect deletion
+				_populate_load_slots()
+			else:
+				print("[LoadMenu] Error: Failed to delete save file: %s" % pending_delete_file)
+		pending_delete_file = ""
+		confirmation_panel.visible = false
+	else:
+		# Normal load action
+		var selected_index = dropdown.get_selected_id()
+		if save_metadata.has(selected_index):
+			GameState.load_game(save_metadata[selected_index]) # Load the selected save
+			self.queue_free() # Hide and remove the load menu from the scene tree to clean up
+		confirmation_panel.visible = false # Hide the confirmation panel
+
+# Called when the player cancels the load or delete action
 func _on_no_button_pressed() -> void:
+	pending_delete_file = "" # Clear pending delete
 	confirmation_panel.visible = false # Just hide the confirmation panel
 
 # Called when the back button is pressed

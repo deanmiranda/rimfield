@@ -233,13 +233,33 @@ func _load_chest_inventory() -> void:
 	
 	var saved_inventory = ChestManager.get_chest_inventory(current_chest_id)
 	
+	# Always initialize with empty slots first
+	for i in range(CHEST_INVENTORY_SIZE):
+		inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+	
+	# If we have saved inventory data, copy it (only valid slot indices 0-35)
 	if saved_inventory and saved_inventory.size() > 0:
-		print("[ChestPanel] Loaded chest inventory: %d slots" % saved_inventory.size())
-		inventory_data = saved_inventory.duplicate(true)
-	else:
-		# Initialize empty inventory
 		for i in range(CHEST_INVENTORY_SIZE):
-			inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+			if saved_inventory.has(i):
+				# Deep copy the slot data to avoid reference issues
+				var slot_data = saved_inventory[i]
+				if slot_data is Dictionary:
+					inventory_data[i] = {
+						"texture": slot_data.get("texture"),
+						"count": slot_data.get("count", 0),
+						"weight": slot_data.get("weight", 0.0)
+					}
+	
+	# Count items for logging
+	var item_count = 0
+	for i in range(CHEST_INVENTORY_SIZE):
+		if inventory_data[i].get("texture") != null and inventory_data[i].get("count", 0) > 0:
+			item_count += 1
+	
+	if item_count > 0:
+		print("[ChestPanel] Loaded chest inventory: %d slots, %d items" % [CHEST_INVENTORY_SIZE, item_count])
+	else:
+		print("[ChestPanel] Loaded chest inventory: %d slots, 0 items" % CHEST_INVENTORY_SIZE)
 
 
 func _save_chest_inventory() -> void:

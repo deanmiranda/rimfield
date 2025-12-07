@@ -32,10 +32,10 @@ func restore_chests_for_scene(scene_name: String) -> void:
 		if saved_scene_name == scene_name and not chest_data.get("node"):
 			var position = chest_data.get("position", Vector2.ZERO)
 			
-			# Create chest at position
-			var chest_instance = create_chest_at_position(position)
-			if chest_instance and chest_instance.has_method("set_chest_id"):
-				chest_instance.set_chest_id(chest_id)
+			# Create chest at position with existing chest_id
+			# CRITICAL: Pass chest_id so it's set BEFORE adding to scene tree
+			# This ensures register_chest() uses the existing ID and restores inventory
+			create_chest_at_position(position, chest_id)
 
 
 func _get_current_scene_name() -> String:
@@ -50,8 +50,10 @@ const MAX_INVENTORY_STACK: int = 99
 
 
 func _ready() -> void:
-	# Initialize empty registry
-	chest_registry = {}
+	# Registry is already initialized at class level (line 6)
+	# Do NOT clear it here - that would wipe saved data during scene rebuilds on load_game()
+	# Only reset_all() should clear the registry (for new_game())
+	pass
 
 
 func reset_all() -> void:
@@ -82,20 +84,66 @@ func register_chest(chest: Node) -> String:
 	if chest.has_method("get_chest_id"):
 		chest_id = chest.get_chest_id()
 	
-	# If no ID, generate a new one
+	# If no ID, check if a chest at this position already exists in registry
+	# This helps restore chests when ID wasn't set before _ready() ran
 	if chest_id == "":
-		chest_id_counter += 1
-		chest_id = "chest_%d" % chest_id_counter
+		var position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
+		var scene_name = _get_current_scene_name()
+		
+		# Check for existing chest at same position in same scene
+		for existing_id in chest_registry.keys():
+			var existing_data = chest_registry[existing_id]
+			var existing_pos = existing_data.get("position", Vector2.ZERO)
+			var existing_scene = existing_data.get("scene_name", "")
+			
+			# Match if position is very close (within 1 pixel) and same scene
+			if existing_pos.distance_to(position) < 1.0 and existing_scene == scene_name:
+				# Found existing chest - reuse its ID
+				chest_id = existing_id
+				print("[ChestManager] Matched chest by position: %s at %s (scene: %s)" % [chest_id, position, scene_name])
+				break
+		
+		# If still no ID, generate new one
+		if chest_id == "":
+			chest_id_counter += 1
+			chest_id = "chest_%d" % chest_id_counter
 	
 	# Initialize chest inventory if not already set
 	var inventory: Dictionary = {}
 	if not chest_registry.has(chest_id):
-		# Initialize 24 empty slots
+		# Initialize empty slots for new chest
 		for i in range(CHEST_INVENTORY_SIZE):
 			inventory[i] = {"texture": null, "count": 0, "weight": 0.0}
+		print("[ChestManager] Registering new chest: %s (no existing registry entry)" % chest_id)
 	else:
-		# Use existing inventory from registry
-		inventory = chest_registry[chest_id].get("inventory", {})
+		# Use existing inventory from registry (preserves saved inventory from restore_chests_from_save)
+		var existing_data = chest_registry[chest_id]
+		var existing_inventory = existing_data.get("inventory", {})
+		
+		# Count items in existing inventory for logging
+		var item_count = 0
+		for i in range(CHEST_INVENTORY_SIZE):
+			if existing_inventory.has(i):
+				var slot_data = existing_inventory[i]
+				if slot_data.get("texture") != null and slot_data.get("count", 0) > 0:
+					item_count += 1
+		
+		print("[ChestManager] Registering existing chest: %s (registry has %d items)" % [chest_id, item_count])
+		
+		# CRITICAL: Deep copy the inventory to avoid reference issues
+		# If we use a reference, changes elsewhere could affect the registry
+		# This is especially important during scene rebuilds on load_game()
+		inventory = {}
+		for i in range(CHEST_INVENTORY_SIZE):
+			if existing_inventory.has(i):
+				var slot_data = existing_inventory[i]
+				inventory[i] = {
+					"texture": slot_data.get("texture"),
+					"count": slot_data.get("count", 0),
+					"weight": slot_data.get("weight", 0.0)
+				}
+			else:
+				inventory[i] = {"texture": null, "count": 0, "weight": 0.0}
 	
 	# Get chest position
 	var position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
@@ -103,7 +151,6 @@ func register_chest(chest: Node) -> String:
 	# Get scene name
 	var scene_name = _get_current_scene_name()
 	
-	# Register chest
 	chest_registry[chest_id] = {
 		"node": chest,
 		"inventory": inventory,
@@ -115,7 +162,8 @@ func register_chest(chest: Node) -> String:
 	if chest.has_method("set_chest_id"):
 		chest.set_chest_id(chest_id)
 	
-	# Check if there's pending restore data for this chest
+	# Check if there's pending restore data for this chest (restores inventory if needed)
+	# This should only run if inventory wasn't already restored from registry
 	_restore_chest_if_pending(chest_id)
 	
 	return chest_id
@@ -136,7 +184,21 @@ func update_chest_inventory(chest_id: String, inventory: Dictionary) -> void:
 		push_error("ChestManager: Cannot update inventory for unknown chest: %s" % chest_id)
 		return
 	
-	chest_registry[chest_id]["inventory"] = inventory
+	# CRITICAL: Deep copy the inventory dictionary to avoid reference issues
+	# If we just assign the dictionary, changes to the source will affect the registry
+	var inventory_copy: Dictionary = {}
+	for i in range(CHEST_INVENTORY_SIZE):
+		if inventory.has(i):
+			var slot_data = inventory[i]
+			inventory_copy[i] = {
+				"texture": slot_data.get("texture"),
+				"count": slot_data.get("count", 0),
+				"weight": slot_data.get("weight", 0.0)
+			}
+		else:
+			inventory_copy[i] = {"texture": null, "count": 0, "weight": 0.0}
+	
+	chest_registry[chest_id]["inventory"] = inventory_copy
 	
 	# Also update position if chest node exists
 	var chest_node = chest_registry[chest_id].get("node")
@@ -220,6 +282,22 @@ func restore_chests_from_save(chest_data: Array) -> void:
 
 func _restore_chest_if_pending(chest_id: String) -> void:
 	"""Restore a chest's inventory if there's pending restore data for it."""
+	# Check if chest already has inventory in registry (from restore_chests_from_save)
+	# If so, don't overwrite it - it's already been restored
+	if chest_registry.has(chest_id):
+		var existing_inventory = chest_registry[chest_id].get("inventory", {})
+		var has_items = false
+		for slot_index in range(CHEST_INVENTORY_SIZE):
+			var slot_data = existing_inventory.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+			if slot_data["texture"] != null and slot_data["count"] > 0:
+				has_items = true
+				break
+		
+		# If registry already has inventory with items, it was restored from save - don't overwrite
+		if has_items:
+			return
+	
+	# Otherwise, check pending_restore_data for this chest
 	for chest_save_data in pending_restore_data:
 		if chest_save_data.get("chest_id") == chest_id:
 			# Found matching chest - restore inventory
@@ -255,8 +333,13 @@ func _restore_chest_if_pending(chest_id: String) -> void:
 			break
 
 
-func create_chest_at_position(pos: Vector2) -> Node:
-	"""Create a new chest at the specified position. Returns the chest node."""
+func create_chest_at_position(pos: Vector2, chest_id: String = "") -> Node:
+	"""Create a new chest at the specified position. Returns the chest node.
+	
+	Args:
+		pos: World position where the chest should be placed
+		chest_id: Optional chest ID to set before adding to scene tree (prevents race condition)
+	"""
 	
 	var chest_scene = preload("res://scenes/world/chest.tscn")
 	if not chest_scene:
@@ -268,19 +351,24 @@ func create_chest_at_position(pos: Vector2) -> Node:
 		push_error("ChestManager: Could not instantiate chest scene")
 		return null
 	
-	
 	# Set position
 	if chest_instance is Node2D:
 		chest_instance.global_position = pos
 	
-	# Add to current scene (works for both FarmScene and HouseScene)
+	# CRITICAL: Set chest ID BEFORE adding to scene tree (so _ready() can use it)
+	# This prevents register_chest() from generating a new ID when restoring existing chests
+	if chest_id != "" and chest_instance.has_method("set_chest_id"):
+		chest_instance.set_chest_id(chest_id)
+	
+	# Add to current scene (triggers _ready() which calls register_chest())
+	# Works for both FarmScene and HouseScene
 	var current_scene = get_tree().current_scene
 	if current_scene:
 		current_scene.add_child(chest_instance)
 	else:
 		return null
 	
-	# Chest will register itself in _ready()
+	# Chest will register itself in _ready() using the ID we set above
 	return chest_instance
 
 
