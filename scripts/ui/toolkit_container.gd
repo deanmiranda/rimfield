@@ -55,29 +55,50 @@ func _ready() -> void:
 	_migrate_from_inventory_manager()
 
 
-func _migrate_from_inventory_manager() -> void:
-	"""Migrate existing toolkit data from InventoryManager to this container (ONE TIME ONLY)"""
+func _migrate_from_inventory_manager(force: bool = false) -> void:
+	"""Migrate existing toolkit data from InventoryManager to this container.
+	
+	Args:
+		force: If true, migrate even if container already has data (for load_game)
+	"""
 	if not InventoryManager:
 		return
 	
-	# Check if we already have data (prevent duplicate migration)
-	var has_data = false
-	for i in range(slot_count):
-		if inventory_data[i]["texture"]:
-			has_data = true
-			break
-	
-	if has_data:
-		return
+	# Check if we already have data (prevent duplicate migration unless forced)
+	if not force:
+		var has_data = false
+		for i in range(slot_count):
+			if inventory_data[i]["texture"]:
+				has_data = true
+				break
+		
+		if has_data:
+			return
 	
 	if InventoryManager.toolkit_slots:
 		for i in range(min(slot_count, InventoryManager.toolkit_slots.size())):
-			var data = InventoryManager.toolkit_slots.get(i, {})
-			if data.has("texture") and data["texture"]:
+			# CRITICAL: Check for both int and float keys (JSON may parse as float)
+			var data = null
+			if InventoryManager.toolkit_slots.has(i):
+				data = InventoryManager.toolkit_slots[i]
+			else:
+				var float_key = float(i)
+				if InventoryManager.toolkit_slots.has(float_key):
+					data = InventoryManager.toolkit_slots[float_key]
+					# Erase float key and use int key
+					InventoryManager.toolkit_slots.erase(float_key)
+			
+			if data and data.has("texture") and data["texture"]:
 				inventory_data[i] = {
 					"texture": data["texture"],
-					"count": data.get("count", 1),
-					"weight": data.get("weight", 0.0)
+					"count": int(data.get("count", 1)),
+					"weight": float(data.get("weight", 0.0))
+				}
+				# Ensure int key exists in legacy dict
+				InventoryManager.toolkit_slots[i] = {
+					"texture": data["texture"],
+					"count": int(data.get("count", 1)),
+					"weight": float(data.get("weight", 0.0))
 				}
 
 

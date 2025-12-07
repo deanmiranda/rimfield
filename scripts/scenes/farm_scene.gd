@@ -425,7 +425,7 @@ func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: T
 	_handle_item_world_drop(texture, count, mouse_pos, source_container, source_slot)
 
 
-func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
+func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, _count: int, mouse_pos: Vector2) -> void:
 	"""Handle chest placement on world"""
 	
 	# Convert screen mouse_pos to world position using MouseUtil
@@ -443,40 +443,14 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 				var mouse_screen = mouse_pos
 				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
 	
-	# Snap to grid (16x16 tiles, center at +8)
-	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
-	
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
 		return
 	
-	# Check if there's already a chest at this position
-	var existing_chest = chest_manager.find_chest_at_position(snapped_pos, 16.0)
-	if existing_chest:
-		return
-	
-	# Check if position is valid using farming_manager if available
-	if farming_manager:
-		# Use farming_manager's validation logic
-		var cell = Vector2i(floor(snapped_pos.x / 16.0), floor(snapped_pos.y / 16.0))
-		if farming_manager.has_method("_is_soil"):
-			var is_soil = farming_manager._is_soil(cell)
-			if is_soil:
-				return
-		
-		# Check if tile has crop or is watered
-		if GameState and GameState.farm_state.has(cell):
-			var tile_data = GameState.get_tile_data(cell)
-			if tile_data:
-				var is_watered = tile_data.get("is_watered", false)
-				var has_crop = tile_data.get("tile_state") == "planted"
-				if is_watered or has_crop:
-					return
-	
-	# Create chest at position
-	var chest = chest_manager.create_chest_at_position(snapped_pos)
-	if chest == null:
+	# Use shared placement helper
+	var placement_success = chest_manager.try_place_chest("Farm", world_pos)
+	if not placement_success:
 		return
 	
 	# Remove 1 chest from toolkit slot

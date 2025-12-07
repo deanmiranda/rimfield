@@ -43,42 +43,51 @@ func _ready() -> void:
 	print("[PlayerInventoryContainer] Initialized: %d slots, max stack %d" % [slot_count, max_stack_size])
 
 
-func _migrate_from_inventory_manager() -> void:
-	"""Migrate existing inventory data from InventoryManager to this container (ONE TIME ONLY)"""
+func _migrate_from_inventory_manager(force: bool = false) -> void:
+	"""Migrate existing inventory data from InventoryManager to this container.
+	
+	Args:
+		force: If true, migrate even if container already has data (for load_game)
+	"""
 	if not InventoryManager:
 		return
 	
-	# Check if we already have data (prevent duplicate migration)
-	var has_data = false
-	for i in range(slot_count):
-		if inventory_data[i]["texture"]:
-			has_data = true
-			break
-	
-	if has_data:
-		print("[PlayerInventoryContainer] Already has data - skipping migration")
-		return
+	# Check if we already have data (prevent duplicate migration unless forced)
+	if not force:
+		var has_data = false
+		for i in range(slot_count):
+			if inventory_data[i]["texture"]:
+				has_data = true
+				break
+		
+		if has_data:
+			return
 	
 	if InventoryManager.inventory_slots:
-		print("[PlayerInventoryContainer] Migrating data from InventoryManager...")
-		var migrated_count = 0
 		for i in range(min(slot_count, InventoryManager.inventory_slots.size())):
-			var data = InventoryManager.inventory_slots.get(i, {})
-			if data.has("texture") and data["texture"]:
+			# CRITICAL: Check for both int and float keys (JSON may parse as float)
+			var data = null
+			if InventoryManager.inventory_slots.has(i):
+				data = InventoryManager.inventory_slots[i]
+			else:
+				var float_key = float(i)
+				if InventoryManager.inventory_slots.has(float_key):
+					data = InventoryManager.inventory_slots[float_key]
+					# Erase float key and use int key
+					InventoryManager.inventory_slots.erase(float_key)
+			
+			if data and data.has("texture") and data["texture"]:
 				inventory_data[i] = {
 					"texture": data["texture"],
-					"count": data.get("count", 1),
-					"weight": data.get("weight", 0.0)
+					"count": int(data.get("count", 1)),
+					"weight": float(data.get("weight", 0.0))
 				}
-				migrated_count += 1
-				print("[PlayerInventoryContainer] Migrated slot %d: %s x%d" % [
-					i,
-					data["texture"].resource_path if data["texture"] else "null",
-					data.get("count", 1)
-				])
-		
-		if migrated_count == 0:
-			print("[PlayerInventoryContainer] No data to migrate")
+				# Ensure int key exists in legacy dict
+				InventoryManager.inventory_slots[i] = {
+					"texture": data["texture"],
+					"count": int(data.get("count", 1)),
+					"weight": float(data.get("weight", 0.0))
+				}
 
 
 # Override handle_shift_click for player inventory-specific behavior

@@ -155,40 +155,72 @@ func save_game(file: String = "") -> void:
 	if current_save_file == "":
 		return
 
-	# Get toolkit and inventory from InventoryManager
+	# Get toolkit and inventory from containers (NEW SYSTEM)
 	var toolkit_items = []
 	var inventory_items = []
 
 	if InventoryManager:
-		# Save toolkit slots with stack counts and weight
-		for i in range(InventoryManager.max_toolkit_slots):
-			var slot_data = InventoryManager.toolkit_slots.get(
-				i, {"texture": null, "count": 0, "weight": 0.0}
-			)
-			if slot_data["texture"] and slot_data["count"] > 0:
-				toolkit_items.append(
-					{
-						"slot_index": i,
-						"texture_path": slot_data["texture"].resource_path,
-						"count": slot_data["count"],
-						"weight": slot_data.get("weight", 0.0) # Include weight in save
-					}
+		# Save toolkit from ToolkitContainer (NEW SYSTEM)
+		if InventoryManager.toolkit_container:
+			for i in range(InventoryManager.toolkit_container.slot_count):
+				var slot_data = InventoryManager.toolkit_container.inventory_data.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
 				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					toolkit_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
+		else:
+			# Fallback to legacy dict if container doesn't exist
+			for i in range(InventoryManager.max_toolkit_slots):
+				var slot_data = InventoryManager.toolkit_slots.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
+				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					toolkit_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
 
-		# Save inventory slots with stack counts and weight
-		for i in range(InventoryManager.max_inventory_slots):
-			var slot_data = InventoryManager.inventory_slots.get(
-				i, {"texture": null, "count": 0, "weight": 0.0}
-			)
-			if slot_data["texture"] and slot_data["count"] > 0:
-				inventory_items.append(
-					{
-						"slot_index": i,
-						"texture_path": slot_data["texture"].resource_path,
-						"count": slot_data["count"],
-						"weight": slot_data.get("weight", 0.0) # Include weight in save
-					}
+		# Save inventory from PlayerInventoryContainer (NEW SYSTEM)
+		if InventoryManager.player_inventory_container:
+			for i in range(InventoryManager.player_inventory_container.slot_count):
+				var slot_data = InventoryManager.player_inventory_container.inventory_data.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
 				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					inventory_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
+		else:
+			# Fallback to legacy dict if container doesn't exist
+			for i in range(InventoryManager.max_inventory_slots):
+				var slot_data = InventoryManager.inventory_slots.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
+				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					inventory_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
 
 	# Convert farm_state to JSON-serializable format
 	# Vector2i keys need to be converted to strings for JSON
@@ -358,9 +390,39 @@ func load_game(file: String = "") -> bool:
 						else:
 							print("Warning: Could not load texture:", texture_path)
 			
+			# Force containers to re-migrate from legacy dicts after load
+			# This ensures containers get the loaded data even if they already migrated during new_game()
+			# Clear containers first, then force migration to restore saved state
+			if InventoryManager.toolkit_container:
+				# Clear container data before migration (restore from saved state)
+				for i in range(InventoryManager.toolkit_container.slot_count):
+					InventoryManager.toolkit_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+				InventoryManager.toolkit_container._migrate_from_inventory_manager(true)
+				InventoryManager.toolkit_container.sync_ui()
+			if InventoryManager.player_inventory_container:
+				# Clear container data before migration (restore from saved state)
+				for i in range(InventoryManager.player_inventory_container.slot_count):
+					InventoryManager.player_inventory_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+				InventoryManager.player_inventory_container._migrate_from_inventory_manager(true)
+				InventoryManager.player_inventory_container.sync_ui()
+			
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
 			InventoryManager.sync_toolkit_ui()
+		
+		# Clear all node references from chest registry (invalidate old nodes before scene change)
+		# This prevents stale chest nodes from triggering register_chest() in wrong scenes
+		if ChestManager:
+			for chest_id in ChestManager.chest_registry.keys():
+				var chest_data = ChestManager.chest_registry[chest_id]
+				var old_node = chest_data.get("node")
+				if old_node and is_instance_valid(old_node):
+					# Remove from scene if still attached
+					if old_node.get_parent():
+						old_node.get_parent().remove_child(old_node)
+					old_node.queue_free()
+				# Clear node reference
+				ChestManager.chest_registry[chest_id]["node"] = null
 		
 		# Restore chest data
 		if save_data.has("chest_data") and ChestManager:

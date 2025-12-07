@@ -12,10 +12,29 @@ func get_pending_restore_data() -> Array:
 	return pending_restore_data
 
 
+func clear_nodes_for_other_scenes(current_scene_name: String) -> void:
+	"""Clear node references for chests that don't belong to current scene."""
+	for chest_id in chest_registry.keys():
+		var chest_data = chest_registry[chest_id]
+		var saved_scene_name = chest_data.get("scene_name", "")
+		var chest_node = chest_data.get("node")
+		
+		if saved_scene_name != current_scene_name and chest_node:
+			# This chest belongs to a different scene - clear its node reference
+			if is_instance_valid(chest_node):
+				if chest_node.get_parent():
+					chest_node.get_parent().remove_child(chest_node)
+				chest_node.queue_free()
+			chest_registry[chest_id]["node"] = null
+
+
 func restore_chests_for_scene(scene_name: String) -> void:
 	"""Restore chests for a specific scene when it loads."""
 	if not scene_name:
 		return
+	
+	# Clear nodes for other scenes first (defensive cleanup)
+	clear_nodes_for_other_scenes(scene_name)
 	
 	# Get chest scene
 	var chest_scene = load("res://scenes/world/chest.tscn")
@@ -27,9 +46,10 @@ func restore_chests_for_scene(scene_name: String) -> void:
 	for chest_id in chest_registry.keys():
 		var chest_data = chest_registry[chest_id]
 		var saved_scene_name = chest_data.get("scene_name", "")
+		var has_node = chest_data.get("node") != null
 		
 		# Only restore if this chest belongs to the current scene and doesn't have a node
-		if saved_scene_name == scene_name and not chest_data.get("node"):
+		if saved_scene_name == scene_name and not has_node:
 			var position = chest_data.get("position", Vector2.ZERO)
 			
 			# Create chest at position with existing chest_id
@@ -136,8 +156,23 @@ func register_chest(chest: Node) -> String:
 	# Get chest position
 	var position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
 	
-	# Get scene name
-	var scene_name = _get_current_scene_name()
+	# Get scene name - PRESERVE existing if chest is being restored
+	var scene_name = ""
+	if chest_registry.has(chest_id):
+		# Chest exists in registry (being restored) - preserve saved scene_name
+		var existing_data = chest_registry[chest_id]
+		scene_name = existing_data.get("scene_name", "")
+	
+	# Only use current scene name if chest is NEW (not in registry)
+	if scene_name == "":
+		scene_name = _get_current_scene_name()
+	
+	# CRITICAL: Validate that chest belongs to current scene
+	# This prevents chests from being registered in wrong scenes (e.g., House chest in Farm)
+	var current_scene_name = _get_current_scene_name()
+	if scene_name != "" and current_scene_name != "" and scene_name != current_scene_name:
+		push_error("[ChestManager] register_chest: chest_id=%s belongs to scene=%s but current scene=%s - SKIPPING registration" % [chest_id, scene_name, current_scene_name])
+		return "" # Return empty to prevent registration
 	
 	chest_registry[chest_id] = {
 		"node": chest,
@@ -447,4 +482,84 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 			push_error("[CHEST PICKAXE] ERROR: spawn_droppable_from_texture returned null!")
 			push_error("[CHEST PICKAXE] Available item_ids: " + str(DroppableFactory.droppable_item_resources.keys()))
 	
+	return true
+
+
+func can_place_chest(scene_name: String, world_pos: Vector2) -> bool:
+	"""Shared validation for chest placement. Returns true if position is valid."""
+	# Check if there's already a chest at this position
+	var existing_chest = find_chest_at_position(world_pos, 16.0)
+	if existing_chest:
+		print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=existing_chest" % [scene_name, world_pos.x, world_pos.y])
+		return false
+	
+	# Scene-specific validation
+	if scene_name == "Farm":
+		# Farm validation: check if position is on soil, watered, or has crop
+		# This requires farming_manager, but we'll allow placement if farming_manager doesn't exist
+		var current_scene = get_tree().current_scene
+		if current_scene and current_scene.has_method("get") and current_scene.get("farming_manager"):
+			var farming_manager = current_scene.get("farming_manager")
+			if farming_manager:
+				var cell = Vector2i(floor(world_pos.x / 16.0), floor(world_pos.y / 16.0))
+				if farming_manager.has_method("_is_soil"):
+					var is_soil = farming_manager._is_soil(cell)
+					if is_soil:
+						print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=soil" % [scene_name, world_pos.x, world_pos.y])
+						return false
+				
+				# Check if tile has crop or is watered
+				if GameState and GameState.farm_state.has(cell):
+					var tile_data = GameState.get_tile_data(cell)
+					if tile_data:
+						var is_watered = tile_data.get("is_watered", false)
+						var has_crop = tile_data.get("tile_state") == "planted"
+						if is_watered or has_crop:
+							print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=watered_or_crop" % [scene_name, world_pos.x, world_pos.y])
+							return false
+	elif scene_name == "House":
+		# House validation: check for collision with walls, furniture, etc.
+		var tree = get_tree()
+		if tree:
+			var world_2d = tree.root.get_world_2d()
+			if world_2d:
+				var space_state = world_2d.direct_space_state
+				if space_state:
+					# Check for collision at position using a small query
+					var query = PhysicsPointQueryParameters2D.new()
+					query.position = world_pos
+					query.collision_mask = 2 # Obstacles layer (layer 2)
+					query.collide_with_areas = false
+					query.collide_with_bodies = true
+					
+					var result = space_state.intersect_point(query)
+					if result.size() > 0:
+						print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=collision" % [scene_name, world_pos.x, world_pos.y])
+						return false
+	
+	print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=true" % [scene_name, world_pos.x, world_pos.y])
+	return true
+
+
+func try_place_chest(scene_name: String, world_pos: Vector2) -> bool:
+	"""Shared chest placement helper. Returns true if placement succeeded."""
+	# Snap to grid (16x16 tiles, center at +8)
+	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
+	
+	# Validate placement
+	if not can_place_chest(scene_name, snapped_pos):
+		return false
+	
+	# Create chest at position
+	var chest = create_chest_at_position(snapped_pos)
+	if chest == null:
+		print("[ChestManager] try_place_chest scene=%s pos=(%s, %s) result=false reason=create_failed" % [scene_name, snapped_pos.x, snapped_pos.y])
+		return false
+	
+	# Get chest ID for logging
+	var chest_id = ""
+	if chest.has_method("get_chest_id"):
+		chest_id = chest.get_chest_id()
+	
+	print("[ChestManager] Placed chest id=%s scene=%s pos=(%s, %s)" % [chest_id, scene_name, snapped_pos.x, snapped_pos.y])
 	return true
