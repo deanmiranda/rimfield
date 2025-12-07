@@ -206,8 +206,6 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 		
 		if target_slot_node and target_slot_node.container_ref:
 			# Route drop to the hovered slot's container
-			var target_container_id = target_slot_node.container_ref.container_id if "container_id" in target_slot_node.container_ref else "unknown"
-	
 			target_slot_node.container_ref.handle_drop_on_slot(target_slot_node.slot_index)
 			
 			# Sync our visual in case we were the source
@@ -343,8 +341,6 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 		
 		if target_slot_node and target_slot_node.container_ref:
 			# Route drop to the hovered slot's container
-			var target_container_id = target_slot_node.container_ref.container_id if "container_id" in target_slot_node.container_ref else "unknown"
-		
 			target_slot_node.container_ref.handle_drop_on_slot(target_slot_node.slot_index)
 			
 			# Sync our visual in case we were the source
@@ -427,7 +423,6 @@ func _pickup_one_to_cursor() -> void:
 		update_visual()
 	
 
-
 func _start_drag(is_right_click: bool) -> void:
 	"""Start drag operation via DragManager"""
 	if not DragManager:
@@ -476,7 +471,6 @@ func _start_drag(is_right_click: bool) -> void:
 			update_visual()
 		
 
-
 func _handle_drop() -> void:
 	"""Handle drop from DragManager"""
 	if not DragManager or not DragManager.is_dragging:
@@ -505,11 +499,6 @@ func _handle_drop() -> void:
 				DragManager.cancel_drag()
 				_restore_after_cancel()
 				return
-	
-	var container_id_str = container_ref.container_id if container_ref and "container_id" in container_ref else "unknown"
-	var source_container_id = DragManager.drag_source_container.container_id if DragManager.drag_source_container and "container_id" in DragManager.drag_source_container else "unknown"
-	
-
 	
 	if not container_ref:
 		return

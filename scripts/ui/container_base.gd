@@ -108,7 +108,7 @@ func close_container() -> void:
 	emit_signal("container_closed")
 
 
-func can_accept_drop(from_container: Node, item_texture: Texture, item_count: int) -> bool:
+func can_accept_drop(_from_container: Node, _item_texture: Texture, _item_count: int) -> bool:
 	"""Check if this container can accept a drop (override for special rules)"""
 	# Base implementation: accept anything
 	return true
@@ -436,7 +436,7 @@ func _handle_external_drop(source_container: Node, source_slot: int, target_slot
 			push_error("[Container:%s] Source container doesn't have add_item_to_slot()!" % container_id)
 
 
-func handle_shift_click(slot_index: int) -> void:
+func handle_shift_click(_slot_index: int) -> void:
 	"""Handle shift-click quick transfer - OVERRIDE in subclass for specific behavior"""
 	pass
 

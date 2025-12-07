@@ -52,7 +52,6 @@ func consume_energy(amount: int) -> bool:
 
 func restore_energy_full() -> void:
 	"""Fully restore energy to maximum"""
-	var old_energy = energy
 	energy = max_energy
 	energy_changed.emit(energy, max_energy)
 
@@ -62,7 +61,6 @@ func take_damage(amount: int) -> void:
 	if amount <= 0:
 		return
 	
-	var old_health = health
 	health -= amount
 	health = max(0, health) # Clamp to 0
 	health_changed.emit(health, max_health)
@@ -73,7 +71,6 @@ func heal(amount: int) -> void:
 	if amount <= 0:
 		return
 	
-	var old_health = health
 	health += amount
 	health = min(max_health, health) # Clamp to max
 	health_changed.emit(health, max_health)
@@ -84,7 +81,6 @@ func modify_happiness(amount: int) -> void:
 	if amount == 0:
 		return
 	
-	var old_happiness = happiness
 	happiness += amount
 	happiness = clamp(happiness, 0, max_happiness) # Clamp to 0-max
 	happiness_changed.emit(happiness, max_happiness)

@@ -487,8 +487,8 @@ func get_hovered_slot() -> Node:
 	var hovered = viewport.gui_get_hovered_control()
 	if not hovered:
 		# Fallback: use mouse position + hit test
-		var mouse_pos = viewport.get_mouse_position()
-		return _find_slot_at_position(mouse_pos)
+		var fallback_mouse_pos = viewport.get_mouse_position()
+		return _find_slot_at_position(fallback_mouse_pos)
 	
 	# Walk up the parent tree to find SlotBase
 	while hovered:
@@ -496,7 +496,6 @@ func get_hovered_slot() -> Node:
 			var slot = hovered as SlotBase
 			# Only return if slot is a valid drop target
 			if slot.is_drop_target_active():
-				var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
 				return slot
 		hovered = hovered.get_parent()
 	
@@ -523,7 +522,6 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 							if slot.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 								var slot_rect = slot.get_global_rect()
 								if slot_rect.has_point(mouse_pos):
-									var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
 									return slot
 	
 	# Check registered containers' slots

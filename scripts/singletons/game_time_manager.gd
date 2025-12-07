@@ -158,11 +158,6 @@ func sleep_to_next_morning() -> void:
 	Those are handled by the calling system (bed interaction, pass-out sequence).
 	"""
 	
-	# Store previous values for logging
-	var old_day = day
-	var old_season = season
-	var old_year = year
-	
 	# Advance day by 1
 	day += 1
 	
