@@ -396,6 +396,11 @@ func load_game(file: String = "") -> bool:
 					InventoryManager.toolkit_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
 				InventoryManager.toolkit_container._migrate_from_inventory_manager(true)
 				InventoryManager.toolkit_container.sync_ui()
+			
+			# Ensure player_inventory_container exists before migration (it's created lazily by pause menu)
+			if not InventoryManager.player_inventory_container:
+				await InventoryManager.get_or_create_player_inventory_container()
+			
 			if InventoryManager.player_inventory_container:
 				# Clear container data before migration (restore from saved state)
 				for i in range(InventoryManager.player_inventory_container.slot_count):

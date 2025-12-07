@@ -51,8 +51,8 @@ func _ready() -> void:
 				
 		
 # Signal handler for tool_selected
-func _on_tool_selected(slot_index: int) -> void:
-	set_hud_by_slot(slot_index) # Pass item_texture here
+func _on_tool_selected(slot_index: int, item_texture: Texture) -> void:
+	set_hud_by_slot(slot_index)
 
 
 func _on_active_slot_changed(slot_index: int) -> void:
@@ -70,7 +70,7 @@ func _on_active_slot_changed(slot_index: int) -> void:
 	emit_signal("tool_changed", slot_index, current_tool_texture)
 
 
-func _on_toolkit_item_changed(slot_index: int, texture: Texture, count: int) -> void:
+func _on_toolkit_item_changed(slot_index: int, texture: Texture, _count: int) -> void:
 	"""Handle ToolkitContainer item change signal"""
 	# If this is the active slot, update current tool
 	if slot_index == current_hud_slot:
@@ -82,7 +82,7 @@ func _on_toolkit_item_changed(slot_index: int, texture: Texture, count: int) -> 
 		emit_signal("tool_changed", slot_index, texture)
 
 
-func _on_tool_equipped(slot_index: int, texture: Texture) -> void:
+func _on_tool_equipped(_slot_index: int, _texture: Texture) -> void:
 	"""Handle ToolkitContainer tool equipped signal"""
 	# This is emitted when set_active_slot is called
 	# Already handled by _on_active_slot_changed
