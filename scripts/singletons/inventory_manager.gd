@@ -48,7 +48,6 @@ func _ready() -> void:
 		for i in range(max_toolkit_slots):
 			if not toolkit_slots.has(i):
 				toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
-
 	
 	# Bootstrap containers early to prevent startup crashes from early API calls
 	call_deferred("_bootstrap_containers")
@@ -86,7 +85,6 @@ func register_container(container: ContainerBase) -> void:
 		toolkit_container = container
 	elif container_id == "player_inventory":
 		player_inventory_container = container
-	
 
 
 func get_container(container_id: String) -> ContainerBase:
@@ -194,7 +192,6 @@ func _create_toolkit_container_async() -> void:
 	
 	# Wait one frame for _ready() to complete and registration to happen
 	await get_tree().process_frame
-	
 
 
 func _create_player_inventory_container_async() -> void:
@@ -212,7 +209,6 @@ func _create_player_inventory_container_async() -> void:
 	
 	# Wait one frame for _ready() to complete and registration to happen
 	await get_tree().process_frame
-	
 
 # LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_to_slot() instead
 func add_item(slot_index: int, item_texture: Texture, count: int = 1) -> bool:

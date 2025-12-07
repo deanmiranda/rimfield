@@ -53,7 +53,6 @@ func _ready() -> void:
 	
 	# Migrate existing data from InventoryManager (only once)
 	_migrate_from_inventory_manager()
-	
 
 
 func _migrate_from_inventory_manager() -> void:
@@ -93,8 +92,6 @@ func set_active_slot(slot_index: int) -> void:
 	
 	emit_signal("active_slot_changed", slot_index)
 	emit_signal("tool_equipped", slot_index, active_tool_texture)
-	
-
 
 
 func get_active_slot_index() -> int:
@@ -130,7 +127,6 @@ func handle_shift_click(slot_index: int) -> void:
 	
 	if not slot_data["texture"] or slot_data["count"] <= 0:
 		return
-	
 	
 	# Find target container (chest if open, player inventory otherwise)
 	var target_container = _find_transfer_target()

@@ -142,6 +142,8 @@ func chest_panel_setup() -> void:
 		
 		# Connect to chest signals globally
 		_connect_to_chest_signals()
+	else:
+		print("Error: Loaded chest panel resource is not a PackedScene.")
 
 
 func _connect_to_chest_signals() -> void:

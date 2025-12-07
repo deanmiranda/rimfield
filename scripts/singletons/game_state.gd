@@ -307,10 +307,6 @@ func load_game(file: String = "") -> bool:
 
 		# Restore toolkit and inventory to InventoryManager
 		if InventoryManager:
-			# DEBUG: Log toolkit_slots BEFORE clear
-			for k in InventoryManager.toolkit_slots.keys():
-				print("  key=%s type=%s" % [str(k), typeof(k)])
-			
 			# CRITICAL: Clear legacy dicts completely to prevent mixed-key bug
 			InventoryManager.toolkit_slots.clear()
 			InventoryManager.inventory_slots.clear()
@@ -362,13 +358,6 @@ func load_game(file: String = "") -> bool:
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)
-
-			# DEBUG: Log toolkit_slots AFTER load
-			for k in InventoryManager.toolkit_slots.keys():
-				var data = InventoryManager.toolkit_slots[k]
-				var tex_str = "null"
-				if data.has("texture") and data["texture"]:
-					tex_str = data["texture"].resource_path if data["texture"] is Texture2D else str(data["texture"])
 			
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
@@ -435,7 +424,6 @@ func manage_save_files() -> void:
 	# Remove old saves, keeping only the 10 most recent (FIFO - First In First Out)
 	const MAX_SAVE_FILES = 10
 	
-	
 	while save_files_with_time.size() > MAX_SAVE_FILES:
 		var oldest_save = save_files_with_time.pop_front()
 		var oldest_file_name = oldest_save.name
@@ -451,13 +439,7 @@ func manage_save_files() -> void:
 		if delete_dir:
 			var delete_result = delete_dir.remove(oldest_file_name)
 			if delete_result == OK:
-				var mod_date = Time.get_datetime_dict_from_unix_time(oldest_save.time)
-				print("[GameState] Deleted old save file: %s (modified: %02d/%02d/%d)" % [
-					oldest_file_name,
-					mod_date.month,
-					mod_date.day,
-					mod_date.year
-				])
+				pass # Save file deleted successfully
 			else:
 				print("[GameState] Error: Failed to delete old save file: %s" % oldest_file_name)
 
@@ -470,6 +452,7 @@ func _stop_intro_music() -> void:
 		var intro_music = main_menu.get_node_or_null("IntroMusic")
 		if intro_music and intro_music is AudioStreamPlayer:
 			intro_music.stop()
+			print("[GameState] Stopped intro music")
 
 
 # Helper function to extract timestamp from save file name

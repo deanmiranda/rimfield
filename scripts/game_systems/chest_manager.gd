@@ -100,7 +100,6 @@ func register_chest(chest: Node) -> String:
 			if existing_pos.distance_to(position) < 1.0 and existing_scene == scene_name:
 				# Found existing chest - reuse its ID
 				chest_id = existing_id
-				print("[ChestManager] Matched chest by position: %s at %s (scene: %s)" % [chest_id, position, scene_name])
 				break
 		
 		# If still no ID, generate new one
@@ -114,21 +113,10 @@ func register_chest(chest: Node) -> String:
 		# Initialize empty slots for new chest
 		for i in range(CHEST_INVENTORY_SIZE):
 			inventory[i] = {"texture": null, "count": 0, "weight": 0.0}
-		print("[ChestManager] Registering new chest: %s (no existing registry entry)" % chest_id)
 	else:
 		# Use existing inventory from registry (preserves saved inventory from restore_chests_from_save)
 		var existing_data = chest_registry[chest_id]
 		var existing_inventory = existing_data.get("inventory", {})
-		
-		# Count items in existing inventory for logging
-		var item_count = 0
-		for i in range(CHEST_INVENTORY_SIZE):
-			if existing_inventory.has(i):
-				var slot_data = existing_inventory[i]
-				if slot_data.get("texture") != null and slot_data.get("count", 0) > 0:
-					item_count += 1
-		
-		print("[ChestManager] Registering existing chest: %s (registry has %d items)" % [chest_id, item_count])
 		
 		# CRITICAL: Deep copy the inventory to avoid reference issues
 		# If we use a reference, changes elsewhere could affect the registry

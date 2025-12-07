@@ -54,7 +54,6 @@ func start_drag(container: Node, slot_index: int, texture: Texture, count: int, 
 	else:
 		drag_item_count = count
 	
-	
 	_create_preview(texture, drag_item_count)
 	set_process(true) # Enable _process to update preview position
 	
@@ -91,7 +90,6 @@ func emit_world_drop() -> void:
 	)
 
 
-
 func end_drag() -> Dictionary:
 	"""End drag operation and return drag data"""
 	var drag_data = {
@@ -101,7 +99,6 @@ func end_drag() -> Dictionary:
 		"count": drag_item_count,
 		"is_right_click": is_right_click_drag
 	}
-	
 	
 	cleanup_preview()
 	_reset_state()
@@ -156,7 +153,6 @@ func _create_preview(texture: Texture, count: int) -> void:
 		print("[DragManager] ERROR: No texture for preview!")
 		return
 	
-	
 	# Create canvas layer at high z-index so it's above everything
 	drag_preview_layer = CanvasLayer.new()
 	drag_preview_layer.name = "DragPreviewLayer"
@@ -183,7 +179,6 @@ func _create_preview(texture: Texture, count: int) -> void:
 	# Force update to ensure visibility
 	drag_preview_layer.show()
 	drag_preview.show()
-	
 	
 	# Add count label if more than 1 item
 	if count > 1:
@@ -404,8 +399,6 @@ func pickup_full_stack_to_cursor_from(source_container: Node, source_slot: int) 
 	
 	# Start cursor-hold with full stack
 	start_cursor_hold(texture, count)
-	
-
 
 
 func clear_cursor_hold() -> void:
@@ -435,8 +428,6 @@ func emit_cursor_hold_world_drop(drop_count: int, mouse_pos: Vector2) -> void:
 	
 	# Emit signal (consumption happens in farm_scene after successful spawn)
 	cursor_hold_dropped_on_world.emit(cursor_hold_texture, actual_drop_count, mouse_pos)
-	
-
 
 
 func consume_from_cursor_hold(amount: int) -> int:
@@ -534,7 +525,6 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 								var slot_rect = slot.get_global_rect()
 								if slot_rect.has_point(mouse_pos):
 									var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
-							
 									return slot
 	
 	# Check registered containers' slots
@@ -549,7 +539,6 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 							if slot.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 								var slot_rect = slot.get_global_rect()
 								if slot_rect.has_point(mouse_pos):
-									
 									return slot
 	
 	return null

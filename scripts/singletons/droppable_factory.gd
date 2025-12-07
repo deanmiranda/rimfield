@@ -281,8 +281,6 @@ func restore_droppables_for_scene(scene_name: String) -> void:
 			# Restore registered item using item_id
 			var item_id = data.get("item_id")
 			spawn_droppable(item_id, position, hud)
-	
-
 func reset_all_droppables() -> void:
 	"""Clear all droppables (for new game)."""
 	# Remove all active droppables from scene

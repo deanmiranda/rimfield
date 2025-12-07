@@ -249,17 +249,6 @@ func _load_chest_inventory() -> void:
 						"count": slot_data.get("count", 0),
 						"weight": slot_data.get("weight", 0.0)
 					}
-	
-	# Count items for logging
-	var item_count = 0
-	for i in range(CHEST_INVENTORY_SIZE):
-		if inventory_data[i].get("texture") != null and inventory_data[i].get("count", 0) > 0:
-			item_count += 1
-	
-	if item_count > 0:
-		print("[ChestPanel] Loaded chest inventory: %d slots, %d items" % [CHEST_INVENTORY_SIZE, item_count])
-	else:
-		print("[ChestPanel] Loaded chest inventory: %d slots, 0 items" % CHEST_INVENTORY_SIZE)
 
 
 func _save_chest_inventory() -> void:

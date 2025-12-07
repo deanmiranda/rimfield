@@ -74,7 +74,6 @@ func _ready() -> void:
 		is_day1 = GameTimeManager.day == 1 and GameTimeManager.season == 0 and GameTimeManager.year == 1
 	
 	if GameState:
-		
 		if is_day1 and not GameState.day1_farm_random_droppables_spawned:
 			# Set flag BEFORE spawning to prevent double-spawn if _ready() triggers twice
 			GameState.day1_farm_random_droppables_spawned = true
@@ -184,7 +183,6 @@ func spawn_starter_items_async() -> void:
 		var pos = _get_random_farm_position()
 		DroppableFactory.spawn_generic_droppable_from_texture(seeds_texture, pos, hud_instance, 10)
 	
-
 
 func _initialize_farming() -> void:
 	"""Deferred farming initialization - waits for TileSet to load"""
@@ -481,7 +479,6 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 	if chest == null:
 		return
 	
-	
 	# Remove 1 chest from toolkit slot
 	if source_container and source_container.has_method("get_slot_data"):
 		var slot_data = source_container.get_slot_data(source_slot)
@@ -543,12 +540,11 @@ func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, s
 				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
 				if droppable:
 					droppable.scale = Vector2(0.75, 0.75)
-		
 	
 	# Remove items from source container BEFORE clearing drag state
 	if source_container and is_instance_valid(source_container):
 		if source_container.has_method("remove_item_from_slot"):
-			var removed = source_container.remove_item_from_slot(source_slot)
+			source_container.remove_item_from_slot(source_slot)
 			# Ensure UI is synced after removal
 			if source_container.has_method("sync_slot_ui"):
 				source_container.sync_slot_ui(source_slot)
