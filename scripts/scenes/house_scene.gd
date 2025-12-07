@@ -46,9 +46,7 @@ func _ready():
 		if HUD:
 			HUD.set_hud_scene_instance(hud_instance)
 	
-	# Inventory setup - CRITICAL: Initialize pause menu and inventory UI
-	if UiManager:
-		UiManager.instantiate_inventory()
+	# Inventory setup - pause menu is already initialized in UiManager._ready()
 	
 	# Connect to DragManager world drop signal for chest placement
 	if DragManager:

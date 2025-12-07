@@ -218,10 +218,19 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - drop to world (any item can be dropped)
-			DragManager.emit_world_drop()
-			# Clear stored original data (world drop committed)
-			original_slot_data.clear()
+			# No valid target found - check if mouse is over UI panel
+			var viewport = get_viewport()
+			if viewport:
+				var mouse_pos = viewport.get_mouse_position()
+				if _is_mouse_over_ui_panel(mouse_pos):
+					# Dropped on UI panel background - restore to source instead of world drop
+					DragManager.cancel_drag()
+					_restore_after_cancel()
+				else:
+					# Dropped on world (non-UI surface) - drop to world
+					DragManager.emit_world_drop()
+					# Clear stored original data (world drop committed)
+					original_slot_data.clear()
 		
 		accept_event() # Consume the event to prevent further processing
 		get_viewport().set_input_as_handled()
@@ -353,10 +362,19 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - drop to world (any item can be dropped)
-			DragManager.emit_world_drop()
-			# Clear stored original data (world drop committed)
-			original_slot_data.clear()
+			# No valid target found - check if mouse is over UI panel
+			var viewport = get_viewport()
+			if viewport:
+				var mouse_pos = viewport.get_mouse_position()
+				if _is_mouse_over_ui_panel(mouse_pos):
+					# Dropped on UI panel background - restore to source instead of world drop
+					DragManager.cancel_drag()
+					_restore_after_cancel()
+				else:
+					# Dropped on world (non-UI surface) - drop to world
+					DragManager.emit_world_drop()
+					# Clear stored original data (world drop committed)
+					original_slot_data.clear()
 		
 		accept_event() # Consume the event
 		get_viewport().set_input_as_handled()
@@ -548,6 +566,46 @@ func _is_mouse_over_hud_slot(mouse_pos: Vector2) -> bool:
 			var slot_rect = slot.get_global_rect()
 			if slot_rect.has_point(mouse_pos):
 				return true
+	
+	return false
+
+
+func _is_mouse_over_ui_panel(mouse_pos: Vector2) -> bool:
+	"""Check if mouse is over any UI panel (pause menu, chest panel, etc.)"""
+	# Check pause menu
+	if UiManager and "pause_menu" in UiManager:
+		var pause_menu = UiManager.pause_menu
+		if pause_menu and pause_menu.visible:
+			var pause_rect = pause_menu.get_global_rect()
+			if pause_rect.has_point(mouse_pos):
+				return true
+	
+	# Check chest inventory panel
+	if UiManager and "chest_inventory_panel" in UiManager:
+		var chest_panel = UiManager.chest_inventory_panel
+		if chest_panel and chest_panel.visible:
+			var chest_rect = chest_panel.get_global_rect()
+			if chest_rect.has_point(mouse_pos):
+				return true
+	
+	# Check if mouse is over any Control node that's a UI panel
+	# Use gui_get_hovered_control to find what's under the mouse
+	var viewport = get_viewport()
+	if viewport:
+		var hovered_control = viewport.gui_get_hovered_control()
+		if hovered_control:
+			# Walk up the tree to see if it's part of a UI panel
+			var current = hovered_control
+			while current:
+				# Check if it's a known UI panel type
+				if current.name == "PauseMenu" or current.name == "ChestInventoryPanel":
+					return true
+				# Check if it's a PanelContainer or similar UI container
+				if current is PanelContainer or current is PopupPanel or current is Window:
+					# Make sure it's actually visible and not just a background element
+					if current.visible and current.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+						return true
+				current = current.get_parent()
 	
 	return false
 
