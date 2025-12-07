@@ -30,7 +30,16 @@ func _ready() -> void:
 	
 	# Register with ChestManager
 	if ChestManager:
-		chest_id = ChestManager.register_chest(self)
+		var registered_id = ChestManager.register_chest(self)
+		if registered_id != "":
+			chest_id = registered_id
+		else:
+			# Registration was blocked (wrong scene) - remove this chest node
+			# It shouldn't exist in this scene
+			if get_parent():
+				get_parent().remove_child(self)
+			queue_free()
+			return # Exit early - don't set up signals or sprites for a node that's being freed
 	
 	# Connect Area2D signals
 	if interaction_area:
@@ -140,7 +149,6 @@ func _input(event: InputEvent) -> void:
 			
 			# Check if clicking near chest (within 32 pixels)
 			if distance_to_chest < 32:
-				print("[Chest] Opening via right-click")
 				open_chest()
 				get_viewport().set_input_as_handled()
 

@@ -22,8 +22,6 @@ func visualize_inventory() -> void:
 				var slot_index = slots.find(slot)
 				var item_texture = InventoryManager.get_item(slot_index)
 				slot.texture_normal = item_texture if item_texture else null
-			else:
-				print("Unexpected node in inventory slots:", slot.name)
 
 
 # Debug z-indexes starting from a given node

@@ -19,9 +19,6 @@ var farming_manager: Node = null
 
 
 func _ready() -> void:
-	# Temporary test: Verify FarmingTerrain.tres loads
-	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
-	
 	# Restore chests for this scene
 	if ChestManager:
 		ChestManager.restore_chests_for_scene("Farm")
@@ -43,7 +40,6 @@ func _ready() -> void:
 		# Default: use PlayerSpawnPoint node
 		var spawn_point = $PlayerSpawnPoint
 		if not spawn_point:
-			print("Error: PlayerSpawnPoint node not found!")
 			return
 		player_instance.global_position = spawn_point.global_position
 
@@ -60,8 +56,6 @@ func _ready() -> void:
 	# Inventory setup
 	if UiManager:
 		UiManager.instantiate_inventory()
-	else:
-		print("Error: UiManager singleton not found.")
 
 	# Defer farming initialization to allow TileSet to load asynchronously
 	call_deferred("_initialize_farming")
@@ -70,12 +64,20 @@ func _ready() -> void:
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
-	else:
-		print("Error: HUD scene not assigned!")
 
-	# Spawn droppables asynchronously to avoid scene load delay
-	# TESTING: Increased to 80 for inventory-full testing
-	spawn_random_droppables_async(80)
+	# Spawn random droppables ONLY on Day 1 of new game (gate to prevent re-spawning)
+	var is_day1 := false
+	if GameTimeManager:
+		is_day1 = GameTimeManager.day == 1 and GameTimeManager.season == 0 and GameTimeManager.year == 1
+	
+	if GameState:
+		if is_day1 and not GameState.day1_farm_random_droppables_spawned:
+			# Set flag BEFORE spawning to prevent double-spawn if _ready() triggers twice
+			GameState.day1_farm_random_droppables_spawned = true
+			spawn_random_droppables_async(80)
+			
+			# Spawn starter tools, chest, and seeds as droppables
+			spawn_starter_items_async()
 	
 	# Connect to DragManager world drop signal for chest placement
 	if DragManager:
@@ -90,7 +92,6 @@ func _ready() -> void:
 func spawn_random_droppables_async(count: int) -> void:
 	"""Spawn droppables over multiple frames to avoid blocking scene load"""
 	if not hud_instance:
-		print("Error: HUD instance is null! Droppables cannot be spawned.")
 		return
 
 	# Spawn in smaller batches (5 per frame) to spread load and reduce stutter
@@ -133,6 +134,52 @@ func _get_random_farm_position() -> Vector2:
 	var random_y = randi() % int(farm_area.size.y) + farm_area.position.y
 	return Vector2(random_x, random_y)
 
+
+func spawn_starter_items_async() -> void:
+	"""Spawn starter tools, chest, and seeds as droppables on Day 1"""
+	if not hud_instance:
+		return
+	
+	await get_tree().process_frame
+	
+	# Load tool textures
+	var shovel_texture = load("res://assets/tiles/tools/shovel.png")
+	var watering_can_texture = load("res://assets/tiles/tools/watering-can.png")
+	var pickaxe_texture = load("res://assets/tiles/tools/pick-axe.png")
+	var chest_texture = load("res://assets/icons/chest_icon.png")
+	var seeds_texture = load("res://assets/tilesets/full version/tiles/FartSnipSeeds.png")
+	
+	# Spawn tools (one of each)
+	if shovel_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(shovel_texture, pos, hud_instance, 1)
+	
+	await get_tree().process_frame
+	
+	if watering_can_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(watering_can_texture, pos, hud_instance, 1)
+	
+	await get_tree().process_frame
+	
+	if pickaxe_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(pickaxe_texture, pos, hud_instance, 1)
+	
+	await get_tree().process_frame
+	
+	# Spawn chest (one)
+	if chest_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(chest_texture, pos, hud_instance, 1)
+	
+	await get_tree().process_frame
+	
+	# Spawn seeds (stack of 10)
+	if seeds_texture:
+		var pos = _get_random_farm_position()
+		DroppableFactory.spawn_generic_droppable_from_texture(seeds_texture, pos, hud_instance, 10)
+	
 
 func _initialize_farming() -> void:
 	"""Deferred farming initialization - waits for TileSet to load"""
@@ -186,13 +233,6 @@ func _initialize_farming() -> void:
 			HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
 			HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
 			farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
-		else:
-			print("Error: hud_instance is not an instance of HUD script.")
-	else:
-		if not hud_instance:
-			print("Error: HUD instance not created")
-		if not farming_manager:
-			print("Error: FarmingManager not linked")
 
 func link_farming_manager() -> void:
 	"""Get and validate FarmingManager reference"""
@@ -208,23 +248,21 @@ func _on_game_loaded() -> void:
 
 
 func _load_farm_state() -> void:
-	var farming_manager = get_node_or_null(farming_manager_path)
-	if not farming_manager:
-		print("Error: Farming Manager not found!")
+	var farm_mgr = get_node_or_null(farming_manager_path)
+	if not farm_mgr:
 		return
 
 	var tilemap = get_node_or_null(tilemap_layer)
 	if not tilemap:
-		print("Error: TileMapLayer not found!")
 		return
 	
-	# Restore chests from save data
-	_restore_chests()
+	# Chests are already restored by ChestManager.restore_chests_for_scene("Farm") in _ready()
+	# No need to call _restore_chests() here
 	
 	# CRITICAL FIX: Get crop layer from FarmingManager (it creates/manages it)
 	var crop_layer: TileMapLayer = null
 	# Use get() to safely retrieve the property (has() doesn't work on Node objects)
-	var crop_layer_property = farming_manager.get("crop_layer")
+	var crop_layer_property = farm_mgr.get("crop_layer")
 	if crop_layer_property != null:
 		crop_layer = crop_layer_property as TileMapLayer
 	else:
@@ -247,13 +285,13 @@ func _load_farm_state() -> void:
 		match state:
 			"soil":
 				# Draw dry soil atlas
-				farming_manager.set_dry_soil_visual(tile_position)
+				farm_mgr.set_dry_soil_visual(tile_position)
 				# Clear crop layer if it exists
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"tilled":
 				# Draw wet soil atlas (legacy "tilled" state)
-				farming_manager.set_wet_soil_visual(tile_position)
+				farm_mgr.set_wet_soil_visual(tile_position)
 				# Clear crop layer if it exists
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
@@ -264,15 +302,15 @@ func _load_farm_state() -> void:
 					is_watered = crop_data.get("is_watered", false)
 				
 				if is_watered:
-					farming_manager.set_wet_soil_visual(tile_position)
+					farm_mgr.set_wet_soil_visual(tile_position)
 				else:
-					farming_manager.set_dry_soil_visual(tile_position)
+					farm_mgr.set_dry_soil_visual(tile_position)
 				
 				# Recreate crop from GameState on crop layer
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
-				var crop_source_id = farming_manager.CROP_SOURCE_DRY
+				var crop_source_id = farm_mgr.CROP_SOURCE_DRY
 				if is_watered:
-					crop_source_id = farming_manager.CROP_SOURCE_WET
+					crop_source_id = farm_mgr.CROP_SOURCE_WET
 				
 				# CRITICAL: Use single-cell set_cell() only - no bulk operations
 				if crop_data is Dictionary:
@@ -292,7 +330,7 @@ func _load_farm_state() -> void:
 					crop_layer_to_use.set_cell(tile_position, crop_source_id, Vector2i(0, 0))
 			"planted_tilled":
 				# Draw wet soil visual
-				farming_manager.set_wet_soil_visual(tile_position)
+				farm_mgr.set_wet_soil_visual(tile_position)
 				# Recreate crop from GameState on crop layer (wet row)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				# CRITICAL: Use single-cell set_cell() only - no bulk operations
@@ -307,13 +345,13 @@ func _load_farm_state() -> void:
 						stage_to_show = max_stages - 1
 					# Ensure Y coordinate is always 0 (only X changes with stage)
 					var atlas_coords := Vector2i(stage_to_show, 0)
-					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, atlas_coords)
+					crop_layer_to_use.set_cell(tile_position, farm_mgr.CROP_SOURCE_WET, atlas_coords)
 				else:
 					# Default to stage 0
-					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, Vector2i(0, 0))
+					crop_layer_to_use.set_cell(tile_position, farm_mgr.CROP_SOURCE_WET, Vector2i(0, 0))
 			"dirt":
 				# Legacy support: "dirt" maps to "soil"
-				farming_manager.set_dry_soil_visual(tile_position)
+				farm_mgr.set_dry_soil_visual(tile_position)
 				if GameState:
 					GameState.update_tile_state(tile_position, "soil")
 			_:
@@ -322,35 +360,11 @@ func _load_farm_state() -> void:
 
 
 func _restore_chests() -> void:
-	"""Restore chests from save data."""
-	if not ChestManager:
-		return
-	
-	# Get pending restore data from ChestManager
-	var pending_data = ChestManager.get_pending_restore_data()
-	if pending_data.size() == 0:
-		return
-	
-	# Instantiate chests at their saved positions
-	var chest_scene = preload("res://scenes/world/chest.tscn")
-	if not chest_scene:
-		push_error("FarmScene: Could not load chest scene")
-		return
-	
-	for chest_data in pending_data:
-		var chest_id = chest_data.get("chest_id", "")
-		var position_data = chest_data.get("position", {"x": 0, "y": 0})
-		var position = Vector2(position_data.get("x", 0), position_data.get("y", 0))
-		
-		# Instantiate chest
-		var chest_instance = chest_scene.instantiate()
-		if chest_instance:
-			chest_instance.global_position = position
-			# Set chest ID before registration so it matches save data
-			if chest_instance.has_method("set_chest_id"):
-				chest_instance.set_chest_id(chest_id)
-			add_child(chest_instance)
-			# Chest will register itself in _ready() and restore inventory
+	"""Restore chests from save data - DEPRECATED: Use ChestManager.restore_chests_for_scene() instead."""
+	# This function is no longer needed - ChestManager.restore_chests_for_scene("Farm") 
+	# is called in _ready() and handles scene filtering correctly.
+	# Keeping this function stub for now in case of legacy save files, but it should not be called.
+	pass
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:
@@ -384,7 +398,7 @@ func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: T
 	_handle_item_world_drop(texture, count, mouse_pos, source_container, source_slot)
 
 
-func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, count: int, mouse_pos: Vector2) -> void:
+func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, _count: int, mouse_pos: Vector2) -> void:
 	"""Handle chest placement on world"""
 	
 	# Convert screen mouse_pos to world position using MouseUtil
@@ -402,48 +416,15 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 				var mouse_screen = mouse_pos
 				world_pos = camera_pos + (mouse_screen - viewport_size / 2.0) / camera.zoom
 	
-	# Snap to grid (16x16 tiles, center at +8)
-	var snapped_pos = Vector2(floor(world_pos.x / 16.0) * 16.0 + 8, floor(world_pos.y / 16.0) * 16.0 + 8)
-	
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		print("[FarmScene] ChestManager not found - cannot place chest")
 		return
 	
-	# Check if there's already a chest at this position
-	var existing_chest = chest_manager.find_chest_at_position(snapped_pos, 16.0)
-	if existing_chest:
-		print("[FarmScene] Chest already exists at position %s" % snapped_pos)
+	# Use shared placement helper
+	var placement_success = chest_manager.try_place_chest("Farm", world_pos)
+	if not placement_success:
 		return
-	
-	# Check if position is valid using farming_manager if available
-	if farming_manager:
-		# Use farming_manager's validation logic
-		var cell = Vector2i(floor(snapped_pos.x / 16.0), floor(snapped_pos.y / 16.0))
-		if farming_manager.has_method("_is_soil"):
-			var is_soil = farming_manager._is_soil(cell)
-			if is_soil:
-				print("[FarmScene] Cannot place chest on soil")
-				return
-		
-		# Check if tile has crop or is watered
-		if GameState and GameState.farm_state.has(cell):
-			var tile_data = GameState.get_tile_data(cell)
-			if tile_data:
-				var is_watered = tile_data.get("is_watered", false)
-				var has_crop = tile_data.get("tile_state") == "planted"
-				if is_watered or has_crop:
-					print("[FarmScene] Cannot place chest on watered/crop tile")
-					return
-	
-	# Create chest at position
-	var chest = chest_manager.create_chest_at_position(snapped_pos)
-	if chest == null:
-		print("[FarmScene] Failed to create chest at position %s" % snapped_pos)
-		return
-	
-	print("[FarmScene] Chest placed at world position %s" % snapped_pos)
 	
 	# Remove 1 chest from toolkit slot
 	if source_container and source_container.has_method("get_slot_data"):
@@ -495,29 +476,10 @@ func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, s
 		var item_id = DroppableFactory.get_item_id_from_texture(texture)
 		
 		if item_id.is_empty():
-			# No matching item_id - spawn generic droppable with texture
-			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
-			var droppable_instance = droppable_scene.instantiate()
-			
-			# Create minimal item data resource
-			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
-			item_data.texture = texture
-			
-			droppable_instance.item_data = item_data
-			droppable_instance.global_position = snapped_pos
-			droppable_instance.hud = hud_instance
-			droppable_instance.scale = Vector2(0.75, 0.75)
-			
-			add_child(droppable_instance)
-			
-			# If count > 1, spawn additional instances
-			for i in range(count - 1):
-				var additional = droppable_scene.instantiate()
-				additional.item_data = item_data
-				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
-				additional.hud = hud_instance
-				additional.scale = Vector2(0.75, 0.75)
-				add_child(additional)
+			# No matching item_id - spawn generic droppable with texture via factory
+			# This ensures proper registration for persistence
+			if texture is Texture2D:
+				DroppableFactory.spawn_generic_droppable_from_texture(texture, snapped_pos, hud_instance, count)
 		else:
 			# Use existing item_id - spawn via factory
 			for i in range(count):
@@ -525,32 +487,14 @@ func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, s
 				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
 				if droppable:
 					droppable.scale = Vector2(0.75, 0.75)
-		
-		print("[FarmScene] Item world drop: texture=%s count=%d at %s" % [
-			texture.resource_path if texture else "null",
-			count,
-			snapped_pos
-		])
 	
 	# Remove items from source container BEFORE clearing drag state
 	if source_container and is_instance_valid(source_container):
 		if source_container.has_method("remove_item_from_slot"):
-			var removed = source_container.remove_item_from_slot(source_slot)
-			print("[FarmScene] Removed items from source container: slot=%d container=%s removed=%s" % [
-				source_slot,
-				source_container.container_id if "container_id" in source_container else "unknown",
-				removed
-			])
+			source_container.remove_item_from_slot(source_slot)
 			# Ensure UI is synced after removal
 			if source_container.has_method("sync_slot_ui"):
 				source_container.sync_slot_ui(source_slot)
-		else:
-			print("[FarmScene] ERROR: Source container has no remove_item_from_slot method")
-	else:
-		print("[FarmScene] ERROR: Source container is invalid or null - container=%s slot=%d" % [
-			"null" if not source_container else "invalid",
-			source_slot
-		])
 	
 	# Clear drag state AFTER removing items
 	if DragManager:
@@ -586,30 +530,10 @@ func _on_cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: V
 		var item_id = DroppableFactory.get_item_id_from_texture(texture)
 		
 		if item_id.is_empty():
-			# No matching item_id - spawn generic droppable with texture
-			# Create minimal droppable instance
-			var droppable_scene = preload("res://scenes/droppable/droppable_generic.tscn")
-			var droppable_instance = droppable_scene.instantiate()
-			
-			# Create minimal item data resource
-			var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
-			item_data.texture = texture
-			
-			droppable_instance.item_data = item_data
-			droppable_instance.global_position = snapped_pos
-			droppable_instance.hud = hud_instance
-			droppable_instance.scale = Vector2(0.75, 0.75)
-			
-			add_child(droppable_instance)
-			
-			# If count > 1, spawn additional instances
-			for i in range(count - 1):
-				var additional = droppable_scene.instantiate()
-				additional.item_data = item_data
-				additional.global_position = snapped_pos + Vector2(randf_range(-4, 4), randf_range(-4, 4))
-				additional.hud = hud_instance
-				additional.scale = Vector2(0.75, 0.75)
-				add_child(additional)
+			# No matching item_id - spawn generic droppable with texture via factory
+			# This ensures proper registration for persistence
+			if texture is Texture2D:
+				DroppableFactory.spawn_generic_droppable_from_texture(texture, snapped_pos, hud_instance, count)
 		else:
 			# Use existing item_id - spawn via factory
 			for i in range(count):
@@ -617,12 +541,6 @@ func _on_cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: V
 				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
 				if droppable:
 					droppable.scale = Vector2(0.75, 0.75)
-		
-		print("[FarmScene] Cursor-hold world drop: texture=%s count=%d at %s" % [
-			texture.resource_path if texture else "null",
-			count,
-			snapped_pos
-		])
 		
 		# Consume from cursor-hold after successful spawn
 		if DragManager:

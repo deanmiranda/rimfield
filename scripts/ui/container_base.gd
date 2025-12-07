@@ -48,11 +48,6 @@ func register_slot(slot: SlotBase) -> void:
 	var slot_array = slot_nodes_by_index[slot.slot_index]
 	if not slot in slot_array:
 		slot_array.append(slot)
-		var total_views = slot_array.size()
-		var owner_tag = ""
-		if slot.has_meta("ui_owner_tag"):
-			owner_tag = " owner=" + str(slot.get_meta("ui_owner_tag"))
-		print("[Container:%s] Registered SlotBase index=%d total_views=%d%s" % [container_id, slot.slot_index, total_views, owner_tag])
 
 
 func unregister_slot(slot: SlotBase) -> void:
@@ -92,8 +87,6 @@ func _ready() -> void:
 	# Register with InventoryManager to prevent duplicates
 	if InventoryManager:
 		InventoryManager.register_container(self)
-	
-	print("[ContainerBase] Initialized: id=%s type=%s slots=%d" % [container_id, container_type, slot_count])
 
 
 func open_container() -> void:
@@ -101,7 +94,6 @@ func open_container() -> void:
 	is_open = true
 	visible = true
 	emit_signal("container_opened")
-	print("[Container:%s] Opened" % container_id)
 
 
 func close_container() -> void:
@@ -111,11 +103,9 @@ func close_container() -> void:
 	
 	# Cancel any active drags from this container
 	if DragManager and DragManager.is_dragging and DragManager.drag_source_container == self:
-		print("[Container:%s] Canceling drag on close" % container_id)
 		DragManager.cancel_drag()
 	
 	emit_signal("container_closed")
-	print("[Container:%s] Closed" % container_id)
 
 
 func can_accept_drop(from_container: Node, item_texture: Texture, item_count: int) -> bool:
@@ -277,26 +267,10 @@ func handle_drop_on_slot(target_slot_index: int) -> void:
 	var drag_count = drag_data["count"]
 	var is_right_click = drag_data["is_right_click"]
 	
-	print("[Container:%s] Handling drop: from=%s slot=%d to_slot=%d texture=%s count=%d" % [
-		container_id,
-		source_container.container_id if source_container else "unknown",
-		source_slot_index,
-		target_slot_index,
-		drag_texture.resource_path if drag_texture else "null",
-		drag_count
-	])
-	
 	# Check if drop is within same container
 	if source_container == self:
-		print("[Container:%s] INTERNAL_DROP: source_slot=%d target_slot=%d" % [container_id, source_slot_index, target_slot_index])
 		_handle_internal_drop(source_slot_index, target_slot_index, drag_texture, drag_count, is_right_click)
 	else:
-		print("[Container:%s] EXTERNAL_DROP: from=%s source_slot=%d target_slot=%d" % [
-			container_id,
-			source_container.container_id if source_container and "container_id" in source_container else "unknown",
-			source_slot_index,
-			target_slot_index
-		])
 		_handle_external_drop(source_container, source_slot_index, target_slot_index, drag_texture, drag_count, is_right_click)
 
 
@@ -304,7 +278,6 @@ func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count
 	"""Handle drop within same container (swap or stack)"""
 	# Ignore same-slot drops
 	if from_slot == to_slot:
-		print("[Container:%s] Ignoring same-slot drop: %d → %d" % [container_id, from_slot, to_slot])
 		return
 	
 	# Use API to read data (not direct inventory_data access)
@@ -318,7 +291,6 @@ func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count
 	
 	# Right-click with different texture: do not swap (per requirements)
 	if is_right_click and to_data["texture"] and to_data["texture"] != texture:
-		print("[Container:%s] Right-click drop on different texture - no swap allowed" % container_id)
 		return
 	
 	if not to_data["texture"]:
@@ -384,19 +356,6 @@ func _handle_internal_drop(from_slot: int, to_slot: int, texture: Texture, count
 
 func _handle_external_drop(source_container: Node, source_slot: int, target_slot: int, texture: Texture, count: int, is_right_click: bool = false) -> void:
 	"""Handle drop from external container (transfer or swap)"""
-	var source_id_str = source_container.container_id if source_container and "container_id" in source_container else "unknown"
-	var target_id_str = container_id
-	
-	print("[Container:%s] EXTERNAL_DROP_START: source_id=%s target_id=%s source_slot=%d target_slot=%d texture=%s count=%d" % [
-		target_id_str,
-		source_id_str,
-		target_id_str,
-		source_slot,
-		target_slot,
-		texture.resource_path if texture else "null",
-		count
-	])
-	
 	# Use API to read data (not direct inventory_data access)
 	var target_data = get_slot_data(target_slot)
 	
@@ -461,7 +420,6 @@ func _handle_external_drop(source_container: Node, source_slot: int, target_slot
 		# Different texture - swap (only allowed on left-click)
 		# Right-click with different texture: do not swap (per requirements)
 		if is_right_click:
-			print("[Container:%s] Right-click drop on different texture - no swap allowed" % container_id)
 			return
 		
 		# Left-click swap using API (preserves both counts)
@@ -476,21 +434,11 @@ func _handle_external_drop(source_container: Node, source_slot: int, target_slot
 			source_container.add_item_to_slot(source_slot, temp_texture, temp_count)
 		else:
 			push_error("[Container:%s] Source container doesn't have add_item_to_slot()!" % container_id)
-	
-	# Get post-state for logging
-	var source_post_data = source_container.get_slot_data(source_slot) if source_container.has_method("get_slot_data") else {"texture": null, "count": 0}
-	var target_post_data = get_slot_data(target_slot)
-	
-	print("[Container:%s] EXTERNAL_DROP_POST: source_slot_data=%s target_slot_data=%s" % [
-		target_id_str,
-		"%s x%d" % [source_post_data["texture"].resource_path if source_post_data["texture"] else "null", source_post_data["count"]],
-		"%s x%d" % [target_post_data["texture"].resource_path if target_post_data["texture"] else "null", target_post_data["count"]]
-	])
 
 
 func handle_shift_click(slot_index: int) -> void:
 	"""Handle shift-click quick transfer - OVERRIDE in subclass for specific behavior"""
-	print("[Container:%s] Shift-click on slot %d (override this method)" % [container_id, slot_index])
+	pass
 
 
 func find_empty_slot() -> int:

@@ -26,8 +26,6 @@ func _ready() -> void:
 		if tool_switcher:
 			if not tool_switcher.is_connected("tool_changed", Callable(self, "_on_tool_changed")):
 				tool_switcher.connect("tool_changed", Callable(self, "_on_tool_changed"))
-		else:
-			print("Error: ToolSwitcher node not found.")
 
 	# Create and configure the highlight sprite
 	highlight_sprite = Sprite2D.new()
@@ -49,10 +47,8 @@ func _on_tool_changed(_slot_index: int, item_texture: Texture) -> void:
 	# Convert texture to tool name using ToolConfig
 	if item_texture and tool_config and tool_config.has_method("get_tool_name"):
 		current_tool = tool_config.get_tool_name(item_texture)
-		print("Tool changed to:", current_tool, " (slot:", _slot_index, ")")
 	else:
 		current_tool = "unknown"
-		print("Tool changed but texture is null or ToolConfig unavailable")
 
 # Cache tile size to avoid recalculating every frame
 # Set to zero to force recalculation if needed

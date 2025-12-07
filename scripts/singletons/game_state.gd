@@ -24,6 +24,9 @@ var farm_state: Dictionary = {}
 # Current save file being used
 var current_save_file: String = "" # No default save file to prevent initial save issues
 
+# Day 1 spawn gate: prevents re-spawning farm random droppables across scene reloads
+var day1_farm_random_droppables_spawned: bool = false
+
 # Signal to notify when a game is loaded successfully
 signal game_loaded
 
@@ -150,43 +153,74 @@ func save_game(file: String = "") -> void:
 			current_save_file = "user://save_slot_%s.json" % timestamp
 
 	if current_save_file == "":
-		print("Error: No save file path provided.")
 		return
 
-	# Get toolkit and inventory from InventoryManager
+	# Get toolkit and inventory from containers (NEW SYSTEM)
 	var toolkit_items = []
 	var inventory_items = []
 
 	if InventoryManager:
-		# Save toolkit slots with stack counts and weight
-		for i in range(InventoryManager.max_toolkit_slots):
-			var slot_data = InventoryManager.toolkit_slots.get(
-				i, {"texture": null, "count": 0, "weight": 0.0}
-			)
-			if slot_data["texture"] and slot_data["count"] > 0:
-				toolkit_items.append(
-					{
-						"slot_index": i,
-						"texture_path": slot_data["texture"].resource_path,
-						"count": slot_data["count"],
-						"weight": slot_data.get("weight", 0.0) # Include weight in save
-					}
+		# Save toolkit from ToolkitContainer (NEW SYSTEM)
+		if InventoryManager.toolkit_container:
+			for i in range(InventoryManager.toolkit_container.slot_count):
+				var slot_data = InventoryManager.toolkit_container.inventory_data.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
 				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					toolkit_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
+		else:
+			# Fallback to legacy dict if container doesn't exist
+			for i in range(InventoryManager.max_toolkit_slots):
+				var slot_data = InventoryManager.toolkit_slots.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
+				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					toolkit_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
 
-		# Save inventory slots with stack counts and weight
-		for i in range(InventoryManager.max_inventory_slots):
-			var slot_data = InventoryManager.inventory_slots.get(
-				i, {"texture": null, "count": 0, "weight": 0.0}
-			)
-			if slot_data["texture"] and slot_data["count"] > 0:
-				inventory_items.append(
-					{
-						"slot_index": i,
-						"texture_path": slot_data["texture"].resource_path,
-						"count": slot_data["count"],
-						"weight": slot_data.get("weight", 0.0) # Include weight in save
-					}
+		# Save inventory from PlayerInventoryContainer (NEW SYSTEM)
+		if InventoryManager.player_inventory_container:
+			for i in range(InventoryManager.player_inventory_container.slot_count):
+				var slot_data = InventoryManager.player_inventory_container.inventory_data.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
 				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					inventory_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
+		else:
+			# Fallback to legacy dict if container doesn't exist
+			for i in range(InventoryManager.max_inventory_slots):
+				var slot_data = InventoryManager.inventory_slots.get(
+					i, {"texture": null, "count": 0, "weight": 0.0}
+				)
+				if slot_data["texture"] and slot_data["count"] > 0:
+					inventory_items.append(
+						{
+							"slot_index": i,
+							"texture_path": slot_data["texture"].resource_path,
+							"count": int(slot_data["count"]),
+							"weight": float(slot_data.get("weight", 0.0))
+						}
+					)
 
 	# Convert farm_state to JSON-serializable format
 	# Vector2i keys need to be converted to strings for JSON
@@ -230,6 +264,7 @@ func save_game(file: String = "") -> void:
 		"inventory_items": inventory_items,
 		"chest_data": chest_data,
 		"droppable_data": droppable_data,
+		"day1_farm_random_droppables_spawned": day1_farm_random_droppables_spawned,
 		"game_time": {
 			"day": GameTimeManager.day if GameTimeManager else 1,
 			"season": GameTimeManager.season if GameTimeManager else 0,
@@ -269,9 +304,6 @@ func load_game(file: String = "") -> bool:
 		
 		# Deserialize farm_state (convert string keys back to Vector2i)
 		var loaded_farm_state = save_data.get("farm_state", {})
-		if loaded_farm_state.size() > 0:
-			print("[GameState] Sample farm_state keys: %s" % str(loaded_farm_state.keys().slice(0, 5)))
-		
 		farm_state.clear()
 		for key_str in loaded_farm_state.keys():
 			var key_parts = key_str.split(",")
@@ -284,6 +316,9 @@ func load_game(file: String = "") -> bool:
 		# Debug: Log how many tiles were loaded
 		
 		current_scene = save_data.get("current_scene", "farm_scene")
+		
+		# Restore Day 1 spawn flag
+		day1_farm_random_droppables_spawned = save_data.get("day1_farm_random_droppables_spawned", false)
 		
 		# Restore game time if present
 		if save_data.has("game_time") and GameTimeManager:
@@ -300,7 +335,11 @@ func load_game(file: String = "") -> bool:
 
 		# Restore toolkit and inventory to InventoryManager
 		if InventoryManager:
-			# Clear existing data
+			# CRITICAL: Clear legacy dicts completely to prevent mixed-key bug
+			InventoryManager.toolkit_slots.clear()
+			InventoryManager.inventory_slots.clear()
+			
+			# Initialize with empty slots (int keys only)
 			for i in range(InventoryManager.max_toolkit_slots):
 				InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 			for i in range(InventoryManager.max_inventory_slots):
@@ -310,15 +349,19 @@ func load_game(file: String = "") -> bool:
 			if save_data.has("toolkit_items"):
 				for item_data in save_data["toolkit_items"]:
 					var slot_index = item_data.get("slot_index", -1)
+					slot_index = int(slot_index)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
-					var weight = item_data.get("weight", 0.0) # Load weight if present, default to 0.0
+					var weight = item_data.get("weight", 0.0)
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
 						if texture:
+							var float_key = float(slot_index)
+							if InventoryManager.toolkit_slots.has(float_key):
+								InventoryManager.toolkit_slots.erase(float_key)
 							InventoryManager.toolkit_slots[slot_index] = {
-								"texture": texture, "count": count, "weight": weight
+								"texture": texture, "count": int(count), "weight": float(weight)
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)
@@ -327,33 +370,61 @@ func load_game(file: String = "") -> bool:
 			if save_data.has("inventory_items"):
 				for item_data in save_data["inventory_items"]:
 					var slot_index = item_data.get("slot_index", -1)
+					slot_index = int(slot_index)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
-					var weight = item_data.get("weight", 0.0) # Load weight if present, default to 0.0
+					var weight = item_data.get("weight", 0.0)
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
 						if texture:
+							var float_key = float(slot_index)
+							if InventoryManager.inventory_slots.has(float_key):
+								InventoryManager.inventory_slots.erase(float_key)
 							InventoryManager.inventory_slots[slot_index] = {
-								"texture": texture, "count": count, "weight": weight
+								"texture": texture, "count": int(count), "weight": float(weight)
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)
-
-			var toolkit_count = save_data.get("toolkit_items", []).size()
-			var inventory_count = save_data.get("inventory_items", []).size()
 			
-			# Debug: Log what items were loaded
-			if toolkit_count > 0:
-				for item in save_data.get("toolkit_items", []):
-					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
-			if inventory_count > 0:
-				for item in save_data.get("inventory_items", []):
-					print("  Slot %d: %s x%d" % [item.get("slot_index", -1), item.get("texture_path", ""), item.get("count", 0)])
+			# Force containers to re-migrate from legacy dicts after load
+			# This ensures containers get the loaded data even if they already migrated during new_game()
+			# Clear containers first, then force migration to restore saved state
+			if InventoryManager.toolkit_container:
+				# Clear container data before migration (restore from saved state)
+				for i in range(InventoryManager.toolkit_container.slot_count):
+					InventoryManager.toolkit_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+				InventoryManager.toolkit_container._migrate_from_inventory_manager(true)
+				InventoryManager.toolkit_container.sync_ui()
+			
+			# Ensure player_inventory_container exists before migration (it's created lazily by pause menu)
+			if not InventoryManager.player_inventory_container:
+				await InventoryManager.get_or_create_player_inventory_container()
+			
+			if InventoryManager.player_inventory_container:
+				# Clear container data before migration (restore from saved state)
+				for i in range(InventoryManager.player_inventory_container.slot_count):
+					InventoryManager.player_inventory_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+				InventoryManager.player_inventory_container._migrate_from_inventory_manager(true)
+				InventoryManager.player_inventory_container.sync_ui()
 			
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
 			InventoryManager.sync_toolkit_ui()
+		
+		# Clear all node references from chest registry (invalidate old nodes before scene change)
+		# This prevents stale chest nodes from triggering register_chest() in wrong scenes
+		if ChestManager:
+			for chest_id in ChestManager.chest_registry.keys():
+				var chest_data = ChestManager.chest_registry[chest_id]
+				var old_node = chest_data.get("node")
+				if old_node and is_instance_valid(old_node):
+					# Remove from scene if still attached
+					if old_node.get_parent():
+						old_node.get_parent().remove_child(old_node)
+					old_node.queue_free()
+				# Clear node reference
+				ChestManager.chest_registry[chest_id]["node"] = null
 		
 		# Restore chest data
 		if save_data.has("chest_data") and ChestManager:
@@ -372,8 +443,9 @@ func load_game(file: String = "") -> bool:
 		_stop_intro_music()
 		
 		# Start background music if not already playing
-		if MusicManager and not MusicManager.is_playing:
-			MusicManager.start_music()
+		var music_mgr = get_node_or_null("/root/MusicManager")
+		if music_mgr and not music_mgr.is_playing:
+			music_mgr.start_music()
 		
 		SceneManager.start_in_house(false)
 
@@ -431,9 +503,9 @@ func manage_save_files() -> void:
 		if delete_dir:
 			var delete_result = delete_dir.remove(oldest_file_name)
 			if delete_result == OK:
-				var mod_date = Time.get_datetime_dict_from_unix_time(oldest_save.time)
+				pass # Save file deleted successfully
 			else:
-				print("[GameState] Error: Failed to delete old save file:", oldest_file_name)
+				print("[GameState] Error: Failed to delete old save file: %s" % oldest_file_name)
 
 
 # Helper function to stop intro music from main menu
@@ -444,7 +516,6 @@ func _stop_intro_music() -> void:
 		var intro_music = main_menu.get_node_or_null("IntroMusic")
 		if intro_music and intro_music is AudioStreamPlayer:
 			intro_music.stop()
-			print("[GameState] Stopped intro music")
 
 
 # Helper function to extract timestamp from save file name
@@ -463,6 +534,21 @@ func new_game() -> void:
 	# Clear all tile states
 	farm_state.clear()
 	
+	# Reset Day 1 spawn flag
+	day1_farm_random_droppables_spawned = false
+	
+	# Reset game time to Day 1, Season 0 (Spring), Year 1
+	if GameTimeManager:
+		GameTimeManager.day = 1
+		GameTimeManager.season = 0
+		GameTimeManager.year = 1
+		GameTimeManager.time_of_day = GameTimeManager.START_TIME_MINUTES
+		GameTimeManager.has_triggered_midnight_warning_today = false
+		GameTimeManager.has_triggered_pass_out_today = false
+		# Emit signals to sync UI
+		GameTimeManager.time_changed.emit(GameTimeManager.time_of_day)
+		GameTimeManager.day_changed.emit(GameTimeManager.day, GameTimeManager.season, GameTimeManager.year)
+	
 	# Clear all chests
 	if ChestManager:
 		ChestManager.reset_all()
@@ -471,18 +557,31 @@ func new_game() -> void:
 	if DroppableFactory:
 		DroppableFactory.reset_all_droppables()
 	
-	# Clear toolkit_slots so HUD will re-sync from the scene file
+	# Clear toolkit and inventory (both legacy dicts and new container system)
 	if InventoryManager:
+		# Clear legacy dicts
 		for i in range(InventoryManager.max_toolkit_slots):
 			InventoryManager.toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+		for i in range(InventoryManager.max_inventory_slots):
+			InventoryManager.inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
+		
+		# Clear new container system (clear inventory_data dictionaries)
+		if InventoryManager.toolkit_container:
+			for i in range(InventoryManager.toolkit_container.slot_count):
+				InventoryManager.toolkit_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+			InventoryManager.toolkit_container.sync_ui()
+		if InventoryManager.player_inventory_container:
+			for i in range(InventoryManager.player_inventory_container.slot_count):
+				InventoryManager.player_inventory_container.inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+			InventoryManager.player_inventory_container.sync_ui()
 	
-	# TESTING: Add chest to slot 4 will happen in HUD._ready() via _sync_initial_toolkit_from_ui()
-	# The test chest is in the HUD scene file, so it will be loaded automatically
-	# TODO: When chest crafting is implemented, remove chest from HUD scene file
+	# Tools/chest/seeds are now spawned as droppables on Day 1, not initialized in HUD
+	# This ensures HUD is clear on new game
 	
 	# Stop intro music if it's playing (from main menu)
 	_stop_intro_music()
 	
 	# Start background music
-	if MusicManager:
-		MusicManager.start_music()
+	var music_mgr = get_node_or_null("/root/MusicManager")
+	if music_mgr:
+		music_mgr.start_music()

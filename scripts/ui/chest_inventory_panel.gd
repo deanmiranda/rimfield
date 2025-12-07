@@ -94,8 +94,6 @@ func _setup_chest_slots() -> void:
 		
 		# Sync slot UI from container data
 		sync_slot_ui(i)
-	
-	print("[ChestPanel] Created %d chest slots" % chest_slots.size())
 
 
 func _setup_player_slots() -> void:
@@ -120,7 +118,7 @@ func _setup_player_slots() -> void:
 		player_inventory_container = await InventoryManager.get_or_create_player_inventory_container()
 		
 		if player_inventory_container:
-			print("[ChestPanel] Using PlayerInventoryContainer from InventoryManager (slot_count=%d)" % player_inventory_container.slot_count)
+			pass
 		else:
 			push_error("[ChestPanel] Failed to get PlayerInventoryContainer from InventoryManager!")
 			return
@@ -163,8 +161,6 @@ func _setup_player_slots() -> void:
 	
 	# Sync UI
 	player_inventory_container.sync_ui()
-	
-	print("[ChestPanel] Created %d player slots (SlotBase)" % player_slots.size())
 
 
 func open_chest_ui(chest_node: Node, chest_id: String) -> void:
@@ -172,8 +168,6 @@ func open_chest_ui(chest_node: Node, chest_id: String) -> void:
 	current_chest = chest_node
 	current_chest_id = chest_id
 	container_id = chest_id
-	
-	print("[ChestPanel] Opening chest UI for: %s" % chest_id)
 	
 	# Load chest inventory from ChestManager
 	_load_chest_inventory()
@@ -193,8 +187,6 @@ func open_chest_ui(chest_node: Node, chest_id: String) -> void:
 
 func close_chest_ui() -> void:
 	"""Close the chest UI"""
-	print("[ChestPanel] Closing chest UI")
-	
 	# Save chest inventory to ChestManager
 	_save_chest_inventory()
 	
@@ -221,7 +213,6 @@ func _input(event: InputEvent) -> void:
 		return
 	
 	if event.is_action_pressed("ui_cancel"):
-		print("[ChestPanel] ESC pressed - closing chest")
 		close_chest_ui()
 		get_viewport().set_input_as_handled()
 
@@ -233,13 +224,22 @@ func _load_chest_inventory() -> void:
 	
 	var saved_inventory = ChestManager.get_chest_inventory(current_chest_id)
 	
+	# Always initialize with empty slots first
+	for i in range(CHEST_INVENTORY_SIZE):
+		inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+	
+	# If we have saved inventory data, copy it (only valid slot indices 0-35)
 	if saved_inventory and saved_inventory.size() > 0:
-		print("[ChestPanel] Loaded chest inventory: %d slots" % saved_inventory.size())
-		inventory_data = saved_inventory.duplicate(true)
-	else:
-		# Initialize empty inventory
 		for i in range(CHEST_INVENTORY_SIZE):
-			inventory_data[i] = {"texture": null, "count": 0, "weight": 0.0}
+			if saved_inventory.has(i):
+				# Deep copy the slot data to avoid reference issues
+				var slot_data = saved_inventory[i]
+				if slot_data is Dictionary:
+					inventory_data[i] = {
+						"texture": slot_data.get("texture"),
+						"count": slot_data.get("count", 0),
+						"weight": slot_data.get("weight", 0.0)
+					}
 
 
 func _save_chest_inventory() -> void:
@@ -247,7 +247,6 @@ func _save_chest_inventory() -> void:
 	if not ChestManager or current_chest_id == "":
 		return
 	
-	print("[ChestPanel] Saving chest inventory to ChestManager: %s" % current_chest_id)
 	ChestManager.update_chest_inventory(current_chest_id, inventory_data)
 
 
@@ -264,8 +263,6 @@ func _refresh_player_inventory_view() -> void:
 	
 	# Sync UI from container (single source of truth)
 	player_inventory_container.sync_ui()
-	
-	print("[ChestPanel] Refreshed player inventory view: %d slots registered" % player_slots.size())
 
 
 func sync_player_ui() -> void:
@@ -326,7 +323,6 @@ func _on_auto_sort_pressed() -> void:
 	
 	# Sync UI
 	sync_ui()
-	print("[ChestPanel] Auto-sort complete")
 
 
 func _on_close_pressed() -> void:
@@ -346,8 +342,6 @@ func handle_shift_click(slot_index: int) -> void:
 	if not slot_data["texture"] or slot_data["count"] <= 0:
 		return
 	
-	print("[ChestPanel] Shift-click transfer: chest slot %d → player inventory" % slot_index)
-	
 	# Try to add to player inventory
 	if InventoryManager:
 		var remaining = InventoryManager.add_item_auto_stack(slot_data["texture"], slot_data["count"])
@@ -361,6 +355,3 @@ func handle_shift_click(slot_index: int) -> void:
 			
 			sync_slot_ui(slot_index)
 			sync_player_ui()
-			print("[ChestPanel] Transferred %d items (remaining: %d)" % [slot_data["count"] - remaining, remaining])
-		else:
-			print("[ChestPanel] Transfer failed - player inventory full")

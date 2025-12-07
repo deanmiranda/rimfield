@@ -124,7 +124,6 @@ func _ready() -> void:
 				path_str = date_label.get_path()
 			else:
 				path_str = "N/A (not in scene tree)"
-			print("PauseMenu: DateLabel found via fallback lookup at path: ", path_str)
 		else:
 			push_error("PauseMenu: DateLabel reference is null! Check @onready path and scene structure.")
 			# Don't return - continue anyway, methods will handle null gracefully
@@ -189,7 +188,7 @@ func _setup_inventory_slots() -> void:
 		player_inventory_container = await InventoryManager.get_or_create_player_inventory_container()
 		
 		if player_inventory_container:
-			print("[PauseMenu] Using PlayerInventoryContainer from InventoryManager (slot_count=%d)" % player_inventory_container.slot_count)
+			pass
 		else:
 			push_error("[PauseMenu] Failed to get PlayerInventoryContainer from InventoryManager!")
 			return
@@ -256,7 +255,6 @@ func _setup_inventory_slots() -> void:
 	# Sync UI from container data
 	player_inventory_container.sync_ui()
 	
-	print("[PauseMenu] Created %d inventory slots (SlotBase)" % INVENTORY_SLOTS_TOTAL)
 
 
 func _setup_player_sprite() -> void:
@@ -353,8 +351,6 @@ func _connect_player_stats_signals() -> void:
 			PlayerStatsManager.energy_changed.connect(_on_energy_changed)
 		if not PlayerStatsManager.happiness_changed.is_connected(_on_happiness_changed):
 			PlayerStatsManager.happiness_changed.connect(_on_happiness_changed)
-	else:
-		print("Warning: PlayerStatsManager not found. Pause menu stats will not update.")
 
 
 func _on_health_changed(new_health: int, max_health: int) -> void:
@@ -470,7 +466,6 @@ func _set_inventory_drop_targets_enabled(enabled: bool) -> void:
 	if valid_slots.size() != pause_inventory_slots.size():
 		pause_inventory_slots = valid_slots
 	
-	print("[PauseMenu] Toggled drop targets for local slots count=%d enabled=%s" % [valid_slots.size(), enabled])
 
 
 func _on_resume_button_pressed() -> void:

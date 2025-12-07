@@ -103,9 +103,113 @@ func spawn_droppable_from_texture(texture: Texture, spawn_position: Vector2, hud
 	return droppable
 
 
+# Spawn generic droppable from texture (for unregistered items like seeds/tools)
+# Returns array of spawned droppable instances
+func spawn_generic_droppable_from_texture(texture: Texture2D, position: Vector2, hud_instance: Node, count: int = 1) -> Array:
+	if not texture or not texture.resource_path:
+		return []
+	
+	var spawned_instances: Array = []
+	
+	for i in range(count):
+		# Instance the droppable scene
+		var droppable_instance = droppable_scene.instantiate()
+		if not droppable_instance:
+			continue
+		
+		# Ensure the instance is not already parented (edge case safeguard)
+		if droppable_instance.get_parent():
+			droppable_instance.get_parent().remove_child(droppable_instance)
+		
+		# Create minimal item data resource using carrot.tres as template
+		var item_data = preload("res://resources/droppable_items/carrot.tres").duplicate()
+		item_data.texture = texture
+		
+		# Set the item_data
+		droppable_instance.item_data = item_data
+		
+		# Calculate position with offset for multiple items
+		var spawn_pos = position
+		if count > 1:
+			spawn_pos = position + Vector2(randf_range(-4, 4), randf_range(-4, 4))
+		
+		# Place the droppable at the desired position
+		droppable_instance.global_position = spawn_pos
+		
+		# Assign the HUD reference
+		droppable_instance.hud = hud_instance
+		
+		# Set scale to match existing behavior
+		droppable_instance.scale = Vector2(0.75, 0.75)
+		
+		# Add the droppable to the current scene tree
+		get_tree().current_scene.add_child(droppable_instance)
+		
+		# Track for persistence (house/farm only)
+		var scene_name = get_tree().current_scene.name
+		if scene_name == "House" or scene_name == "Farm":
+			# Assign unique ID to droppable
+			droppable_id_counter += 1
+			var droppable_id = "droppable_" + str(droppable_id_counter)
+			droppable_instance.set_meta("droppable_id", droppable_id)
+			
+			# Generate stable pseudo item_id based on texture path hash
+			var pseudo_item_id = "generic_" + str(texture.resource_path.hash())
+			
+			# Store tracking data with texture_path for restoration
+			active_droppables[droppable_instance] = {
+				"item_id": pseudo_item_id,
+				"texture_path": texture.resource_path,
+				"position": spawn_pos,
+				"scene_name": scene_name,
+				"droppable_id": droppable_id
+			}
+			# Connect to tree_exiting to remove from tracking when picked up
+			droppable_instance.tree_exiting.connect(_on_droppable_removed.bind(droppable_instance))
+		
+		spawned_instances.append(droppable_instance)
+	
+	return spawned_instances
+
+
 func _on_droppable_removed(droppable: Node2D) -> void:
 	"""Called when a droppable is removed from the scene (picked up or destroyed)."""
 	if droppable in active_droppables:
+		var data = active_droppables[droppable]
+		var scene_name = data.get("scene_name", "")
+		
+		# Before removing, serialize to pending_restore_droppables if it's a scene transition
+		# (not a pickup - pickups should be removed permanently)
+		# We detect scene transition by checking if the droppable is being freed due to scene change
+		# vs being picked up (which would call unregister_droppable first)
+		# For now, we'll preserve all droppables on scene transition by serializing them
+		var save_entry = {
+			"item_id": data.get("item_id"),
+			"position": {"x": data.get("position").x, "y": data.get("position").y},
+			"scene_name": scene_name
+		}
+		if data.has("texture_path"):
+			save_entry["texture_path"] = data.get("texture_path")
+		
+		# Add to pending_restore_droppables if not already there (avoid duplicates)
+		# Use position + item_id/texture_path for deduplication (not droppable_id, since restored items get new IDs)
+		var already_exists = false
+		var check_pos = save_entry["position"]
+		var check_item = save_entry.get("texture_path", save_entry.get("item_id", ""))
+		
+		for existing in pending_restore_droppables:
+			var existing_pos = existing.get("position", {})
+			var existing_item = existing.get("texture_path", existing.get("item_id", ""))
+			# Check if same position and same item (within 1 pixel tolerance for position)
+			if abs(existing_pos.get("x", 0) - check_pos.get("x", 0)) < 1.0 and \
+			   abs(existing_pos.get("y", 0) - check_pos.get("y", 0)) < 1.0 and \
+			   existing_item == check_item:
+				already_exists = true
+				break
+		
+		if not already_exists:
+			pending_restore_droppables.append(save_entry)
+		
 		active_droppables.erase(droppable)
 
 
@@ -121,14 +225,40 @@ func unregister_droppable(droppable_id: String) -> void:
 func serialize_droppables() -> Array:
 	"""Save all active droppables to an array for persistence."""
 	var droppable_data = []
+	var seen_keys = {} # Track position+item combinations to avoid duplicates
+	
+	# Serialize active droppables (currently in scene)
 	for droppable in active_droppables.keys():
 		if is_instance_valid(droppable):
 			var data = active_droppables[droppable]
-			droppable_data.append({
+			var save_entry = {
 				"item_id": data.get("item_id"),
 				"position": {"x": data.get("position").x, "y": data.get("position").y},
 				"scene_name": data.get("scene_name")
-			})
+			}
+			# Include texture_path for generic items (unregistered items like seeds/tools)
+			if data.has("texture_path"):
+				save_entry["texture_path"] = data.get("texture_path")
+			
+			# Create unique key for deduplication
+			var pos_key = "%s_%s" % [save_entry["position"]["x"], save_entry["position"]["y"]]
+			var item_key = save_entry.get("texture_path", save_entry.get("item_id", ""))
+			var unique_key = "%s_%s_%s" % [pos_key, item_key, save_entry["scene_name"]]
+			
+			if not seen_keys.has(unique_key):
+				seen_keys[unique_key] = true
+				droppable_data.append(save_entry)
+	
+	# ALSO serialize pending_restore_droppables (from other scenes that were unloaded)
+	for data in pending_restore_droppables:
+		var pos_key = "%s_%s" % [data.get("position", {}).get("x", 0), data.get("position", {}).get("y", 0)]
+		var item_key = data.get("texture_path", data.get("item_id", ""))
+		var unique_key = "%s_%s_%s" % [pos_key, item_key, data.get("scene_name", "")]
+		
+		if not seen_keys.has(unique_key):
+			seen_keys[unique_key] = true
+			droppable_data.append(data)
+	
 	return droppable_data
 
 
@@ -139,24 +269,40 @@ func restore_droppables_from_save(droppable_data: Array) -> void:
 
 func restore_droppables_for_scene(scene_name: String) -> void:
 	"""Restore droppables for a specific scene."""
-	var restored_count = 0
+	var to_restore: Array = []
+	var to_keep: Array = []
+	
+	# Collect all droppables for this scene and separate them from others
 	for data in pending_restore_droppables:
 		if data.get("scene_name") == scene_name:
-			var item_id = data.get("item_id")
-			var pos_data = data.get("position")
-			var position = Vector2(pos_data.get("x"), pos_data.get("y"))
-			
-			# Get HUD reference
-			var hud = get_tree().root.get_node_or_null("Hud")
-			if not hud:
-				hud = get_tree().current_scene.get_node_or_null("Hud")
-			
-			# Spawn the droppable
-			spawn_droppable(item_id, position, hud)
-			restored_count += 1
+			to_restore.append(data)
+		else:
+			to_keep.append(data)
 	
-
-
+	# Replace pending_restore_droppables with only entries for other scenes
+	# (this prevents duplicates when restoring the same scene multiple times)
+	pending_restore_droppables = to_keep
+	
+	# Get HUD reference
+	var hud = get_tree().root.get_node_or_null("Hud")
+	if not hud:
+		hud = get_tree().current_scene.get_node_or_null("Hud")
+	
+	# Restore each droppable
+	for data in to_restore:
+		var pos_data = data.get("position")
+		var position = Vector2(pos_data.get("x"), pos_data.get("y"))
+		
+		# Check if this is a generic item (has texture_path)
+		if data.has("texture_path"):
+			# Restore generic droppable with texture
+			var texture = load(data.get("texture_path"))
+			if texture:
+				spawn_generic_droppable_from_texture(texture, position, hud, 1)
+		else:
+			# Restore registered item using item_id
+			var item_id = data.get("item_id")
+			spawn_droppable(item_id, position, hud)
 func reset_all_droppables() -> void:
 	"""Clear all droppables (for new game)."""
 	# Remove all active droppables from scene
