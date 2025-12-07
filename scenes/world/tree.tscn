@@ -5,10 +5,11 @@
 
 [node name="Tree" type="Node2D"]
 script = ExtResource("1_tree")
+growth_stage = 3
 
 [node name="TreeSprite" type="Sprite2D" parent="."]
-position = Vector2(-8, -16)
+position = Vector2(-16, -32)
 texture = ExtResource("2_madqg")
 centered = false
 region_enabled = true
-region_rect = Rect2(8, 432, 16, 16)
+region_rect = Rect2(0, 384, 32, 32)

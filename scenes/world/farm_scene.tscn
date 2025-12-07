@@ -5733,9 +5733,24 @@ material = SubResource("CanvasItemMaterial_4pxu5")
 position = Vector2(15, -14)
 shape = SubResource("RectangleShape2D_7nnll")
 
-[node name="Tree2" parent="." instance=ExtResource("10_0dol0")]
+[node name="WorldActors" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Tree2" parent="WorldActors" instance=ExtResource("10_0dol0")]
 position = Vector2(-128, 0)
 tree_type = 2
+
+[node name="Tree" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-128, -16)
+
+[node name="Tree3" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-144, -8)
+growth_stage = 0
+
+[node name="Tree4" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-120, 8)
+tree_type = 2
+growth_stage = 0
 
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
