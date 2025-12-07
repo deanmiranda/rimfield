@@ -535,6 +535,18 @@ func new_game() -> void:
 	# Reset Day 1 spawn flag
 	day1_farm_random_droppables_spawned = false
 	
+	# Reset game time to Day 1, Season 0 (Spring), Year 1
+	if GameTimeManager:
+		GameTimeManager.day = 1
+		GameTimeManager.season = 0
+		GameTimeManager.year = 1
+		GameTimeManager.time_of_day = GameTimeManager.START_TIME_MINUTES
+		GameTimeManager.has_triggered_midnight_warning_today = false
+		GameTimeManager.has_triggered_pass_out_today = false
+		# Emit signals to sync UI
+		GameTimeManager.time_changed.emit(GameTimeManager.time_of_day)
+		GameTimeManager.day_changed.emit(GameTimeManager.day, GameTimeManager.season, GameTimeManager.year)
+	
 	# Clear all chests
 	if ChestManager:
 		ChestManager.reset_all()
