@@ -476,9 +476,7 @@ func remove_chest_and_spawn_drop(chest_node: Node, hud: Node) -> bool:
 	if DroppableFactory and hud:
 		var chest_texture = load("res://assets/icons/chest_icon.png")
 		var droppable = DroppableFactory.spawn_droppable_from_texture(chest_texture, chest_pos, hud, Vector2.ZERO)
-		if droppable:
-			print("[CHEST PICKAXE] Droppable has item_data: ", droppable.item_data != null)
-		else:
+		if not droppable:
 			push_error("[CHEST PICKAXE] ERROR: spawn_droppable_from_texture returned null!")
 			push_error("[CHEST PICKAXE] Available item_ids: " + str(DroppableFactory.droppable_item_resources.keys()))
 	
@@ -490,7 +488,6 @@ func can_place_chest(scene_name: String, world_pos: Vector2) -> bool:
 	# Check if there's already a chest at this position
 	var existing_chest = find_chest_at_position(world_pos, 16.0)
 	if existing_chest:
-		print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=existing_chest" % [scene_name, world_pos.x, world_pos.y])
 		return false
 	
 	# Scene-specific validation
@@ -505,7 +502,6 @@ func can_place_chest(scene_name: String, world_pos: Vector2) -> bool:
 				if farming_manager.has_method("_is_soil"):
 					var is_soil = farming_manager._is_soil(cell)
 					if is_soil:
-						print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=soil" % [scene_name, world_pos.x, world_pos.y])
 						return false
 				
 				# Check if tile has crop or is watered
@@ -515,7 +511,6 @@ func can_place_chest(scene_name: String, world_pos: Vector2) -> bool:
 						var is_watered = tile_data.get("is_watered", false)
 						var has_crop = tile_data.get("tile_state") == "planted"
 						if is_watered or has_crop:
-							print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=watered_or_crop" % [scene_name, world_pos.x, world_pos.y])
 							return false
 	elif scene_name == "House":
 		# House validation: check for collision with walls, furniture, etc.
@@ -534,10 +529,8 @@ func can_place_chest(scene_name: String, world_pos: Vector2) -> bool:
 					
 					var result = space_state.intersect_point(query)
 					if result.size() > 0:
-						print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=false reason=collision" % [scene_name, world_pos.x, world_pos.y])
 						return false
 	
-	print("[ChestManager] can_place_chest scene=%s pos=(%s, %s) result=true" % [scene_name, world_pos.x, world_pos.y])
 	return true
 
 
@@ -553,13 +546,6 @@ func try_place_chest(scene_name: String, world_pos: Vector2) -> bool:
 	# Create chest at position
 	var chest = create_chest_at_position(snapped_pos)
 	if chest == null:
-		print("[ChestManager] try_place_chest scene=%s pos=(%s, %s) result=false reason=create_failed" % [scene_name, snapped_pos.x, snapped_pos.y])
 		return false
 	
-	# Get chest ID for logging
-	var chest_id = ""
-	if chest.has_method("get_chest_id"):
-		chest_id = chest.get_chest_id()
-	
-	print("[ChestManager] Placed chest id=%s scene=%s pos=(%s, %s)" % [chest_id, scene_name, snapped_pos.x, snapped_pos.y])
 	return true

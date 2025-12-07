@@ -176,10 +176,6 @@ func sleep_to_next_morning() -> void:
 			season = 0
 			year += 1
 	
-	# Log day change
-	if day != old_day or season != old_season or year != old_year:
-		print("GameTimeManager: Day changed - Day: ", old_day, " -> ", day, ", Season: ", old_season, " -> ", season, ", Year: ", old_year, " -> ", year)
-	
 	# Reset time to morning (6:00 AM)
 	time_of_day = START_TIME_MINUTES
 	

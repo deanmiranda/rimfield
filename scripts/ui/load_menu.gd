@@ -19,17 +19,14 @@ func _ready() -> void:
 	# Connect the dropdown selection signal
 	if dropdown and not dropdown.is_connected("item_selected", Callable(self, "_on_save_dropdown_item_selected")):
 		dropdown.connect("item_selected", Callable(self, "_on_save_dropdown_item_selected"))
-		print("Connected dropdown item_selected signal to _on_save_dropdown_item_selected")
 
 	# Connect the Load button signal
 	if load_button and not load_button.is_connected("pressed", Callable(self, "_on_load_button_pressed")):
 		load_button.connect("pressed", Callable(self, "_on_load_button_pressed"))
-		print("Connected load button pressed signal to _on_load_button_pressed")
 	
 	# Connect the Delete button signal
 	if delete_button and not delete_button.is_connected("pressed", Callable(self, "_on_delete_button_pressed")):
 		delete_button.connect("pressed", Callable(self, "_on_delete_button_pressed"))
-		print("Connected delete button pressed signal to _on_delete_button_pressed")
 	
 	# Initially hide delete button (will show when valid save is selected)
 	if delete_button:
@@ -40,7 +37,6 @@ func _populate_load_slots() -> void:
 	dropdown.clear() # Clear any existing options
 	save_metadata.clear() # Clear previous metadata
 	save_counts.clear() # Clear save counts for fresh population
-	print("Populating load slots...")
 
 	dropdown.add_item("Select a Save Slot") # Add a placeholder item to avoid preselection
 	save_metadata[-1] = "" # Add an invalid save metadata entry to the placeholder
@@ -88,12 +84,10 @@ func _populate_load_slots() -> void:
 		if count > 0:
 			display_text += " (%d)" % count
 
-		print("Adding save file to dropdown:", display_text)
 		dropdown.add_item(display_text) # Add save slot to dropdown
 		save_metadata[dropdown.get_item_count() - 1] = file_name_sorted # Save metadata by dropdown index
 
 	load_button.visible = dropdown.get_item_count() > 1 # Update visibility of the Load button (ignore placeholder)
-	print("Finished populating load slots. Load button visible:", load_button.visible)
 
 # Extracts the timestamp from the save file name (legacy support)
 func _extract_timestamp_from_filename(file_name: String) -> int:
@@ -198,8 +192,6 @@ func _on_load_button_pressed() -> void:
 		var _scene_name = _get_scene_name_from_save(file_name)
 		var confirmation_text = "Are you sure?"
 
-		print("Setting confirmation panel text:", confirmation_text)
-
 		# Call deferred to avoid any visual timing issues
 		call_deferred("_set_confirmation_text", confirmation_text)
 	else:
@@ -227,7 +219,6 @@ func _on_delete_button_pressed() -> void:
 		_set_confirmation_text(confirmation_text)
 		# Store pending delete action
 		pending_delete_file = file_name
-		print("[LoadMenu] Delete requested for: %s" % file_name)
 	else:
 		print("Error: Please select a valid save slot to delete.")
 
@@ -239,7 +230,6 @@ func _on_yes_button_pressed() -> void:
 		if delete_dir:
 			var delete_result = delete_dir.remove(pending_delete_file)
 			if delete_result == OK:
-				print("[LoadMenu] Deleted save file: %s" % pending_delete_file)
 				# Refresh dropdown to reflect deletion
 				_populate_load_slots()
 			else:

@@ -259,8 +259,8 @@ func _load_farm_state() -> void:
 	if not tilemap:
 		return
 	
-	# Restore chests from save data
-	_restore_chests()
+	# Chests are already restored by ChestManager.restore_chests_for_scene("Farm") in _ready()
+	# No need to call _restore_chests() here
 	
 	# CRITICAL FIX: Get crop layer from FarmingManager (it creates/manages it)
 	var crop_layer: TileMapLayer = null
@@ -363,35 +363,11 @@ func _load_farm_state() -> void:
 
 
 func _restore_chests() -> void:
-	"""Restore chests from save data."""
-	if not ChestManager:
-		return
-	
-	# Get pending restore data from ChestManager
-	var pending_data = ChestManager.get_pending_restore_data()
-	if pending_data.size() == 0:
-		return
-	
-	# Instantiate chests at their saved positions
-	var chest_scene = preload("res://scenes/world/chest.tscn")
-	if not chest_scene:
-		push_error("FarmScene: Could not load chest scene")
-		return
-	
-	for chest_data in pending_data:
-		var chest_id = chest_data.get("chest_id", "")
-		var position_data = chest_data.get("position", {"x": 0, "y": 0})
-		var position = Vector2(position_data.get("x", 0), position_data.get("y", 0))
-		
-		# Instantiate chest
-		var chest_instance = chest_scene.instantiate()
-		if chest_instance:
-			chest_instance.global_position = position
-			# Set chest ID before registration so it matches save data
-			if chest_instance.has_method("set_chest_id"):
-				chest_instance.set_chest_id(chest_id)
-			add_child(chest_instance)
-			# Chest will register itself in _ready() and restore inventory
+	"""Restore chests from save data - DEPRECATED: Use ChestManager.restore_chests_for_scene() instead."""
+	# This function is no longer needed - ChestManager.restore_chests_for_scene("Farm") 
+	# is called in _ready() and handles scene filtering correctly.
+	# Keeping this function stub for now in case of legacy save files, but it should not be called.
+	pass
 
 
 func trigger_dust(tile_position: Vector2, emitter_scene: Resource) -> void:

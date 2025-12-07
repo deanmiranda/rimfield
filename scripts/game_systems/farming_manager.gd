@@ -458,7 +458,7 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 		
 		# If source_id == -1, there's no tile on farmable layer (regular grass/ground) - ALLOW
 		if source_id == -1:
-			print("[CHEST FARM] ALLOW placement at cell=%s reason=empty_ground (no farmable tile)" % [cell])
+			pass # Allow placement on empty ground
 		else:
 			# There IS a tile on farmable layer - check what it is
 			var atlas_coords = farmable_layer.get_cell_atlas_coords(cell)
@@ -466,7 +466,7 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 			# FARM_TILE_ATLAS (12, 0) is garden dirt - allow placement
 			# SOIL_DRY_ATLAS and SOIL_WET_ATLAS are tilled soil - block (already checked above)
 			if atlas_coords == FARM_TILE_ATLAS:
-				print("[CHEST FARM] ALLOW placement at cell=%s reason=grass_tile" % [cell])
+				pass # Allow placement on grass tile
 			elif atlas_coords == SOIL_DRY_ATLAS:
 				return
 			elif atlas_coords == SOIL_WET_ATLAS:

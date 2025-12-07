@@ -39,8 +39,6 @@ func _ready() -> void:
 	
 	# Migrate existing data from InventoryManager (one-time only)
 	_migrate_from_inventory_manager()
-	
-	print("[PlayerInventoryContainer] Initialized: %d slots, max stack %d" % [slot_count, max_stack_size])
 
 
 func _migrate_from_inventory_manager(force: bool = false) -> void:
@@ -98,8 +96,6 @@ func handle_shift_click(slot_index: int) -> void:
 	if not slot_data["texture"] or slot_data["count"] <= 0:
 		return
 	
-	print("[PlayerInventoryContainer] Shift-click transfer: inventory slot %d" % slot_index)
-	
 	# Find target container (chest if open, toolkit otherwise)
 	var target_container = _find_transfer_target()
 	
@@ -115,10 +111,6 @@ func handle_shift_click(slot_index: int) -> void:
 				inventory_data[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 			
 			sync_slot_ui(slot_index)
-			print("[PlayerInventoryContainer] Transferred %d items (remaining: %d)" % [
-				slot_data["count"] - remaining,
-				remaining
-			])
 
 
 func _find_transfer_target() -> ContainerBase:

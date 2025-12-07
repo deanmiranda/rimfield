@@ -78,8 +78,6 @@ func _on_toolkit_world_drop(source_container: Node, source_slot: int, texture: T
 
 func _handle_chest_placement(source_container: Node, source_slot: int, texture: Texture, _count: int, mouse_pos: Vector2) -> void:
 	"""Handle chest placement on world"""
-	print("[HouseScene] Chest placement requested at (%s, %s)" % [mouse_pos.x, mouse_pos.y])
-	
 	# Convert screen mouse_pos to world position using MouseUtil
 	var world_pos = mouse_pos
 	if MouseUtil:
@@ -98,13 +96,11 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		print("[HouseScene] Blocked chest placement at (%s, %s) reason=no_chest_manager" % [world_pos.x, world_pos.y])
 		return
 	
 	# Use shared placement helper
 	var placement_success = chest_manager.try_place_chest("House", world_pos)
 	if not placement_success:
-		print("[HouseScene] Blocked chest placement at (%s, %s) reason=validation_failed" % [world_pos.x, world_pos.y])
 		return
 	
 	# Remove 1 chest from toolkit slot

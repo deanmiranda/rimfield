@@ -149,7 +149,6 @@ func _input(event: InputEvent) -> void:
 			
 			# Check if clicking near chest (within 32 pixels)
 			if distance_to_chest < 32:
-				print("[Chest] Opening via right-click")
 				open_chest()
 				get_viewport().set_input_as_handled()
 

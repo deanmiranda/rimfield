@@ -304,9 +304,6 @@ func load_game(file: String = "") -> bool:
 		
 		# Deserialize farm_state (convert string keys back to Vector2i)
 		var loaded_farm_state = save_data.get("farm_state", {})
-		if loaded_farm_state.size() > 0:
-			print("[GameState] Sample farm_state keys: %s" % str(loaded_farm_state.keys().slice(0, 5)))
-		
 		farm_state.clear()
 		for key_str in loaded_farm_state.keys():
 			var key_parts = key_str.split(",")
@@ -513,7 +510,6 @@ func _stop_intro_music() -> void:
 		var intro_music = main_menu.get_node_or_null("IntroMusic")
 		if intro_music and intro_music is AudioStreamPlayer:
 			intro_music.stop()
-			print("[GameState] Stopped intro music")
 
 
 # Helper function to extract timestamp from save file name

@@ -188,7 +188,7 @@ func _setup_inventory_slots() -> void:
 		player_inventory_container = await InventoryManager.get_or_create_player_inventory_container()
 		
 		if player_inventory_container:
-			print("[PauseMenu] Using PlayerInventoryContainer from InventoryManager (slot_count=%d)" % player_inventory_container.slot_count)
+			pass
 		else:
 			push_error("[PauseMenu] Failed to get PlayerInventoryContainer from InventoryManager!")
 			return

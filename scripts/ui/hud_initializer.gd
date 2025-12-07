@@ -14,19 +14,16 @@ func _ready() -> void:
 	# GUARD: Prevent re-initialization if already set up with the same container
 	if is_initialized:
 		if InventoryManager and InventoryManager.toolkit_container == toolkit_container:
-			print("[HudInitializer] Already initialized with same ToolkitContainer - skipping")
 			return
 		else:
-			print("[HudInitializer] WARNING: Re-initializing with different container!")
+			push_warning("[HudInitializer] Re-initializing with different container!")
 	
 	# Check if ToolkitContainer already exists in InventoryManager (prevent duplicates)
 	if InventoryManager and InventoryManager.toolkit_container:
-		print("[HudInitializer] ToolkitContainer already exists - reusing existing instance")
 		toolkit_container = InventoryManager.toolkit_container
 		# Still need to set up slots for THIS HUD scene instance (slots are scene-specific)
 		_setup_toolkit_slots()
 		is_initialized = true
-		print("[HudInitializer] HUD slots linked to existing ToolkitContainer")
 		return
 	else:
 		# Create ToolkitContainer (first time)
@@ -46,8 +43,6 @@ func _ready() -> void:
 	# Replace HUD slots with SlotBase
 	_setup_toolkit_slots()
 	is_initialized = true
-	
-	print("[HudInitializer] HUD initialized with ToolkitContainer")
 
 
 func _setup_toolkit_slots() -> void:
@@ -76,7 +71,6 @@ func _setup_toolkit_slots() -> void:
 				toolkit_container.unregister_slot(slot)
 	else:
 		# Slots already exist and are valid - don't rebuild
-		print("[HudInitializer] Slots already exist and are valid - skipping rebuild")
 		return
 	
 	var empty_texture = preload("res://assets/ui/tile_outline.png")
@@ -146,10 +140,3 @@ func _setup_toolkit_slots() -> void:
 	
 	# Sync UI to show migrated data
 	toolkit_container.sync_ui()
-	
-	var registered_count = toolkit_container.get_all_registered_slots().size()
-	print("[HudInitializer] Created %d toolkit slots" % registered_count)
-	
-	# InventoryManager reference is set automatically by container registration
-	# No need to set manually here
-	print("[HudInitializer] Slots linked to ToolkitContainer")
