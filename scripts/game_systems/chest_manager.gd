@@ -498,10 +498,31 @@ func can_place_chest(scene_name: String, world_pos: Vector2) -> bool:
 		# Farm validation: check if position is on soil, watered, or has crop
 		# This requires farming_manager, but we'll allow placement if farming_manager doesn't exist
 		var current_scene = get_tree().current_scene
-		if current_scene and current_scene.has_method("get") and current_scene.get("farming_manager"):
+		if not current_scene:
+			return false
+		
+		# Block placement on non-placeable TileMapLayers (Farmable, Crops, Woods)
+		# These layers visually sit above ground and can hide chests while still colliding
+		const BLOCKED_LAYER_NAMES = ["Farmable", "Crops", "Woods"]
+		var cell = Vector2i(floor(world_pos.x / 16.0), floor(world_pos.y / 16.0))
+		
+		# Search for TileMapLayer children in Farm scene
+		for child in current_scene.get_children():
+			if child is TileMapLayer:
+				var layer_name = child.name
+				# Check if this is a blocked layer
+				if layer_name in BLOCKED_LAYER_NAMES:
+					# Convert world position to this layer's tile coordinates
+					var layer_tile_pos = child.local_to_map(child.to_local(world_pos))
+					# Check if layer has a cell at this coordinate
+					var source_id = child.get_cell_source_id(layer_tile_pos)
+					if source_id != -1:
+						# Layer has a tile at this position - block placement
+						return false
+		
+		if current_scene.has_method("get") and current_scene.get("farming_manager"):
 			var farming_manager = current_scene.get("farming_manager")
 			if farming_manager:
-				var cell = Vector2i(floor(world_pos.x / 16.0), floor(world_pos.y / 16.0))
 				if farming_manager.has_method("_is_soil"):
 					var is_soil = farming_manager._is_soil(cell)
 					if is_soil:

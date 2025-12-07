@@ -26,6 +26,10 @@ var drag_preview: Control = null
 var drag_preview_layer: CanvasLayer = null
 var drag_preview_label: Label = null
 
+# Cursor state for chest placement feedback
+var blocked_cursor_texture: Texture = null
+var is_chest_drag: bool = false
+
 
 func _ready() -> void:
 	# CRITICAL: Process even when tree is paused (e.g., when inventory/pause menu is open)
@@ -50,6 +54,14 @@ func start_drag(container: Node, slot_index: int, texture: Texture, count: int, 
 	drag_source_slot_index = slot_index
 	drag_item_texture = texture
 	is_right_click_drag = right_click
+	
+	# Check if this is a chest drag for cursor feedback
+	var tex_path = texture.resource_path if texture else ""
+	is_chest_drag = (tex_path == "res://assets/icons/chest_icon.png")
+	
+	# Load blocked cursor texture if chest drag
+	if is_chest_drag and not blocked_cursor_texture:
+		blocked_cursor_texture = load("res://assets/ui/Close_Icon.png")
 	
 	# For right-click, only drag 1 item; for left-click, drag full stack
 	if right_click:
@@ -105,6 +117,7 @@ func end_drag() -> Dictionary:
 	
 	cleanup_preview()
 	_reset_state()
+	_reset_cursor()
 	
 	return drag_data
 
@@ -114,6 +127,7 @@ func cancel_drag() -> void:
 	if is_dragging:
 		cleanup_preview()
 		_reset_state()
+		_reset_cursor()
 
 
 func clear_drag_state() -> void:
@@ -122,12 +136,21 @@ func clear_drag_state() -> void:
 	if is_dragging:
 		cleanup_preview()
 		_reset_state()
+		_reset_cursor()
 
 
 func cleanup_preview() -> void:
 	"""Remove drag preview from scene"""
 	if drag_preview_layer:
-		drag_preview_layer.queue_free()
+		# Immediately hide and remove preview
+		if drag_preview:
+			drag_preview.visible = false
+		if drag_preview_label:
+			drag_preview_label.visible = false
+		drag_preview_layer.visible = false
+		# Use free() for immediate removal instead of queue_free()
+		if is_instance_valid(drag_preview_layer):
+			drag_preview_layer.queue_free()
 		drag_preview_layer = null
 		drag_preview = null
 		drag_preview_label = null
@@ -225,12 +248,19 @@ func _update_drag_preview_position() -> void:
 	if root_viewport:
 		var mouse_pos = root_viewport.get_mouse_position()
 		update_drag_preview_position(mouse_pos)
+		
+		# Update cursor for chest drags based on placement validity
+		if is_chest_drag and is_dragging:
+			_update_chest_drag_cursor(mouse_pos)
 	else:
 		# Fallback
 		var viewport = get_viewport()
 		if viewport:
 			var mouse_pos = viewport.get_mouse_position()
 			update_drag_preview_position(mouse_pos)
+			# Update cursor for chest drags
+			if is_chest_drag and is_dragging:
+				_update_chest_drag_cursor(mouse_pos)
 
 
 func _reset_state() -> void:
@@ -241,6 +271,9 @@ func _reset_state() -> void:
 	drag_item_texture = null
 	drag_item_count = 0
 	is_right_click_drag = false
+	is_chest_drag = false
+	# Reset cursor to default
+	_reset_cursor()
 
 
 # ============================================================================
@@ -641,6 +674,59 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 									return slot
 	
 	return null
+
+
+func _update_chest_drag_cursor(_mouse_pos: Vector2) -> void:
+	"""Update cursor when dragging chest over blocked tiles"""
+	if not is_chest_drag or not is_dragging:
+		return
+	
+	# Get world position from screen position
+	var current_scene = get_tree().current_scene
+	if not current_scene or current_scene.name != "Farm":
+		_reset_cursor()
+		return
+	
+	# Convert screen mouse position to world position using MouseUtil
+	var world_pos: Vector2
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(current_scene)
+	else:
+		# Fallback: use viewport camera
+		var viewport = get_viewport()
+		if not viewport:
+			_reset_cursor()
+			return
+		var camera = viewport.get_camera_2d()
+		if not camera:
+			_reset_cursor()
+			return
+		world_pos = camera.get_global_mouse_position()
+	
+	# Check if placement is blocked using ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		_reset_cursor()
+		return
+	
+	# Check placement validity (includes TileMapLayer checks)
+	var can_place = chest_manager.can_place_chest("Farm", world_pos)
+	
+	if can_place:
+		_reset_cursor()
+	else:
+		_set_blocked_cursor()
+
+
+func _set_blocked_cursor() -> void:
+	"""Set cursor to blocked icon"""
+	if blocked_cursor_texture:
+		Input.set_custom_mouse_cursor(blocked_cursor_texture, Input.CURSOR_ARROW, Vector2(0, 0))
+
+
+func _reset_cursor() -> void:
+	"""Reset cursor to default"""
+	Input.set_custom_mouse_cursor(null)
 
 
 func _input(event: InputEvent) -> void:

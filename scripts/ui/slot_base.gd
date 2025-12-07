@@ -232,7 +232,25 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 					DragManager.cancel_drag()
 					_restore_after_cancel()
 				else:
-					# Dropped on world (non-UI surface) - drop to world
+					# Dropped on world (non-UI surface)
+					# Special case: If dragging chest, check placement validity first
+					if DragManager and DragManager.is_dragging and DragManager.drag_item_texture:
+						var tex_path = DragManager.drag_item_texture.resource_path if DragManager.drag_item_texture else ""
+						if tex_path == "res://assets/icons/chest_icon.png":
+							# Check if chest placement is valid
+							var current_scene = get_tree().current_scene
+							if current_scene and current_scene.name == "Farm":
+								var chest_manager = get_node_or_null("/root/ChestManager")
+								if chest_manager:
+									var world_pos = MouseUtil.get_world_mouse_pos_2d(current_scene) if MouseUtil else Vector2.ZERO
+									if not chest_manager.can_place_chest("Farm", world_pos):
+										# Invalid placement - cancel drag and restore
+										DragManager.cancel_drag()
+										_restore_after_cancel()
+										accept_event()
+										get_viewport().set_input_as_handled()
+										return
+					# Valid world drop - emit signal
 					DragManager.emit_world_drop()
 					# Clear stored original data (world drop committed)
 					original_slot_data.clear()

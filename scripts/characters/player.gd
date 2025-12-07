@@ -126,7 +126,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	# This ensures UI elements (toolkit, inventory) get priority over world interactions
 	# Handle left-click for farming interactions (only if not handled by UI)
 	if event.is_action_pressed("ui_mouse_left") and not event.is_echo():
-		
 		# CRITICAL: Detect drag state BEFORE stopping it
 		var was_dragging = _is_any_slot_dragging()
 		
@@ -156,26 +155,90 @@ func _unhandled_input(event: InputEvent) -> void:
 		
 		# CHEST PLACEMENT HANDLING - special case, must prevent _throw_to_world()
 		if was_dragging and dragged_slot_tool == "chest" and dragged_slot_index >= 0:
-			
 			var world_pos = MouseUtil.get_world_mouse_pos_2d(self)
 			
-			# Mark input as handled to prevent _stop_drag() from throwing to world
+			# Mark input as handled to prevent _stop_drag() from throwing to world AND prevent hoe action
 			get_viewport().set_input_as_handled()
 			
-			# Cancel the drag manually without triggering throw-to-world
-			if dragged_slot and dragged_slot.has_method("_cancel_drag"):
-				dragged_slot._cancel_drag()
+			# Check placement validity BEFORE canceling drag
+			var placement_valid = false
+			if farming_manager:
+				# Farm scene - check if placement is valid using ChestManager
+				var chest_manager = get_node_or_null("/root/ChestManager")
+				if chest_manager:
+					placement_valid = chest_manager.can_place_chest("Farm", world_pos)
+			else:
+				# House scene - assume valid for now (house placement logic handles validation)
+				placement_valid = true
+			
+			# If placement is invalid, cancel drag and restore item to slot
+			if not placement_valid:
+				# Get the actual source slot node from the container
+				var source_container = DragManager.drag_source_container if DragManager else null
+				var source_slot_index = DragManager.drag_source_slot_index if DragManager else -1
+				
+				# Cancel drag first (this cleans up the preview)
+				if DragManager and DragManager.is_dragging:
+					DragManager.cancel_drag()
+				
+				# Restore the source slot visual
+				if source_container and source_container.has_method("get_registered_slots_for_index"):
+					var slot_nodes = source_container.get_registered_slots_for_index(source_slot_index)
+					for slot_node in slot_nodes:
+						if slot_node and slot_node.has_method("_restore_after_cancel"):
+							slot_node._restore_after_cancel()
+							break # Only restore the first matching slot
+				
+				# Always return to prevent hoe action when chest drag is detected
+				return
+			
+			# Placement is valid - proceed with placement
+			# Cancel the drag manually without triggering throw-to-world (placement will consume item)
+			if dragged_slot and dragged_slot.has_method("_restore_after_cancel"):
+				# Don't restore yet - placement will handle consumption
+				pass
 			
 			# Now attempt placement
-			var placement_success = false
+			var placement_succeeded = false
 			if farming_manager:
 				# Farm scene - use farming_manager
-				farming_manager.interact_with_tile(world_pos, global_position, dragged_slot_tool, dragged_slot_index)
-				placement_success = true # Assume success for now (farming_manager handles it)
+				# interact_with_tile now returns bool indicating success
+				placement_succeeded = farming_manager.interact_with_tile(world_pos, global_position, dragged_slot_tool, dragged_slot_index)
 			else:
 				# House scene - direct placement (async call)
-				placement_success = await _handle_chest_placement_in_house_and_return_success(dragged_slot_index)
+				placement_succeeded = await _handle_chest_placement_in_house_and_return_success(dragged_slot_index)
 			
+			# If placement failed (shouldn't happen since we validated above, but handle it anyway)
+			if not placement_succeeded:
+				# Get the actual source slot node from the container
+				var source_container = DragManager.drag_source_container if DragManager else null
+				var source_slot_index = DragManager.drag_source_slot_index if DragManager else -1
+				
+				# Cancel drag first (this cleans up the preview)
+				if DragManager and DragManager.is_dragging:
+					DragManager.cancel_drag()
+				
+				# Restore the source slot visual
+				if source_container and source_container.has_method("get_registered_slots_for_index"):
+					var slot_nodes = source_container.get_registered_slots_for_index(source_slot_index)
+					for slot_node in slot_nodes:
+						if slot_node and slot_node.has_method("_restore_after_cancel"):
+							slot_node._restore_after_cancel()
+							break # Only restore the first matching slot
+			else:
+				# Placement succeeded - clear drag state (item was consumed)
+				if DragManager and DragManager.is_dragging:
+					DragManager.clear_drag_state()
+				if dragged_slot:
+					# Sync visual from container (item was consumed)
+					if dragged_slot.container_ref and dragged_slot.container_ref.has_method("get_slot_data"):
+						var updated_data = dragged_slot.container_ref.get_slot_data(dragged_slot_index)
+						dragged_slot.item_texture = updated_data["texture"]
+						dragged_slot.stack_count = updated_data["count"]
+						dragged_slot.update_visual()
+					dragged_slot.modulate = Color.WHITE
+			
+			# Always return to prevent hoe action when chest drag is detected
 			return
 		
 		# For non-chest drags, stop them normally
@@ -186,7 +249,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not was_dragging:
 			if farming_manager:
 				var mouse_pos = MouseUtil.get_world_mouse_pos_2d(self)
-				farming_manager.interact_with_tile(mouse_pos, global_position)
+				farming_manager.interact_with_tile(mouse_pos, global_position) # Return value ignored for non-chest tools
 			else:
 				# House scene - handle pickaxe for chest removal
 				var current_tool = _get_current_tool()
@@ -207,6 +270,27 @@ func _unhandled_input(event: InputEvent) -> void:
 
 		# REMOVED: Right-click pickup (now auto-pickup on proximity)
 		# Right-click will be used for harvesting from trees/plants in the future
+
+
+func _cancel_chest_drag_and_restore() -> void:
+	"""Cancel chest drag and restore item to source slot - used when placement fails"""
+	if not DragManager or not DragManager.is_dragging:
+		return
+	
+	# Get source container and slot index
+	var source_container = DragManager.drag_source_container
+	var source_slot_index = DragManager.drag_source_slot_index
+	
+	# Cancel drag (cleans up preview immediately)
+	DragManager.cancel_drag()
+	
+	# Restore source slot visual
+	if source_container and source_container.has_method("get_registered_slots_for_index"):
+		var slot_nodes = source_container.get_registered_slots_for_index(source_slot_index)
+		for slot_node in slot_nodes:
+			if slot_node and slot_node.has_method("_restore_after_cancel"):
+				slot_node._restore_after_cancel()
+				break
 
 
 func _is_any_slot_dragging() -> bool:
