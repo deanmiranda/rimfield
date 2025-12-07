@@ -20,6 +20,7 @@ var screen_fade_manager: Node = null
 var sleep_prompt_ui: Control = null
 var bed_tooltip_label: Label = null
 var bed_spawn_point: Node2D = null
+var player_node: CharacterBody2D = null # Reference to player for input locking
 
 
 func _ready() -> void:
@@ -330,6 +331,9 @@ func _execute_sleep_sequence() -> void:
 	
 	_is_sleep_sequence_running = true
 	
+	# Lock player input during sleep sequence (prevents movement/interaction during fade)
+	_find_and_lock_player_input()
+	
 	# Pause gameplay/time
 	if game_time_manager and game_time_manager.has_method("set_paused"):
 		game_time_manager.set_paused(true)
@@ -439,6 +443,9 @@ func _on_fade_in_complete() -> void:
 	# Show HUD again after fade-in completes
 	_show_hud()
 	
+	# Unlock player input after sleep sequence completes
+	_unlock_player_input()
+	
 	_is_sleep_sequence_running = false
 
 
@@ -518,3 +525,36 @@ func _hide_hud() -> void:
 func _show_hud() -> void:
 	for hud in get_tree().get_nodes_in_group("hud"):
 		hud.visible = true
+
+
+func _find_and_lock_player_input() -> void:
+	"""Find player node and disable input processing during sleep sequence"""
+	var tree = get_tree()
+	if not tree:
+		return
+	
+	# Find player node
+	player_node = tree.get_first_node_in_group("player")
+	if not player_node:
+		# Try alternative method - search for CharacterBody2D with "Player" name
+		var current_scene = tree.current_scene
+		if current_scene:
+			for child in current_scene.get_children():
+				if child is Node2D and child.name == "Player":
+					var player_body = child.get_node_or_null("Player")
+					if player_body and player_body is CharacterBody2D:
+						player_node = player_body
+						break
+	
+	# Disable input and physics processing on player to prevent movement/interaction
+	if player_node and is_instance_valid(player_node):
+		player_node.set_process_input(false)
+		player_node.set_physics_process(false)
+
+
+func _unlock_player_input() -> void:
+	"""Re-enable player input processing after sleep sequence completes"""
+	if player_node and is_instance_valid(player_node):
+		player_node.set_process_input(true)
+		player_node.set_physics_process(true)
+	player_node = null
