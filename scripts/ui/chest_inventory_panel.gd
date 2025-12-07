@@ -208,11 +208,15 @@ func close_chest_ui() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	"""Handle ESC key to close chest"""
+	"""Handle ESC key and E key to close chest"""
 	if not is_open:
 		return
 	
 	if event.is_action_pressed("ui_cancel"):
+		close_chest_ui()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_interact"):
+		# E key also closes chest (same as pause menu behavior)
 		close_chest_ui()
 		get_viewport().set_input_as_handled()
 
@@ -350,6 +354,35 @@ func handle_shift_click(slot_index: int) -> void:
 			# Some or all items transferred
 			if remaining > 0:
 				inventory_data[slot_index]["count"] = remaining
+			else:
+				inventory_data[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+			
+			sync_slot_ui(slot_index)
+			sync_player_ui()
+
+
+func handle_ctrl_left_click(slot_index: int) -> void:
+	"""Handle ctrl-left-click to transfer half stack from chest to player inventory"""
+	var slot_data = inventory_data[slot_index]
+	
+	if not slot_data["texture"] or slot_data["count"] <= 0:
+		return
+	
+	# Calculate half stack (round up for odd numbers, minimum 1)
+	var half_stack_float = slot_data["count"] / 2.0
+	var half_stack = max(1, int(ceil(half_stack_float)))
+	
+	# Try to add half stack to player inventory
+	if InventoryManager:
+		var remaining = InventoryManager.add_item_auto_stack(slot_data["texture"], half_stack)
+		
+		# Calculate how many were actually transferred
+		var transferred = half_stack - remaining
+		if transferred > 0:
+			# Update source slot with remaining count
+			var new_count = slot_data["count"] - transferred
+			if new_count > 0:
+				inventory_data[slot_index]["count"] = new_count
 			else:
 				inventory_data[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 			

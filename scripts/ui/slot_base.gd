@@ -119,6 +119,11 @@ func _on_left_click_down(event: InputEventMouseButton) -> void:
 		_handle_shift_click()
 		return
 	
+	if event.ctrl_pressed and item_texture and stack_count > 0:
+		# Ctrl+Left-click - grab half stack
+		_handle_ctrl_left_click()
+		return
+	
 	# Check if cursor-hold is active (place all from cursor)
 	if DragManager and DragManager.cursor_hold_active:
 		# Place all from cursor will be handled in _on_left_click_up
@@ -206,8 +211,6 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 		
 		if target_slot_node and target_slot_node.container_ref:
 			# Route drop to the hovered slot's container
-			var target_container_id = target_slot_node.container_ref.container_id if "container_id" in target_slot_node.container_ref else "unknown"
-	
 			target_slot_node.container_ref.handle_drop_on_slot(target_slot_node.slot_index)
 			
 			# Sync our visual in case we were the source
@@ -220,10 +223,37 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - drop to world (any item can be dropped)
-			DragManager.emit_world_drop()
-			# Clear stored original data (world drop committed)
-			original_slot_data.clear()
+			# No valid target found - check if mouse is over UI panel
+			var viewport = get_viewport()
+			if viewport:
+				var mouse_pos = viewport.get_mouse_position()
+				if _is_mouse_over_ui_panel(mouse_pos):
+					# Dropped on UI panel background - restore to source instead of world drop
+					DragManager.cancel_drag()
+					_restore_after_cancel()
+				else:
+					# Dropped on world (non-UI surface)
+					# Special case: If dragging chest, check placement validity first
+					if DragManager and DragManager.is_dragging and DragManager.drag_item_texture:
+						var tex_path = DragManager.drag_item_texture.resource_path if DragManager.drag_item_texture else ""
+						if tex_path == "res://assets/icons/chest_icon.png":
+							# Check if chest placement is valid
+							var current_scene = get_tree().current_scene
+							if current_scene and current_scene.name == "Farm":
+								var chest_manager = get_node_or_null("/root/ChestManager")
+								if chest_manager:
+									var world_pos = MouseUtil.get_world_mouse_pos_2d(current_scene) if MouseUtil else Vector2.ZERO
+									if not chest_manager.can_place_chest("Farm", world_pos):
+										# Invalid placement - cancel drag and restore
+										DragManager.cancel_drag()
+										_restore_after_cancel()
+										accept_event()
+										get_viewport().set_input_as_handled()
+										return
+					# Valid world drop - emit signal
+					DragManager.emit_world_drop()
+					# Clear stored original data (world drop committed)
+					original_slot_data.clear()
 		
 		accept_event() # Consume the event to prevent further processing
 		get_viewport().set_input_as_handled()
@@ -234,10 +264,27 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 var _right_click_cursor_hold_consumed: bool = false
 
 
-func _on_right_click_down(_event: InputEventMouseButton) -> void:
+func _on_right_click_down(event: InputEventMouseButton) -> void:
 	"""Handle right mouse button press - sets intent only, no mutations"""
 	# Reset guard flag
 	_right_click_cursor_hold_consumed = false
+	
+	# Check for Ctrl+Right-click (increment by 5)
+	if event.ctrl_pressed:
+		if DragManager and DragManager.cursor_hold_active:
+			# Ctrl+Right-click with cursor-hold active - will place 5 in _on_right_click_up
+			_right_click_cursor_hold_consumed = true
+			var viewport = get_viewport()
+			if viewport:
+				drag_start_position = viewport.get_mouse_position()
+			return
+		elif item_texture and stack_count > 0:
+			# Ctrl+Right-click on slot - will pickup 5 in _on_right_click_up
+			_right_click_cursor_hold_consumed = true
+			var viewport = get_viewport()
+			if viewport:
+				drag_start_position = viewport.get_mouse_position()
+			return
 	
 	# Check if cursor-hold is active (accumulate or place 1)
 	if DragManager and DragManager.cursor_hold_active:
@@ -266,8 +313,85 @@ func _on_right_click_down(_event: InputEventMouseButton) -> void:
 			_right_click_cursor_hold_consumed = true
 
 
-func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void:
+func _on_right_click_up(event: InputEventMouseButton, _duration: float) -> void:
 	"""Handle right mouse button release - performs mutations here"""
+	# Check for Ctrl+Right-click (increment ghost slot by 5)
+	if event.ctrl_pressed and _right_click_cursor_hold_consumed:
+		if DragManager and DragManager.cursor_hold_active:
+			# Ctrl+Right-click with cursor-hold - increment by 5 from this slot
+			if container_ref and item_texture and item_texture == DragManager.cursor_hold_texture:
+				# Same texture - add 5 from slot to cursor-hold (increment ghost slot)
+				if container_ref.has_method("get_slot_data"):
+					var slot_data = container_ref.get_slot_data(slot_index)
+					if slot_data and slot_data["texture"] == DragManager.cursor_hold_texture:
+						# Calculate how many can be added (max 10 total in cursor-hold)
+						var available_space = 10 - DragManager.cursor_hold_count
+						if available_space > 0:
+							var to_add = min(5, slot_data["count"], available_space)
+							if to_add > 0:
+								# Remove from source
+								var remaining = slot_data["count"] - to_add
+								if remaining > 0:
+									container_ref.set_slot_data(slot_index, slot_data["texture"], remaining)
+								else:
+									container_ref.remove_item_from_slot(slot_index)
+								
+								# Increment cursor-hold by to_add
+								DragManager.cursor_hold_count += to_add
+								# Update ghost slot label to show count
+								DragManager._ensure_cursor_hold_label()
+								
+								# Sync visual
+								if container_ref.has_method("get_slot_data"):
+									var updated_data = container_ref.get_slot_data(slot_index)
+									item_texture = updated_data["texture"]
+									stack_count = updated_data["count"]
+									update_visual()
+								
+								_right_click_cursor_hold_consumed = false
+								accept_event()
+								get_viewport().set_input_as_handled()
+								return
+			else:
+				# Different texture or empty - place 5 from cursor to slot
+				if container_ref:
+					if DragManager.place_five_from_cursor_to(container_ref, slot_index):
+						if container_ref.has_method("get_slot_data"):
+							var updated_data = container_ref.get_slot_data(slot_index)
+							item_texture = updated_data["texture"]
+							stack_count = updated_data["count"]
+							update_visual()
+						_right_click_cursor_hold_consumed = false
+						accept_event()
+						get_viewport().set_input_as_handled()
+						return
+		elif item_texture and stack_count > 0 and container_ref:
+			# Ctrl+Right-click on slot without cursor-hold - start cursor-hold with 5
+			if container_ref.has_method("get_slot_data"):
+				var slot_data = container_ref.get_slot_data(slot_index)
+				if slot_data and slot_data["texture"]:
+					var pickup_count = min(5, stack_count)
+					var remaining = stack_count - pickup_count
+					if remaining > 0:
+						container_ref.set_slot_data(slot_index, slot_data["texture"], remaining)
+					else:
+						container_ref.remove_item_from_slot(slot_index)
+					
+					# Start cursor-hold with 5 items
+					if DragManager:
+						DragManager.start_cursor_hold(slot_data["texture"], pickup_count)
+					
+					# Sync visual
+					if container_ref.has_method("get_slot_data"):
+						var updated_data = container_ref.get_slot_data(slot_index)
+						item_texture = updated_data["texture"]
+						stack_count = updated_data["count"]
+						update_visual()
+					_right_click_cursor_hold_consumed = false
+					accept_event()
+					get_viewport().set_input_as_handled()
+					return
+	
 	# Check cursor-hold first (accumulate or place 1 or world drop)
 	if _right_click_cursor_hold_consumed and DragManager and DragManager.cursor_hold_active:
 		# Check if clicking on a slot
@@ -343,8 +467,6 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 		
 		if target_slot_node and target_slot_node.container_ref:
 			# Route drop to the hovered slot's container
-			var target_container_id = target_slot_node.container_ref.container_id if "container_id" in target_slot_node.container_ref else "unknown"
-		
 			target_slot_node.container_ref.handle_drop_on_slot(target_slot_node.slot_index)
 			
 			# Sync our visual in case we were the source
@@ -357,10 +479,19 @@ func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void
 			# Clear stored original data (drop committed)
 			original_slot_data.clear()
 		else:
-			# No valid target found - drop to world (any item can be dropped)
-			DragManager.emit_world_drop()
-			# Clear stored original data (world drop committed)
-			original_slot_data.clear()
+			# No valid target found - check if mouse is over UI panel
+			var viewport = get_viewport()
+			if viewport:
+				var mouse_pos = viewport.get_mouse_position()
+				if _is_mouse_over_ui_panel(mouse_pos):
+					# Dropped on UI panel background - restore to source instead of world drop
+					DragManager.cancel_drag()
+					_restore_after_cancel()
+				else:
+					# Dropped on world (non-UI surface) - drop to world
+					DragManager.emit_world_drop()
+					# Clear stored original data (world drop committed)
+					original_slot_data.clear()
 		
 		accept_event() # Consume the event
 		get_viewport().set_input_as_handled()
@@ -427,7 +558,6 @@ func _pickup_one_to_cursor() -> void:
 		update_visual()
 	
 
-
 func _start_drag(is_right_click: bool) -> void:
 	"""Start drag operation via DragManager"""
 	if not DragManager:
@@ -476,7 +606,6 @@ func _start_drag(is_right_click: bool) -> void:
 			update_visual()
 		
 
-
 func _handle_drop() -> void:
 	"""Handle drop from DragManager"""
 	if not DragManager or not DragManager.is_dragging:
@@ -505,11 +634,6 @@ func _handle_drop() -> void:
 				DragManager.cancel_drag()
 				_restore_after_cancel()
 				return
-	
-	var container_id_str = container_ref.container_id if container_ref and "container_id" in container_ref else "unknown"
-	var source_container_id = DragManager.drag_source_container.container_id if DragManager.drag_source_container and "container_id" in DragManager.drag_source_container else "unknown"
-	
-
 	
 	if not container_ref:
 		return
@@ -559,6 +683,46 @@ func _is_mouse_over_hud_slot(mouse_pos: Vector2) -> bool:
 			var slot_rect = slot.get_global_rect()
 			if slot_rect.has_point(mouse_pos):
 				return true
+	
+	return false
+
+
+func _is_mouse_over_ui_panel(mouse_pos: Vector2) -> bool:
+	"""Check if mouse is over any UI panel (pause menu, chest panel, etc.)"""
+	# Check pause menu
+	if UiManager and "pause_menu" in UiManager:
+		var pause_menu = UiManager.pause_menu
+		if pause_menu and pause_menu.visible:
+			var pause_rect = pause_menu.get_global_rect()
+			if pause_rect.has_point(mouse_pos):
+				return true
+	
+	# Check chest inventory panel
+	if UiManager and "chest_inventory_panel" in UiManager:
+		var chest_panel = UiManager.chest_inventory_panel
+		if chest_panel and chest_panel.visible:
+			var chest_rect = chest_panel.get_global_rect()
+			if chest_rect.has_point(mouse_pos):
+				return true
+	
+	# Check if mouse is over any Control node that's a UI panel
+	# Use gui_get_hovered_control to find what's under the mouse
+	var viewport = get_viewport()
+	if viewport:
+		var hovered_control = viewport.gui_get_hovered_control()
+		if hovered_control:
+			# Walk up the tree to see if it's part of a UI panel
+			var current = hovered_control
+			while current:
+				# Check if it's a known UI panel type
+				if current.name == "PauseMenu" or current.name == "ChestInventoryPanel":
+					return true
+				# Check if it's a PanelContainer or similar UI container
+				if current is PanelContainer or current is PopupPanel or current is Window:
+					# Make sure it's actually visible and not just a background element
+					if current.visible and current.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+						return true
+				current = current.get_parent()
 	
 	return false
 
@@ -627,6 +791,20 @@ func _handle_shift_click() -> void:
 	# Let container handle shift-click logic
 	if container_ref.has_method("handle_shift_click"):
 		container_ref.handle_shift_click(slot_index)
+
+
+func _handle_ctrl_left_click() -> void:
+	"""Handle Ctrl+Left-click - auto-transfer half stack (like shift-click)"""
+	if not container_ref or not item_texture or stack_count <= 0:
+		return
+	
+	# Do not allow if cursor-hold is active
+	if DragManager and DragManager.cursor_hold_active:
+		return
+	
+	# Let container handle ctrl-left-click logic (auto-transfer half)
+	if container_ref.has_method("handle_ctrl_left_click"):
+		container_ref.handle_ctrl_left_click(slot_index)
 
 
 func set_item(texture: Texture, count: int) -> void:

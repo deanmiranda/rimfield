@@ -53,9 +53,7 @@ func _ready() -> void:
 	# Farming logic setup
 	GameState.connect("game_loaded", Callable(self, "_on_game_loaded")) # Proper Callable usage
 
-	# Inventory setup
-	if UiManager:
-		UiManager.instantiate_inventory()
+	# Inventory setup - pause menu is already initialized in UiManager._ready()
 
 	# Defer farming initialization to allow TileSet to load asynchronously
 	call_deferred("_initialize_farming")

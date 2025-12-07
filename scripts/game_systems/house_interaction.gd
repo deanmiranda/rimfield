@@ -30,12 +30,23 @@ func _on_body_exited(body: Node2D) -> void:
 
 func _input(event: InputEvent) -> void:
 	# Use _input() instead of _process() polling (follows .cursor/rules/godot.md)
-	if player_in_zone and event.is_action_pressed("ui_interact") and not is_transitioning:
-		is_transitioning = true
-		# CRITICAL: Mark input as handled BEFORE scene change to prevent other handlers from processing it
-		# After the scene changes, this node no longer exists, so we must handle it now
-		var viewport = get_viewport()
-		if viewport:
-			viewport.set_input_as_handled() # Prevent further processing
-		# CRITICAL: await the async change_scene to ensure fade transition completes
-		await SceneManager.change_scene(HOUSE_SCENE_PATH, HOUSE_SPAWN_POSITION)
+	# Use right-click to enter house (changed from E key)
+	# Only trigger if right-clicking on/near the door interaction zone
+	if player_in_zone and not is_transitioning:
+		if event is InputEventMouseButton:
+			if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+				# Get mouse position in world space
+				var mouse_world_pos = get_global_mouse_position()
+				var distance_to_door = mouse_world_pos.distance_to(global_position)
+				
+				# Check if clicking near the door interaction zone (within 48 pixels)
+				# This ensures player must click on the door, not just anywhere in the zone
+				if distance_to_door < 48.0:
+					is_transitioning = true
+					# CRITICAL: Mark input as handled BEFORE scene change to prevent other handlers from processing it
+					# After the scene changes, this node no longer exists, so we must handle it now
+					var viewport = get_viewport()
+					if viewport:
+						viewport.set_input_as_handled() # Prevent further processing
+					# CRITICAL: await the async change_scene to ensure fade transition completes
+					await SceneManager.change_scene(HOUSE_SCENE_PATH, HOUSE_SPAWN_POSITION)

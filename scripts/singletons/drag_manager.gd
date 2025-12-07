@@ -26,8 +26,15 @@ var drag_preview: Control = null
 var drag_preview_layer: CanvasLayer = null
 var drag_preview_label: Label = null
 
+# Cursor state for chest placement feedback
+var blocked_cursor_texture: Texture = null
+var is_chest_drag: bool = false
+
 
 func _ready() -> void:
+	# CRITICAL: Process even when tree is paused (e.g., when inventory/pause menu is open)
+	# This ensures drag preview follows mouse correctly in both HUD-only and inventory-open states
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(false) # Enable when dragging
 
 
@@ -47,6 +54,14 @@ func start_drag(container: Node, slot_index: int, texture: Texture, count: int, 
 	drag_source_slot_index = slot_index
 	drag_item_texture = texture
 	is_right_click_drag = right_click
+	
+	# Check if this is a chest drag for cursor feedback
+	var tex_path = texture.resource_path if texture else ""
+	is_chest_drag = (tex_path == "res://assets/icons/chest_icon.png")
+	
+	# Load blocked cursor texture if chest drag
+	if is_chest_drag and not blocked_cursor_texture:
+		blocked_cursor_texture = load("res://assets/ui/Close_Icon.png")
 	
 	# For right-click, only drag 1 item; for left-click, drag full stack
 	if right_click:
@@ -102,6 +117,7 @@ func end_drag() -> Dictionary:
 	
 	cleanup_preview()
 	_reset_state()
+	_reset_cursor()
 	
 	return drag_data
 
@@ -111,6 +127,7 @@ func cancel_drag() -> void:
 	if is_dragging:
 		cleanup_preview()
 		_reset_state()
+		_reset_cursor()
 
 
 func clear_drag_state() -> void:
@@ -119,12 +136,21 @@ func clear_drag_state() -> void:
 	if is_dragging:
 		cleanup_preview()
 		_reset_state()
+		_reset_cursor()
 
 
 func cleanup_preview() -> void:
 	"""Remove drag preview from scene"""
 	if drag_preview_layer:
-		drag_preview_layer.queue_free()
+		# Immediately hide preview
+		if drag_preview:
+			drag_preview.visible = false
+		if drag_preview_label:
+			drag_preview_label.visible = false
+		drag_preview_layer.visible = false
+		# Queue free for safe removal
+		if is_instance_valid(drag_preview_layer):
+			drag_preview_layer.queue_free()
 		drag_preview_layer = null
 		drag_preview = null
 		drag_preview_label = null
@@ -140,11 +166,6 @@ func update_drag_preview_position(mouse_pos: Vector2) -> void:
 		# Ensure it's visible
 		drag_preview.visible = true
 		drag_preview_layer.visible = true
-		
-		# Debug: Verify preview is actually visible and positioned
-		# (Removed frequent logging - uncomment if needed for debugging)
-		# if Engine.get_process_frames() % 60 == 0:
-		# 	print("[DragManager] Preview at: %s (mouse: %s)" % [drag_preview.global_position, mouse_pos])
 
 
 func _create_preview(texture: Texture, count: int) -> void:
@@ -179,10 +200,18 @@ func _create_preview(texture: Texture, count: int) -> void:
 	drag_preview_layer.show()
 	drag_preview.show()
 	
-	# Add count label if more than 1 item
-	if count > 1:
+	# Add count label if more than 1 item (or if cursor-hold, always show count)
+	if count > 1 or cursor_hold_active:
+		_create_preview_label(count)
+
+
+func _create_preview_label(count: int) -> void:
+	"""Create or update the preview label"""
+	if not drag_preview:
+		return
+	
+	if not drag_preview_label:
 		drag_preview_label = Label.new()
-		drag_preview_label.text = str(count)
 		drag_preview_label.add_theme_font_size_override("font_size", 14)
 		drag_preview_label.add_theme_color_override("font_color", Color.WHITE)
 		drag_preview_label.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -190,17 +219,18 @@ func _create_preview(texture: Texture, count: int) -> void:
 		drag_preview_label.position = Vector2(32, 32) # Bottom-right corner
 		drag_preview.add_child(drag_preview_label)
 	
-	# Position at mouse - use root viewport to ensure it works even when paused
-	var root_viewport = get_tree().root.get_viewport()
-	if root_viewport:
-		var mouse_pos = root_viewport.get_mouse_position()
-		update_drag_preview_position(mouse_pos)
-	else:
-		# Fallback
-		var viewport = get_viewport()
-		if viewport:
-			var mouse_pos = viewport.get_mouse_position()
-			update_drag_preview_position(mouse_pos)
+	drag_preview_label.text = str(count)
+	drag_preview_label.visible = true
+
+
+func _ensure_cursor_hold_label() -> void:
+	"""Ensure cursor-hold label exists and is visible (always show count for cursor-hold)"""
+	if cursor_hold_active and drag_preview:
+		if not drag_preview_label:
+			_create_preview_label(cursor_hold_count)
+		else:
+			drag_preview_label.text = str(cursor_hold_count)
+			drag_preview_label.visible = true
 
 
 func _update_drag_preview_position() -> void:
@@ -213,12 +243,19 @@ func _update_drag_preview_position() -> void:
 	if root_viewport:
 		var mouse_pos = root_viewport.get_mouse_position()
 		update_drag_preview_position(mouse_pos)
+		
+		# Update cursor for chest drags based on placement validity
+		if is_chest_drag and is_dragging:
+			_update_chest_drag_cursor(mouse_pos)
 	else:
 		# Fallback
 		var viewport = get_viewport()
 		if viewport:
 			var mouse_pos = viewport.get_mouse_position()
 			update_drag_preview_position(mouse_pos)
+			# Update cursor for chest drags
+			if is_chest_drag and is_dragging:
+				_update_chest_drag_cursor(mouse_pos)
 
 
 func _reset_state() -> void:
@@ -229,6 +266,9 @@ func _reset_state() -> void:
 	drag_item_texture = null
 	drag_item_count = 0
 	is_right_click_drag = false
+	is_chest_drag = false
+	# Reset cursor to default
+	_reset_cursor()
 
 
 # ============================================================================
@@ -236,7 +276,7 @@ func _reset_state() -> void:
 # ============================================================================
 
 func start_cursor_hold(texture: Texture, count: int) -> void:
-	"""Start cursor-hold mode (pickup 1 item into cursor)"""
+	"""Start cursor-hold mode (pickup items into cursor)"""
 	# Clear any existing drag state first
 	if is_dragging:
 		clear_drag_state()
@@ -247,6 +287,8 @@ func start_cursor_hold(texture: Texture, count: int) -> void:
 	
 	# Reuse existing preview UI for cursor-hold
 	_create_preview(texture, count)
+	# Ensure label exists and shows count (always show count for cursor-hold)
+	_ensure_cursor_hold_label()
 	set_process(true)
 	
 	# Update preview position immediately
@@ -290,7 +332,8 @@ func add_one_to_cursor_from(source_container: Node, source_slot: int) -> bool:
 	# Increment cursor count
 	cursor_hold_count += 1
 	
-	# Update preview
+	# Update preview label (ensure it exists)
+	_ensure_cursor_hold_label()
 	if drag_preview_label:
 		drag_preview_label.text = str(cursor_hold_count)
 	
@@ -330,6 +373,94 @@ func place_one_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	else:
 		if drag_preview_label:
 			drag_preview_label.text = str(cursor_hold_count)
+	return true
+
+
+func add_five_to_cursor_from(source_container: Node, source_slot: int) -> bool:
+	"""Add 5 items from source slot to cursor (Ctrl+Right-click) - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not source_container or not source_container.has_method("get_slot_data"):
+		return false
+	
+	var source_data = source_container.get_slot_data(source_slot)
+	if not source_data["texture"] or source_data["count"] <= 0:
+		return false
+	
+	# Must be same texture
+	if source_data["texture"] != cursor_hold_texture:
+		return false
+	
+	# Calculate how many can be added (max 10 total, or 5 at a time)
+	var available_space = 10 - cursor_hold_count
+	if available_space <= 0:
+		return false
+	
+	var to_add = min(5, source_data["count"], available_space)
+	if to_add <= 0:
+		return false
+	
+	# Remove items from source
+	var remaining = source_data["count"] - to_add
+	if remaining > 0:
+		if source_container.has_method("set_slot_data"):
+			source_container.set_slot_data(source_slot, source_data["texture"], remaining)
+		else:
+			source_container.remove_item_from_slot(source_slot)
+			source_container.add_item_to_slot(source_slot, source_data["texture"], remaining)
+	else:
+		source_container.remove_item_from_slot(source_slot)
+	
+	# Increment cursor count
+	cursor_hold_count += to_add
+	
+	# Update preview label
+	_ensure_cursor_hold_label()
+	
+	return true
+
+
+func place_five_from_cursor_to(target_container: Node, target_slot: int) -> bool:
+	"""Place 5 items from cursor to target slot (Ctrl+Right-click) - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not target_container or not target_container.has_method("get_slot_data"):
+		return false
+	
+	var target_data = target_container.get_slot_data(target_slot)
+	
+	# Check if target is empty or same texture
+	if target_data["texture"] and target_data["texture"] != cursor_hold_texture:
+		# Different texture - no swap on right-click
+		return false
+	
+	# Calculate how many can be placed
+	var available_space = 10
+	if target_data["texture"]:
+		# Same texture - check available space
+		available_space = 10 - target_data["count"]
+	
+	if available_space <= 0:
+		return false
+	
+	var to_place = min(5, cursor_hold_count, available_space)
+	if to_place <= 0:
+		return false
+	
+	# Place items into target using ContainerBase API
+	target_container.add_item_to_slot(target_slot, cursor_hold_texture, to_place)
+	
+	# Decrement cursor count
+	cursor_hold_count -= to_place
+	
+	# Update preview or clear if empty
+	if cursor_hold_count <= 0:
+		clear_cursor_hold()
+	else:
+		_ensure_cursor_hold_label()
+	
 	return true
 
 
@@ -449,8 +580,7 @@ func consume_from_cursor_hold(amount: int) -> int:
 	if cursor_hold_count <= 0:
 		clear_cursor_hold()
 	else:
-		if drag_preview_label:
-			drag_preview_label.text = str(cursor_hold_count)
+		_ensure_cursor_hold_label()
 	
 	return actual_amount
 
@@ -487,8 +617,8 @@ func get_hovered_slot() -> Node:
 	var hovered = viewport.gui_get_hovered_control()
 	if not hovered:
 		# Fallback: use mouse position + hit test
-		var mouse_pos = viewport.get_mouse_position()
-		return _find_slot_at_position(mouse_pos)
+		var fallback_mouse_pos = viewport.get_mouse_position()
+		return _find_slot_at_position(fallback_mouse_pos)
 	
 	# Walk up the parent tree to find SlotBase
 	while hovered:
@@ -496,7 +626,6 @@ func get_hovered_slot() -> Node:
 			var slot = hovered as SlotBase
 			# Only return if slot is a valid drop target
 			if slot.is_drop_target_active():
-				var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
 				return slot
 		hovered = hovered.get_parent()
 	
@@ -523,7 +652,6 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 							if slot.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 								var slot_rect = slot.get_global_rect()
 								if slot_rect.has_point(mouse_pos):
-									var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
 									return slot
 	
 	# Check registered containers' slots
@@ -541,6 +669,59 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 									return slot
 	
 	return null
+
+
+func _update_chest_drag_cursor(_mouse_pos: Vector2) -> void:
+	"""Update cursor when dragging chest over blocked tiles"""
+	if not is_chest_drag or not is_dragging:
+		return
+	
+	# Get world position from screen position
+	var current_scene = get_tree().current_scene
+	if not current_scene or current_scene.name != "Farm":
+		_reset_cursor()
+		return
+	
+	# Convert screen mouse position to world position using MouseUtil
+	var world_pos: Vector2
+	if MouseUtil:
+		world_pos = MouseUtil.get_world_mouse_pos_2d(current_scene)
+	else:
+		# Fallback: use viewport camera
+		var viewport = get_viewport()
+		if not viewport:
+			_reset_cursor()
+			return
+		var camera = viewport.get_camera_2d()
+		if not camera:
+			_reset_cursor()
+			return
+		world_pos = camera.get_global_mouse_position()
+	
+	# Check if placement is blocked using ChestManager
+	var chest_manager = get_node_or_null("/root/ChestManager")
+	if not chest_manager:
+		_reset_cursor()
+		return
+	
+	# Check placement validity (includes TileMapLayer checks)
+	var can_place = chest_manager.can_place_chest("Farm", world_pos)
+	
+	if can_place:
+		_reset_cursor()
+	else:
+		_set_blocked_cursor()
+
+
+func _set_blocked_cursor() -> void:
+	"""Set cursor to blocked icon"""
+	if blocked_cursor_texture:
+		Input.set_custom_mouse_cursor(blocked_cursor_texture, Input.CURSOR_ARROW, Vector2(0, 0))
+
+
+func _reset_cursor() -> void:
+	"""Reset cursor to default"""
+	Input.set_custom_mouse_cursor(null)
 
 
 func _input(event: InputEvent) -> void:

@@ -113,15 +113,19 @@ func _is_soil(cell: Vector2i) -> bool:
 # TOOL INTERACTIONS
 # ============================================================================
 
-func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool: String = "", override_slot_index: int = -1) -> void:
+func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool: String = "", override_slot_index: int = -1) -> bool:
+	"""
+	Interact with tile using current tool or override tool.
+	Returns true if interaction succeeded, false if it failed or was blocked.
+	"""
 	# Use override tool if provided, otherwise use current_tool
 	var tool_to_use = override_tool if override_tool != "" else current_tool
 	
 	if not farmable_layer:
-		return
+		return false
 	
 	if farmable_layer.tile_set == null:
-		return
+		return false
 	
 	var target_local_pos = farmable_layer.to_local(target_pos)
 	var target_cell = farmable_layer.local_to_map(target_local_pos)
@@ -134,12 +138,12 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool:
 	
 	
 	if cell_distance_x == 0 and cell_distance_y == 0:
-		return
+		return false
 	
 	# Allow chest placement at slightly greater distance (2 cells) for better UX
 	var max_distance = 2 if tool_to_use == "chest" else 1
 	if cell_distance_x > max_distance or cell_distance_y > max_distance:
-		return
+		return false
 	
 	# Get energy cost
 	var energy_cost := 0
@@ -158,20 +162,28 @@ func interact_with_tile(target_pos: Vector2, player_pos: Vector2, override_tool:
 	
 	if PlayerStatsManager and energy_cost > 0:
 		if not PlayerStatsManager.consume_energy(energy_cost):
-			return
+			return false
 	
 	# Execute tool action
 	match tool_to_use:
 		"hoe":
 			_use_hoe(target_cell)
+			return true
 		"watering_can":
 			_use_watering_can(target_cell)
+			return true
 		"pickaxe":
 			_use_pickaxe(target_cell)
+			return true
 		"seed":
 			_use_seed(target_cell)
+			return true
 		"chest":
-			_use_chest(target_cell, target_pos, override_slot_index)
+			var placement_success = _use_chest(target_cell, target_pos, override_slot_index)
+			# Return the result of chest placement
+			return placement_success
+	
+	return false
 
 func _use_hoe(cell: Vector2i) -> void:
 	"""
@@ -381,25 +393,26 @@ func _use_seed(cell: Vector2i) -> void:
 	GameState.update_tile_state(cell, "planted")
 	
 
-func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -1) -> void:
+func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -1) -> bool:
 	"""
 	CHEST: Place a chest at the target position.
 	Allowed if: tile is farmable/soil, no existing chest at position, player has chest in toolkit.
 	Action: Instantiate chest scene, consume chest from toolkit.
+	Returns: true if placement succeeded, false if blocked
 	"""
 	
 	if override_slot_index < 0:
-		return
+		return false
 	
 	if not InventoryManager:
-		return
+		return false
 	
 	var texture := InventoryManager.get_toolkit_item(override_slot_index)
 	var count := InventoryManager.get_toolkit_item_count(override_slot_index)
 	
 	
 	if texture == null or count <= 0:
-		return
+		return false
 	
 	# Identify tool using ToolConfig
 	var tool_name := ""
@@ -408,15 +421,15 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 		tool_name = tool_config_resource.get_tool_name(texture)
 	
 	if tool_name != "chest":
-		return
+		return false
 	
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		return
+		return false
 	
 	if not farm_scene:
-		return
+		return false
 	
 	# Calculate tile center position
 	var tile_center_pos: Vector2
@@ -425,8 +438,11 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 	else:
 		tile_center_pos = world_pos
 	
+	# Validate placement using ChestManager (includes TileMapLayer checks)
+	if not chest_manager.can_place_chest("Farm", tile_center_pos):
+		return false
 	
-	# Check if there's already a chest at this position
+	# Check if there's already a chest at this position (redundant but safe)
 	var existing_chests = chest_manager.chest_registry
 	for chest_id in existing_chests.keys():
 		var chest_data = existing_chests[chest_id]
@@ -434,53 +450,16 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 		if chest_node and is_instance_valid(chest_node):
 			var distance = chest_node.global_position.distance_to(tile_center_pos)
 			if distance < 16.0:
-				return
-	
-	# Check if position is valid - CANNOT place on soil/farmable tiles
-	# Only allow placement on grass (FARM_TILE_ATLAS) that is NOT soil or watered
-	var is_soil = _is_soil(cell)
-	
-	# Check if tile is watered or has a crop
-	var is_watered = false
-	var has_crop = false
-	if GameState and GameState.farm_state.has(cell):
-		var tile_data = GameState.get_tile_data(cell)
-		if tile_data:
-			is_watered = tile_data.get("is_watered", false)
-			has_crop = tile_data.get("tile_state") == "planted"
-	
-	if is_soil or is_watered or has_crop:
-		return
-	
-	# Validate placement: allow on grass/empty ground, block on soil/water
-	if farmable_layer:
-		var source_id = farmable_layer.get_cell_source_id(cell)
-		
-		# If source_id == -1, there's no tile on farmable layer (regular grass/ground) - ALLOW
-		if source_id == -1:
-			pass # Allow placement on empty ground
-		else:
-			# There IS a tile on farmable layer - check what it is
-			var atlas_coords = farmable_layer.get_cell_atlas_coords(cell)
-			
-			# FARM_TILE_ATLAS (12, 0) is garden dirt - allow placement
-			# SOIL_DRY_ATLAS and SOIL_WET_ATLAS are tilled soil - block (already checked above)
-			if atlas_coords == FARM_TILE_ATLAS:
-				pass # Allow placement on grass tile
-			elif atlas_coords == SOIL_DRY_ATLAS:
-				return
-			elif atlas_coords == SOIL_WET_ATLAS:
-				return
-	else:
-		return
+				return false
 	
 	# Create chest at position
 	var chest = chest_manager.create_chest_at_position(tile_center_pos)
 	if chest == null:
-		return
+		return false
 	
 	# Call async helper to consume chest and sync UI
 	_consume_chest_and_sync_ui(override_slot_index)
+	return true
 
 
 func _consume_chest_and_sync_ui(slot_index: int) -> void:

@@ -166,6 +166,37 @@ func handle_shift_click(slot_index: int) -> void:
 			sync_slot_ui(slot_index)
 
 
+func handle_ctrl_left_click(slot_index: int) -> void:
+	"""Handle ctrl-left-click to transfer half stack from toolkit to open container or player inventory"""
+	var slot_data = inventory_data[slot_index]
+	
+	if not slot_data["texture"] or slot_data["count"] <= 0:
+		return
+	
+	# Calculate half stack (round up for odd numbers, minimum 1)
+	var half_stack_float = slot_data["count"] / 2.0
+	var half_stack = max(1, int(ceil(half_stack_float)))
+	
+	# Find target container (chest if open, player inventory otherwise)
+	var target_container = _find_transfer_target()
+	
+	if target_container:
+		# Try to add half stack to target container
+		var remaining = target_container.add_item_auto_stack(slot_data["texture"], half_stack)
+		
+		# Calculate how many were actually transferred
+		var transferred = half_stack - remaining
+		if transferred > 0:
+			# Update source slot with remaining count
+			var new_count = slot_data["count"] - transferred
+			if new_count > 0:
+				inventory_data[slot_index]["count"] = new_count
+			else:
+				inventory_data[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+			
+			sync_slot_ui(slot_index)
+
+
 func _find_transfer_target() -> ContainerBase:
 	"""Find the target container for shift-click transfers"""
 	# Check if chest panel is open (highest priority)

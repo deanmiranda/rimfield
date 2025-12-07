@@ -40,7 +40,7 @@ z_index = 100
 z_as_relative = false
 custom_minimum_size = Vector2(300, 150)
 layout_mode = 2
-color = Color(0, 0.722441, 0.283399, 1)
+color = Color(0.368141, 0.640499, 0.764051, 1)
 
 [node name="MainVBox" type="VBoxContainer" parent="CenterContainer"]
 z_as_relative = false
@@ -103,7 +103,7 @@ offset_right = 150.0
 offset_bottom = 75.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0.722441, 0.283399, 1)
+color = Color(0, 0, 0, 1)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer/ConfirmationPanel"]
 z_as_relative = false

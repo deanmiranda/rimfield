@@ -547,14 +547,14 @@ func decrement_toolkit_item_count(slot_index: int, amount: int = 1) -> void:
 	assert(legacy_mode_enabled, "decrement_toolkit_item_count() called but legacy_mode_enabled is false and no container exists")
 	if slot_index < 0 or slot_index >= max_toolkit_slots:
 		return
-	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	var current_count = slot_data["count"]
-	var texture = slot_data["texture"]
-	if current_count <= 0 or texture == null:
+	var legacy_slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+	var legacy_current_count = legacy_slot_data["count"]
+	var legacy_texture = legacy_slot_data["texture"]
+	if legacy_current_count <= 0 or legacy_texture == null:
 		return
-	var new_count = current_count - amount
-	if new_count > 0:
-		toolkit_slots[slot_index] = {"texture": texture, "count": new_count, "weight": 0.0}
+	var legacy_new_count = legacy_current_count - amount
+	if legacy_new_count > 0:
+		toolkit_slots[slot_index] = {"texture": legacy_texture, "count": legacy_new_count, "weight": 0.0}
 	else:
 		toolkit_slots[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 	sync_toolkit_ui()
@@ -570,8 +570,8 @@ func get_toolkit_item(slot_index: int) -> Texture:
 	
 	# LEGACY SYSTEM
 	assert(legacy_mode_enabled, "get_toolkit_item() called but legacy_mode_enabled is false and no container exists")
-	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	return slot_data["texture"]
+	var legacy_slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+	return legacy_slot_data["texture"]
 
 
 # LEGACY METHOD - DEPRECATED - Use ToolkitContainer.get_slot_data() instead
@@ -579,13 +579,13 @@ func get_toolkit_item_count(slot_index: int) -> int:
 	"""Get item count from toolkit slot"""
 	# NEW SYSTEM: Delegate to ToolkitContainer
 	if toolkit_container:
-		var slot_data = toolkit_container.get_slot_data(slot_index)
-		return slot_data["count"]
+		var toolkit_slot_data = toolkit_container.get_slot_data(slot_index)
+		return toolkit_slot_data["count"]
 	
 	# LEGACY SYSTEM
 	assert(legacy_mode_enabled, "get_toolkit_item_count() called but legacy_mode_enabled is false and no container exists")
-	var slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
-	return slot_data["count"]
+	var legacy_slot_data = toolkit_slots.get(slot_index, {"texture": null, "count": 0, "weight": 0.0})
+	return legacy_slot_data["count"]
 
 
 func add_item_to_toolkit(slot_index: int, texture: Texture, count: int = 1) -> bool:
