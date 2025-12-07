@@ -268,6 +268,9 @@ func serialize_all_chests() -> Array:
 
 func restore_chests_from_save(chest_data: Array) -> void:
 	"""Restore chests from save data. Stores chest data in registry for scene restoration."""
+	# CRITICAL: Clear registry completely before restoring to prevent cross-save contamination
+	# This ensures each save file loads with ONLY its own chest data, not mixed with previous sessions
+	chest_registry.clear()
 	pending_restore_data = chest_data
 	
 	# Add chest data to registry (without nodes yet - those will be created when scenes load)
