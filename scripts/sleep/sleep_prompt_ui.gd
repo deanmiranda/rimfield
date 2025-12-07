@@ -3,17 +3,29 @@ extends Control
 ## SleepPromptUI - Sleep confirmation dialog
 ##
 ## Displays a confirmation prompt when player wants to sleep.
-## Handles E (confirm) and ESC (cancel) input.
+## Handles E (cancel) and ESC (cancel) input, plus clickable buttons.
 
 # Signals
 signal sleep_confirmed
 signal sleep_cancelled
+
+# Button references
+@onready var yes_button: Button = $PanelContainer/VBoxContainer/ButtonContainer/YesButton
+@onready var no_button: Button = $PanelContainer/VBoxContainer/ButtonContainer/NoButton
 
 
 func _ready() -> void:
 	"""Initialize sleep prompt UI"""
 	visible = false
 	set_process_unhandled_input(true)
+	
+	# Connect button signals
+	if yes_button:
+		if not yes_button.pressed.is_connected(_on_yes_pressed):
+			yes_button.pressed.connect(_on_yes_pressed)
+	if no_button:
+		if not no_button.pressed.is_connected(_on_no_pressed):
+			no_button.pressed.connect(_on_no_pressed)
 
 
 func show_prompt() -> void:
@@ -60,9 +72,9 @@ func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 	
-	# Handle E key (ui_interact) - confirm sleep
+	# Handle E key (ui_interact) - cancel sleep
 	if event.is_action_pressed("ui_interact"):
-		sleep_confirmed.emit()
+		sleep_cancelled.emit()
 		get_viewport().set_input_as_handled()
 		return
 	
@@ -72,9 +84,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	
-	# Also handle ui_accept (E) as fallback
+	# Also handle ui_accept (E) as fallback - cancel sleep
 	if event.is_action_pressed("ui_accept"):
-		sleep_confirmed.emit()
+		sleep_cancelled.emit()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -86,10 +98,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	
 	# Fallback handlers (should not reach here if _input() works correctly)
 	if event.is_action_pressed("ui_accept"):
-		# E key - confirm sleep
-		sleep_confirmed.emit()
+		# E key - cancel sleep
+		sleep_cancelled.emit()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		# ESC key - cancel sleep
 		sleep_cancelled.emit()
 		get_viewport().set_input_as_handled()
+
+
+func _on_yes_pressed() -> void:
+	"""Handle Yes button press - confirm sleep"""
+	sleep_confirmed.emit()
+
+
+func _on_no_pressed() -> void:
+	"""Handle No button press - cancel sleep"""
+	sleep_cancelled.emit()

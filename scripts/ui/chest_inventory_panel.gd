@@ -208,11 +208,15 @@ func close_chest_ui() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	"""Handle ESC key to close chest"""
+	"""Handle ESC key and E key to close chest"""
 	if not is_open:
 		return
 	
 	if event.is_action_pressed("ui_cancel"):
+		close_chest_ui()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_interact"):
+		# E key also closes chest (same as pause menu behavior)
 		close_chest_ui()
 		get_viewport().set_input_as_handled()
 

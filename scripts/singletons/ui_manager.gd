@@ -260,12 +260,16 @@ func _has_nearby_interactables() -> bool:
 	# 		if valid_pickables.size() > 0:
 	# 			return true  # Has nearby pickable items
 
-	# Check if player has an active interaction (e.g., house door, chest)
+	# Check if player has an active interaction (e.g., house door)
 	# CRITICAL: Check if player is null before accessing properties to prevent null reference error
+	# NOTE: Chests are excluded - they open on right-click, so E should still open inventory
 	if player and "current_interaction" in player:
 		var current_interaction = player.get("current_interaction")
 		if current_interaction != null and current_interaction != "":
-			return true # Has an active interaction (including chest)
+			# Exclude chests - they use right-click, not E key
+			if current_interaction == "chest":
+				return false
+			return true # Has an active interaction (excluding chest)
 
 	return false # No interactables nearby
 
