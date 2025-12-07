@@ -142,13 +142,13 @@ func clear_drag_state() -> void:
 func cleanup_preview() -> void:
 	"""Remove drag preview from scene"""
 	if drag_preview_layer:
-		# Immediately hide and remove preview
+		# Immediately hide preview
 		if drag_preview:
 			drag_preview.visible = false
 		if drag_preview_label:
 			drag_preview_label.visible = false
 		drag_preview_layer.visible = false
-		# Use free() for immediate removal instead of queue_free()
+		# Queue free for safe removal
 		if is_instance_valid(drag_preview_layer):
 			drag_preview_layer.queue_free()
 		drag_preview_layer = null
@@ -166,11 +166,6 @@ func update_drag_preview_position(mouse_pos: Vector2) -> void:
 		# Ensure it's visible
 		drag_preview.visible = true
 		drag_preview_layer.visible = true
-		
-		# Debug: Verify preview is actually visible and positioned
-		# (Removed frequent logging - uncomment if needed for debugging)
-		# if Engine.get_process_frames() % 60 == 0:
-		# 	print("[DragManager] Preview at: %s (mouse: %s)" % [drag_preview.global_position, mouse_pos])
 
 
 func _create_preview(texture: Texture, count: int) -> void:
