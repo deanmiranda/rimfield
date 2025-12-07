@@ -86,8 +86,6 @@ func instantiate_inventory() -> void:
 
 		# Populate with test items
 		#populate_test_inventory_items()
-	else:
-		print("Error: Failed to instantiate inventory scene!")
 
 
 #func populate_test_inventory_items() -> void:
@@ -142,8 +140,6 @@ func chest_panel_setup() -> void:
 		
 		# Connect to chest signals globally
 		_connect_to_chest_signals()
-	else:
-		print("Error: Loaded chest panel resource is not a PackedScene.")
 
 
 func _connect_to_chest_signals() -> void:

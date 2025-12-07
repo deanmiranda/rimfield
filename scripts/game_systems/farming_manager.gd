@@ -269,11 +269,6 @@ func _use_pickaxe(cell: Vector2i) -> void:
 			# Attempt to remove chest and spawn drop
 			var removal_success = chest_manager.remove_chest_and_spawn_drop(chest_at_pos, hud)
 			
-			if removal_success:
-				print("[CHEST PICKAXE] Successfully removed chest and spawned droppable")
-			else:
-				print("[CHEST PICKAXE] Failed to remove chest (chest not empty or error)")
-			
 			return # Chest handling done, don't process soil/crops
 	
 	# SECOND: Check for crops and soil (existing logic)
@@ -482,7 +477,6 @@ func _use_chest(cell: Vector2i, world_pos: Vector2, override_slot_index: int = -
 	# Create chest at position
 	var chest = chest_manager.create_chest_at_position(tile_center_pos)
 	if chest == null:
-		print("[CHEST FARM] FAILED - ChestManager.create_chest_at_position returned null")
 		return
 	
 	# Call async helper to consume chest and sync UI

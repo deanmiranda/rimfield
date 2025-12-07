@@ -150,7 +150,6 @@ func update_drag_preview_position(mouse_pos: Vector2) -> void:
 func _create_preview(texture: Texture, count: int) -> void:
 	"""Create visual drag preview"""
 	if not texture:
-		print("[DragManager] ERROR: No texture for preview!")
 		return
 	
 	# Create canvas layer at high z-index so it's above everything

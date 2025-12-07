@@ -256,7 +256,6 @@ func load_state(state: Dictionary) -> void:
 		if loaded_time is int and loaded_time >= 0 and loaded_time < MINUTES_PER_DAY:
 			time_of_day = loaded_time
 		else:
-			print("Warning: Invalid time_of_day in save data: ", loaded_time)
 			time_of_day = START_TIME_MINUTES
 	
 	if "day" in state:
@@ -264,7 +263,6 @@ func load_state(state: Dictionary) -> void:
 		if loaded_day is int and loaded_day >= 1 and loaded_day <= DAYS_PER_SEASON:
 			day = loaded_day
 		else:
-			print("Warning: Invalid day in save data: ", loaded_day)
 			day = 1
 	
 	if "season" in state:
@@ -272,7 +270,6 @@ func load_state(state: Dictionary) -> void:
 		if loaded_season is int and loaded_season >= 0 and loaded_season < SEASONS_PER_YEAR:
 			season = loaded_season
 		else:
-			print("Warning: Invalid season in save data: ", loaded_season)
 			season = 0
 	
 	if "year" in state:
@@ -280,7 +277,6 @@ func load_state(state: Dictionary) -> void:
 		if loaded_year is int and loaded_year >= 1:
 			year = loaded_year
 		else:
-			print("Warning: Invalid year in save data: ", loaded_year)
 			year = 1
 	
 	# Reset per-day flags based on loaded time

@@ -60,7 +60,6 @@ func _ready() -> void:
 	_load_mute_state()
 	
 	is_initialized = true
-	print("[MusicManager] Initialized with %d tracks" % available_tracks.size())
 
 
 func _scan_music_files() -> void:
@@ -90,7 +89,6 @@ func _scan_music_files() -> void:
 			if not should_exclude:
 				var track_path = audio_dir + "/" + file_name
 				available_tracks.append(track_path)
-				print("[MusicManager] Found track: %s" % file_name)
 		
 		file_name = dir.get_next()
 	
@@ -112,7 +110,6 @@ func _shuffle_playlist() -> void:
 		current_playlist[j] = temp
 	
 	current_track_index = 0
-	print("[MusicManager] Created shuffled playlist with %d tracks" % current_playlist.size())
 
 
 func start_music() -> void:
@@ -139,7 +136,6 @@ func stop_music() -> void:
 	if gap_timer:
 		gap_timer.stop()
 	is_playing = false
-	print("[MusicManager] Music stopped")
 
 
 func skip_track() -> void:
@@ -169,7 +165,6 @@ func skip_track() -> void:
 	
 	# Play next track immediately (no gap when skipping)
 	_play_next_track()
-	print("[MusicManager] Track skipped")
 
 
 func _play_next_track() -> void:
@@ -210,7 +205,6 @@ func _play_next_track() -> void:
 	is_playing = true
 	
 	var track_name = track_path.get_file()
-	print("[MusicManager] Playing: %s (%d/%d)" % [track_name, current_track_index + 1, current_playlist.size()])
 
 
 func _on_music_finished() -> void:
@@ -222,7 +216,6 @@ func _on_music_finished() -> void:
 	
 	# Start gap timer before next song
 	gap_timer.start()
-	print("[MusicManager] Track finished, %d second gap before next track" % GAP_DURATION)
 
 
 func _on_gap_timer_timeout() -> void:
@@ -238,10 +231,8 @@ func toggle_mute() -> void:
 		if is_muted:
 			saved_volume_db = music_player.volume_db
 			music_player.volume_db = -80.0
-			print("[MusicManager] Music muted")
 		else:
 			music_player.volume_db = saved_volume_db
-			print("[MusicManager] Music unmuted (volume: %.1f dB)" % saved_volume_db)
 	
 	# Save mute state to config
 	_save_mute_state()
@@ -258,10 +249,8 @@ func set_muted(muted: bool) -> void:
 		if is_muted:
 			saved_volume_db = music_player.volume_db
 			music_player.volume_db = -80.0
-			print("[MusicManager] Music muted")
 		else:
 			music_player.volume_db = saved_volume_db
-			print("[MusicManager] Music unmuted (volume: %.1f dB)" % saved_volume_db)
 	
 	# Save mute state to config
 	_save_mute_state()

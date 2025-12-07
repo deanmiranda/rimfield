@@ -27,7 +27,6 @@ func _ready():
 		if bed_spawn:
 			player_instance.global_position = bed_spawn.global_position
 		else:
-			print("Warning: BedSpawnPoint not found, using fallback position")
 			player_instance.global_position = Vector2(-8, 54)
 
 	# Force camera to snap to player position immediately (no smooth transition)
@@ -46,14 +45,7 @@ func _ready():
 		# Link HUD singleton
 		if HUD:
 			HUD.set_hud_scene_instance(hud_instance)
-		else:
-			print("Warning: HUD singleton not found in house_scene.")
-	else:
-		print("Error: HUD scene not assigned in house_scene!")
 	
 	# Inventory setup - CRITICAL: Initialize pause menu and inventory UI
 	if UiManager:
 		UiManager.instantiate_inventory()
-	else:
-		print("Error: UiManager singleton not found.")
-

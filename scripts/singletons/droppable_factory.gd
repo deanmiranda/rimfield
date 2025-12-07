@@ -225,6 +225,9 @@ func unregister_droppable(droppable_id: String) -> void:
 func serialize_droppables() -> Array:
 	"""Save all active droppables to an array for persistence."""
 	var droppable_data = []
+	var seen_keys = {} # Track position+item combinations to avoid duplicates
+	
+	# Serialize active droppables (currently in scene)
 	for droppable in active_droppables.keys():
 		if is_instance_valid(droppable):
 			var data = active_droppables[droppable]
@@ -236,7 +239,26 @@ func serialize_droppables() -> Array:
 			# Include texture_path for generic items (unregistered items like seeds/tools)
 			if data.has("texture_path"):
 				save_entry["texture_path"] = data.get("texture_path")
-			droppable_data.append(save_entry)
+			
+			# Create unique key for deduplication
+			var pos_key = "%s_%s" % [save_entry["position"]["x"], save_entry["position"]["y"]]
+			var item_key = save_entry.get("texture_path", save_entry.get("item_id", ""))
+			var unique_key = "%s_%s_%s" % [pos_key, item_key, save_entry["scene_name"]]
+			
+			if not seen_keys.has(unique_key):
+				seen_keys[unique_key] = true
+				droppable_data.append(save_entry)
+	
+	# ALSO serialize pending_restore_droppables (from other scenes that were unloaded)
+	for data in pending_restore_droppables:
+		var pos_key = "%s_%s" % [data.get("position", {}).get("x", 0), data.get("position", {}).get("y", 0)]
+		var item_key = data.get("texture_path", data.get("item_id", ""))
+		var unique_key = "%s_%s_%s" % [pos_key, item_key, data.get("scene_name", "")]
+		
+		if not seen_keys.has(unique_key):
+			seen_keys[unique_key] = true
+			droppable_data.append(data)
+	
 	return droppable_data
 
 

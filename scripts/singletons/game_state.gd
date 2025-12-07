@@ -153,7 +153,6 @@ func save_game(file: String = "") -> void:
 			current_save_file = "user://save_slot_%s.json" % timestamp
 
 	if current_save_file == "":
-		print("Error: No save file path provided.")
 		return
 
 	# Get toolkit and inventory from InventoryManager

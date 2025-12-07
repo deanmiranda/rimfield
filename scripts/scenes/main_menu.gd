@@ -16,7 +16,6 @@ func _stop_intro_music() -> void:
 	var intro_music = get_node_or_null("IntroMusic")
 	if intro_music and intro_music is AudioStreamPlayer:
 		intro_music.stop()
-		print("[MainMenu] Stopped intro music")
 
 func _on_exit_pressed() -> void:
 	get_tree().quit() # Exit the game
@@ -24,15 +23,11 @@ func _on_exit_pressed() -> void:
 # Add a new function for the Load Game button
 func _on_load_game_pressed() -> void:
 	if LOAD_MENU == null:
-		print("Error: LOAD_MENU could not be preloaded.")
 		return
 	
 	var load_instance = LOAD_MENU.instantiate()
 	if load_instance:
 		get_tree().root.add_child(load_instance) # Add as a child of the root to overlay on top of everything
-		print("Load scene added successfully.")
-	else:
-		print("Error: Could not instantiate LOAD_MENU.")
 
 func _ready() -> void:
 	# Ensure New Game, Exit, and Load Game buttons are properly connected
@@ -40,15 +35,11 @@ func _ready() -> void:
 	if new_game_button != null:
 		if not new_game_button.is_connected("pressed", Callable(self, "_on_new_game_pressed")):
 			new_game_button.connect("pressed", Callable(self, "_on_new_game_pressed"))
-	else:
-		print("Error: NewGame button not found.")
 
 	var exit_button = $CenterContainer/VBoxContainer/Exit
 	if exit_button != null:
 		if not exit_button.is_connected("pressed", Callable(self, "_on_exit_pressed")):
 			exit_button.connect("pressed", Callable(self, "_on_exit_pressed"))
-	else:
-		print("Error: Exit button not found.")
 
 	var saved_games_button = $CenterContainer/VBoxContainer/SavedGames
 	
@@ -58,14 +49,11 @@ func _ready() -> void:
 
 		# Set the initial visibility based on saved games
 		saved_games_button.visible = _has_saved_games()
-	else:
-		print("Error: LoadGame button not found.")
 
 # Function to check if saved games exist
 func _has_saved_games() -> bool:
 	var save_dir = DirAccess.open("user://")
 	if save_dir == null:
-		print("Error: Could not open save directory.")
 		return false
 
 	save_dir.list_dir_begin()
