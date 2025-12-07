@@ -119,6 +119,11 @@ func _on_left_click_down(event: InputEventMouseButton) -> void:
 		_handle_shift_click()
 		return
 	
+	if event.ctrl_pressed and item_texture and stack_count > 0:
+		# Ctrl+Left-click - grab half stack
+		_handle_ctrl_left_click()
+		return
+	
 	# Check if cursor-hold is active (place all from cursor)
 	if DragManager and DragManager.cursor_hold_active:
 		# Place all from cursor will be handled in _on_left_click_up
@@ -241,10 +246,27 @@ func _on_left_click_up(_event: InputEventMouseButton, _duration: float) -> void:
 var _right_click_cursor_hold_consumed: bool = false
 
 
-func _on_right_click_down(_event: InputEventMouseButton) -> void:
+func _on_right_click_down(event: InputEventMouseButton) -> void:
 	"""Handle right mouse button press - sets intent only, no mutations"""
 	# Reset guard flag
 	_right_click_cursor_hold_consumed = false
+	
+	# Check for Ctrl+Right-click (increment by 5)
+	if event.ctrl_pressed:
+		if DragManager and DragManager.cursor_hold_active:
+			# Ctrl+Right-click with cursor-hold active - will place 5 in _on_right_click_up
+			_right_click_cursor_hold_consumed = true
+			var viewport = get_viewport()
+			if viewport:
+				drag_start_position = viewport.get_mouse_position()
+			return
+		elif item_texture and stack_count > 0:
+			# Ctrl+Right-click on slot - will pickup 5 in _on_right_click_up
+			_right_click_cursor_hold_consumed = true
+			var viewport = get_viewport()
+			if viewport:
+				drag_start_position = viewport.get_mouse_position()
+			return
 	
 	# Check if cursor-hold is active (accumulate or place 1)
 	if DragManager and DragManager.cursor_hold_active:
@@ -273,8 +295,85 @@ func _on_right_click_down(_event: InputEventMouseButton) -> void:
 			_right_click_cursor_hold_consumed = true
 
 
-func _on_right_click_up(_event: InputEventMouseButton, _duration: float) -> void:
+func _on_right_click_up(event: InputEventMouseButton, _duration: float) -> void:
 	"""Handle right mouse button release - performs mutations here"""
+	# Check for Ctrl+Right-click (increment ghost slot by 5)
+	if event.ctrl_pressed and _right_click_cursor_hold_consumed:
+		if DragManager and DragManager.cursor_hold_active:
+			# Ctrl+Right-click with cursor-hold - increment by 5 from this slot
+			if container_ref and item_texture and item_texture == DragManager.cursor_hold_texture:
+				# Same texture - add 5 from slot to cursor-hold (increment ghost slot)
+				if container_ref.has_method("get_slot_data"):
+					var slot_data = container_ref.get_slot_data(slot_index)
+					if slot_data and slot_data["texture"] == DragManager.cursor_hold_texture:
+						# Calculate how many can be added (max 10 total in cursor-hold)
+						var available_space = 10 - DragManager.cursor_hold_count
+						if available_space > 0:
+							var to_add = min(5, slot_data["count"], available_space)
+							if to_add > 0:
+								# Remove from source
+								var remaining = slot_data["count"] - to_add
+								if remaining > 0:
+									container_ref.set_slot_data(slot_index, slot_data["texture"], remaining)
+								else:
+									container_ref.remove_item_from_slot(slot_index)
+								
+								# Increment cursor-hold by to_add
+								DragManager.cursor_hold_count += to_add
+								# Update ghost slot label to show count
+								DragManager._ensure_cursor_hold_label()
+								
+								# Sync visual
+								if container_ref.has_method("get_slot_data"):
+									var updated_data = container_ref.get_slot_data(slot_index)
+									item_texture = updated_data["texture"]
+									stack_count = updated_data["count"]
+									update_visual()
+								
+								_right_click_cursor_hold_consumed = false
+								accept_event()
+								get_viewport().set_input_as_handled()
+								return
+			else:
+				# Different texture or empty - place 5 from cursor to slot
+				if container_ref:
+					if DragManager.place_five_from_cursor_to(container_ref, slot_index):
+						if container_ref.has_method("get_slot_data"):
+							var updated_data = container_ref.get_slot_data(slot_index)
+							item_texture = updated_data["texture"]
+							stack_count = updated_data["count"]
+							update_visual()
+						_right_click_cursor_hold_consumed = false
+						accept_event()
+						get_viewport().set_input_as_handled()
+						return
+		elif item_texture and stack_count > 0 and container_ref:
+			# Ctrl+Right-click on slot without cursor-hold - start cursor-hold with 5
+			if container_ref.has_method("get_slot_data"):
+				var slot_data = container_ref.get_slot_data(slot_index)
+				if slot_data and slot_data["texture"]:
+					var pickup_count = min(5, stack_count)
+					var remaining = stack_count - pickup_count
+					if remaining > 0:
+						container_ref.set_slot_data(slot_index, slot_data["texture"], remaining)
+					else:
+						container_ref.remove_item_from_slot(slot_index)
+					
+					# Start cursor-hold with 5 items
+					if DragManager:
+						DragManager.start_cursor_hold(slot_data["texture"], pickup_count)
+					
+					# Sync visual
+					if container_ref.has_method("get_slot_data"):
+						var updated_data = container_ref.get_slot_data(slot_index)
+						item_texture = updated_data["texture"]
+						stack_count = updated_data["count"]
+						update_visual()
+					_right_click_cursor_hold_consumed = false
+					accept_event()
+					get_viewport().set_input_as_handled()
+					return
+	
 	# Check cursor-hold first (accumulate or place 1 or world drop)
 	if _right_click_cursor_hold_consumed and DragManager and DragManager.cursor_hold_active:
 		# Check if clicking on a slot
@@ -674,6 +773,20 @@ func _handle_shift_click() -> void:
 	# Let container handle shift-click logic
 	if container_ref.has_method("handle_shift_click"):
 		container_ref.handle_shift_click(slot_index)
+
+
+func _handle_ctrl_left_click() -> void:
+	"""Handle Ctrl+Left-click - auto-transfer half stack (like shift-click)"""
+	if not container_ref or not item_texture or stack_count <= 0:
+		return
+	
+	# Do not allow if cursor-hold is active
+	if DragManager and DragManager.cursor_hold_active:
+		return
+	
+	# Let container handle ctrl-left-click logic (auto-transfer half)
+	if container_ref.has_method("handle_ctrl_left_click"):
+		container_ref.handle_ctrl_left_click(slot_index)
 
 
 func set_item(texture: Texture, count: int) -> void:

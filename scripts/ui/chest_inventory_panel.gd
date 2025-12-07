@@ -359,3 +359,32 @@ func handle_shift_click(slot_index: int) -> void:
 			
 			sync_slot_ui(slot_index)
 			sync_player_ui()
+
+
+func handle_ctrl_left_click(slot_index: int) -> void:
+	"""Handle ctrl-left-click to transfer half stack from chest to player inventory"""
+	var slot_data = inventory_data[slot_index]
+	
+	if not slot_data["texture"] or slot_data["count"] <= 0:
+		return
+	
+	# Calculate half stack (round up for odd numbers, minimum 1)
+	var half_stack_float = slot_data["count"] / 2.0
+	var half_stack = max(1, int(ceil(half_stack_float)))
+	
+	# Try to add half stack to player inventory
+	if InventoryManager:
+		var remaining = InventoryManager.add_item_auto_stack(slot_data["texture"], half_stack)
+		
+		# Calculate how many were actually transferred
+		var transferred = half_stack - remaining
+		if transferred > 0:
+			# Update source slot with remaining count
+			var new_count = slot_data["count"] - transferred
+			if new_count > 0:
+				inventory_data[slot_index]["count"] = new_count
+			else:
+				inventory_data[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
+			
+			sync_slot_ui(slot_index)
+			sync_player_ui()

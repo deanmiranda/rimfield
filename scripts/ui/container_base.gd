@@ -441,6 +441,11 @@ func handle_shift_click(_slot_index: int) -> void:
 	pass
 
 
+func handle_ctrl_left_click(_slot_index: int) -> void:
+	"""Handle ctrl-left-click half stack transfer - OVERRIDE in subclass for specific behavior"""
+	pass
+
+
 func find_empty_slot() -> int:
 	"""Find first empty slot index, returns -1 if none"""
 	for i in range(slot_count):

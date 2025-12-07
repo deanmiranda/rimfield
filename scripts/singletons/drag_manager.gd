@@ -182,10 +182,18 @@ func _create_preview(texture: Texture, count: int) -> void:
 	drag_preview_layer.show()
 	drag_preview.show()
 	
-	# Add count label if more than 1 item
-	if count > 1:
+	# Add count label if more than 1 item (or if cursor-hold, always show count)
+	if count > 1 or cursor_hold_active:
+		_create_preview_label(count)
+
+
+func _create_preview_label(count: int) -> void:
+	"""Create or update the preview label"""
+	if not drag_preview:
+		return
+	
+	if not drag_preview_label:
 		drag_preview_label = Label.new()
-		drag_preview_label.text = str(count)
 		drag_preview_label.add_theme_font_size_override("font_size", 14)
 		drag_preview_label.add_theme_color_override("font_color", Color.WHITE)
 		drag_preview_label.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -193,17 +201,18 @@ func _create_preview(texture: Texture, count: int) -> void:
 		drag_preview_label.position = Vector2(32, 32) # Bottom-right corner
 		drag_preview.add_child(drag_preview_label)
 	
-	# Position at mouse - use root viewport to ensure it works even when paused
-	var root_viewport = get_tree().root.get_viewport()
-	if root_viewport:
-		var mouse_pos = root_viewport.get_mouse_position()
-		update_drag_preview_position(mouse_pos)
-	else:
-		# Fallback
-		var viewport = get_viewport()
-		if viewport:
-			var mouse_pos = viewport.get_mouse_position()
-			update_drag_preview_position(mouse_pos)
+	drag_preview_label.text = str(count)
+	drag_preview_label.visible = true
+
+
+func _ensure_cursor_hold_label() -> void:
+	"""Ensure cursor-hold label exists and is visible (always show count for cursor-hold)"""
+	if cursor_hold_active and drag_preview:
+		if not drag_preview_label:
+			_create_preview_label(cursor_hold_count)
+		else:
+			drag_preview_label.text = str(cursor_hold_count)
+			drag_preview_label.visible = true
 
 
 func _update_drag_preview_position() -> void:
@@ -239,7 +248,7 @@ func _reset_state() -> void:
 # ============================================================================
 
 func start_cursor_hold(texture: Texture, count: int) -> void:
-	"""Start cursor-hold mode (pickup 1 item into cursor)"""
+	"""Start cursor-hold mode (pickup items into cursor)"""
 	# Clear any existing drag state first
 	if is_dragging:
 		clear_drag_state()
@@ -250,6 +259,8 @@ func start_cursor_hold(texture: Texture, count: int) -> void:
 	
 	# Reuse existing preview UI for cursor-hold
 	_create_preview(texture, count)
+	# Ensure label exists and shows count (always show count for cursor-hold)
+	_ensure_cursor_hold_label()
 	set_process(true)
 	
 	# Update preview position immediately
@@ -293,7 +304,8 @@ func add_one_to_cursor_from(source_container: Node, source_slot: int) -> bool:
 	# Increment cursor count
 	cursor_hold_count += 1
 	
-	# Update preview
+	# Update preview label (ensure it exists)
+	_ensure_cursor_hold_label()
 	if drag_preview_label:
 		drag_preview_label.text = str(cursor_hold_count)
 	
@@ -333,6 +345,94 @@ func place_one_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	else:
 		if drag_preview_label:
 			drag_preview_label.text = str(cursor_hold_count)
+	return true
+
+
+func add_five_to_cursor_from(source_container: Node, source_slot: int) -> bool:
+	"""Add 5 items from source slot to cursor (Ctrl+Right-click) - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not source_container or not source_container.has_method("get_slot_data"):
+		return false
+	
+	var source_data = source_container.get_slot_data(source_slot)
+	if not source_data["texture"] or source_data["count"] <= 0:
+		return false
+	
+	# Must be same texture
+	if source_data["texture"] != cursor_hold_texture:
+		return false
+	
+	# Calculate how many can be added (max 10 total, or 5 at a time)
+	var available_space = 10 - cursor_hold_count
+	if available_space <= 0:
+		return false
+	
+	var to_add = min(5, source_data["count"], available_space)
+	if to_add <= 0:
+		return false
+	
+	# Remove items from source
+	var remaining = source_data["count"] - to_add
+	if remaining > 0:
+		if source_container.has_method("set_slot_data"):
+			source_container.set_slot_data(source_slot, source_data["texture"], remaining)
+		else:
+			source_container.remove_item_from_slot(source_slot)
+			source_container.add_item_to_slot(source_slot, source_data["texture"], remaining)
+	else:
+		source_container.remove_item_from_slot(source_slot)
+	
+	# Increment cursor count
+	cursor_hold_count += to_add
+	
+	# Update preview label
+	_ensure_cursor_hold_label()
+	
+	return true
+
+
+func place_five_from_cursor_to(target_container: Node, target_slot: int) -> bool:
+	"""Place 5 items from cursor to target slot (Ctrl+Right-click) - returns true if successful"""
+	if not cursor_hold_active:
+		return false
+	
+	if not target_container or not target_container.has_method("get_slot_data"):
+		return false
+	
+	var target_data = target_container.get_slot_data(target_slot)
+	
+	# Check if target is empty or same texture
+	if target_data["texture"] and target_data["texture"] != cursor_hold_texture:
+		# Different texture - no swap on right-click
+		return false
+	
+	# Calculate how many can be placed
+	var available_space = 10
+	if target_data["texture"]:
+		# Same texture - check available space
+		available_space = 10 - target_data["count"]
+	
+	if available_space <= 0:
+		return false
+	
+	var to_place = min(5, cursor_hold_count, available_space)
+	if to_place <= 0:
+		return false
+	
+	# Place items into target using ContainerBase API
+	target_container.add_item_to_slot(target_slot, cursor_hold_texture, to_place)
+	
+	# Decrement cursor count
+	cursor_hold_count -= to_place
+	
+	# Update preview or clear if empty
+	if cursor_hold_count <= 0:
+		clear_cursor_hold()
+	else:
+		_ensure_cursor_hold_label()
+	
 	return true
 
 
@@ -452,8 +552,7 @@ func consume_from_cursor_hold(amount: int) -> int:
 	if cursor_hold_count <= 0:
 		clear_cursor_hold()
 	else:
-		if drag_preview_label:
-			drag_preview_label.text = str(cursor_hold_count)
+		_ensure_cursor_hold_label()
 	
 	return actual_amount
 
