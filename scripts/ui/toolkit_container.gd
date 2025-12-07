@@ -37,7 +37,6 @@ func _ready() -> void:
 			return
 		# If we're the registered one, reuse it
 		if InventoryManager.toolkit_container == self:
-			print("[ToolkitContainer] Already registered - skipping re-initialization")
 			return
 	
 	# Set singleton instance
@@ -55,7 +54,6 @@ func _ready() -> void:
 	# Migrate existing data from InventoryManager (only once)
 	_migrate_from_inventory_manager()
 	
-	print("[ToolkitContainer] Initialized: %d slots, max stack %d" % [slot_count, max_stack_size])
 
 
 func _migrate_from_inventory_manager() -> void:
@@ -71,11 +69,9 @@ func _migrate_from_inventory_manager() -> void:
 			break
 	
 	if has_data:
-		print("[ToolkitContainer] Already has data - skipping migration")
 		return
 	
 	if InventoryManager.toolkit_slots:
-		print("[ToolkitContainer] Migrating data from InventoryManager...")
 		for i in range(min(slot_count, InventoryManager.toolkit_slots.size())):
 			var data = InventoryManager.toolkit_slots.get(i, {})
 			if data.has("texture") and data["texture"]:
@@ -84,11 +80,6 @@ func _migrate_from_inventory_manager() -> void:
 					"count": data.get("count", 1),
 					"weight": data.get("weight", 0.0)
 				}
-				print("[ToolkitContainer] Migrated slot %d: %s x%d" % [
-					i,
-					data["texture"].resource_path if data["texture"] else "null",
-					data.get("count", 1)
-				])
 
 
 func set_active_slot(slot_index: int) -> void:
@@ -103,10 +94,7 @@ func set_active_slot(slot_index: int) -> void:
 	emit_signal("active_slot_changed", slot_index)
 	emit_signal("tool_equipped", slot_index, active_tool_texture)
 	
-	print("[ToolkitContainer] Active slot: %d (%s)" % [
-		slot_index,
-		active_tool_texture.resource_path if active_tool_texture else "empty"
-	])
+
 
 
 func get_active_slot_index() -> int:
@@ -143,7 +131,6 @@ func handle_shift_click(slot_index: int) -> void:
 	if not slot_data["texture"] or slot_data["count"] <= 0:
 		return
 	
-	print("[ToolkitContainer] Shift-click transfer: toolkit slot %d" % slot_index)
 	
 	# Find target container (chest if open, player inventory otherwise)
 	var target_container = _find_transfer_target()
@@ -160,10 +147,6 @@ func handle_shift_click(slot_index: int) -> void:
 				inventory_data[slot_index] = {"texture": null, "count": 0, "weight": 0.0}
 			
 			sync_slot_ui(slot_index)
-			print("[ToolkitContainer] Transferred %d items (remaining: %d)" % [
-				slot_data["count"] - remaining,
-				remaining
-			])
 
 
 func _find_transfer_target() -> ContainerBase:

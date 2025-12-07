@@ -308,7 +308,6 @@ func load_game(file: String = "") -> bool:
 		# Restore toolkit and inventory to InventoryManager
 		if InventoryManager:
 			# DEBUG: Log toolkit_slots BEFORE clear
-			print("[GameState] LOAD: toolkit_slots keys BEFORE clear:")
 			for k in InventoryManager.toolkit_slots.keys():
 				print("  key=%s type=%s" % [str(k), typeof(k)])
 			
@@ -365,14 +364,11 @@ func load_game(file: String = "") -> bool:
 							print("Warning: Could not load texture:", texture_path)
 
 			# DEBUG: Log toolkit_slots AFTER load
-			print("[GameState] LOAD: toolkit_slots.size()=%d after load" % InventoryManager.toolkit_slots.size())
-			print("[GameState] LOAD: toolkit_slots keys AFTER load:")
 			for k in InventoryManager.toolkit_slots.keys():
 				var data = InventoryManager.toolkit_slots[k]
 				var tex_str = "null"
 				if data.has("texture") and data["texture"]:
 					tex_str = data["texture"].resource_path if data["texture"] is Texture2D else str(data["texture"])
-				print("  key=%s type=%s texture=%s count=%d" % [str(k), typeof(k), tex_str, data.get("count", 0)])
 			
 			# Sync UI after loading inventory
 			InventoryManager.sync_inventory_ui()
@@ -439,7 +435,6 @@ func manage_save_files() -> void:
 	# Remove old saves, keeping only the 10 most recent (FIFO - First In First Out)
 	const MAX_SAVE_FILES = 10
 	
-	print("[GameState] Managing save files: found %d saves, max is %d" % [save_files_with_time.size(), MAX_SAVE_FILES])
 	
 	while save_files_with_time.size() > MAX_SAVE_FILES:
 		var oldest_save = save_files_with_time.pop_front()
@@ -475,7 +470,6 @@ func _stop_intro_music() -> void:
 		var intro_music = main_menu.get_node_or_null("IntroMusic")
 		if intro_music and intro_music is AudioStreamPlayer:
 			intro_music.stop()
-			print("[GameState] Stopped intro music")
 
 
 # Helper function to extract timestamp from save file name

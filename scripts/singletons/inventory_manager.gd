@@ -41,7 +41,6 @@ func _ready() -> void:
 	# LEGACY SYSTEM: Only initialize if legacy_mode_enabled (for migration)
 	# NEW CODE: Use containers instead
 	if legacy_mode_enabled:
-		print("[InventoryManager] LEGACY MODE ENABLED - initializing old dictionaries for migration")
 		for i in range(max_inventory_slots):
 			if not inventory_slots.has(i):
 				inventory_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
@@ -50,7 +49,6 @@ func _ready() -> void:
 			if not toolkit_slots.has(i):
 				toolkit_slots[i] = {"texture": null, "count": 0, "weight": 0.0}
 
-	print("[InventoryManager] Initialized - Container registry ready (%d containers already registered)" % containers.size())
 	
 	# Bootstrap containers early to prevent startup crashes from early API calls
 	call_deferred("_bootstrap_containers")
@@ -72,7 +70,6 @@ func register_container(container: ContainerBase) -> void:
 	if containers.has(container_id):
 		# Check if it's the SAME instance (reusing) vs a NEW instance (duplicate)
 		if containers[container_id] == container:
-			print("[InventoryManager] Container %s already registered (same instance)" % container_id)
 			return
 		else:
 			push_error("❌ DUPLICATE CONTAINER REGISTERED: %s" % container_id)
@@ -87,12 +84,9 @@ func register_container(container: ContainerBase) -> void:
 	# Set typed references
 	if container_id == "player_toolkit":
 		toolkit_container = container
-		print("[InventoryManager] Registered toolkit_container")
 	elif container_id == "player_inventory":
 		player_inventory_container = container
-		print("[InventoryManager] Registered player_inventory_container")
 	
-	print("[InventoryManager] Registered container: %s (type: %s)" % [container_id, container.container_type])
 
 
 func get_container(container_id: String) -> ContainerBase:
@@ -104,14 +98,11 @@ func unregister_container(container_id: String) -> void:
 	"""Unregister a container (e.g., on scene change)"""
 	if containers.has(container_id):
 		containers.erase(container_id)
-		print("[InventoryManager] Unregistered container: %s" % container_id)
 
 
 func _bootstrap_containers() -> void:
 	"""Bootstrap containers early to prevent startup crashes from early API calls"""
-	print("[InventoryManager] Bootstrapping containers...")
 	await _bootstrap_containers_async()
-	print("[InventoryManager] Container bootstrap complete")
 
 
 func _bootstrap_containers_async() -> void:
@@ -162,7 +153,6 @@ func get_or_create_player_inventory_container() -> ContainerBase:
 		return existing
 	
 	# Not created yet - create it synchronously
-	print("[InventoryManager] Creating PlayerInventoryContainer synchronously...")
 	var container_script = load("res://scripts/ui/player_inventory_container.gd")
 	if not container_script:
 		push_error("[InventoryManager] Failed to load PlayerInventoryContainer script!")
@@ -191,7 +181,6 @@ func get_or_create_player_inventory_container() -> ContainerBase:
 
 func _create_toolkit_container_async() -> void:
 	"""Create ToolkitContainer asynchronously"""
-	print("[InventoryManager] Creating ToolkitContainer...")
 	var container_script = load("res://scripts/ui/toolkit_container.gd")
 	if not container_script:
 		push_error("[InventoryManager] Failed to load ToolkitContainer script!")
@@ -206,16 +195,10 @@ func _create_toolkit_container_async() -> void:
 	# Wait one frame for _ready() to complete and registration to happen
 	await get_tree().process_frame
 	
-	# Verify it was registered
-	if toolkit_container:
-		print("[InventoryManager] ToolkitContainer created and registered successfully")
-	else:
-		push_error("[InventoryManager] ToolkitContainer created but failed to register!")
 
 
 func _create_player_inventory_container_async() -> void:
 	"""Create PlayerInventoryContainer asynchronously"""
-	print("[InventoryManager] Creating PlayerInventoryContainer...")
 	var container_script = load("res://scripts/ui/player_inventory_container.gd")
 	if not container_script:
 		push_error("[InventoryManager] Failed to load PlayerInventoryContainer script!")
@@ -230,12 +213,6 @@ func _create_player_inventory_container_async() -> void:
 	# Wait one frame for _ready() to complete and registration to happen
 	await get_tree().process_frame
 	
-	# Verify it was registered
-	if player_inventory_container:
-		print("[InventoryManager] PlayerInventoryContainer created and registered successfully")
-	else:
-		push_error("[InventoryManager] PlayerInventoryContainer created but failed to register!")
-
 
 # LEGACY METHOD - DEPRECATED - Use PlayerInventoryContainer.add_item_to_slot() instead
 func add_item(slot_index: int, item_texture: Texture, count: int = 1) -> bool:
@@ -374,7 +351,6 @@ func get_item(slot_index: int) -> Texture:
 		return slot_data["texture"]
 	
 	# Safe default for read methods (don't crash on startup)
-	print("[InventoryManager] WARNING: get_item() called but no container exists - returning null")
 	return null
 
 
@@ -399,7 +375,6 @@ func get_item_count(slot_index: int) -> int:
 		return slot_data["count"]
 	
 	# Safe default for read methods (don't crash on startup)
-	print("[InventoryManager] WARNING: get_item_count() called but no container exists - returning 0")
 	return 0
 
 
@@ -719,8 +694,6 @@ func add_item_to_hud_slot(item_data: Resource, hud: Node) -> bool:
 				slot.texture = item_data.texture # Update HUD slot
 				return true
 
-		else:
-			print("HUD slot ", i, " not found at path:", slot_path)
 	return false
 
 
@@ -750,11 +723,6 @@ func assign_textures_to_slots() -> void:
 				var empty_texture = slot.get("empty_texture")
 				if empty_texture:
 					slot.texture_normal = empty_texture
-		else:
-			print(
-				"Warning: Unexpected node found in inventory slots. Expected 'TextureButton'. Node name:",
-				slot.name
-			)
 
 
 #// Base functionality ends

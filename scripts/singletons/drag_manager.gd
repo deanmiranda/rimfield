@@ -28,7 +28,6 @@ var drag_preview_label: Label = null
 
 
 func _ready() -> void:
-	print("[DragManager] Initialized")
 	set_process(false) # Enable when dragging
 
 
@@ -41,7 +40,6 @@ func _process(_delta: float) -> void:
 func start_drag(container: Node, slot_index: int, texture: Texture, count: int, right_click: bool = false) -> void:
 	"""Start a drag operation"""
 	if is_dragging:
-		print("[DragManager] WARNING: Starting new drag while already dragging - canceling previous")
 		cancel_drag()
 	
 	is_dragging = true
@@ -56,13 +54,6 @@ func start_drag(container: Node, slot_index: int, texture: Texture, count: int, 
 	else:
 		drag_item_count = count
 	
-	print("[DragManager] Started drag: container=%s slot=%d texture=%s count=%d right_click=%s" % [
-		str(container.name) if container else "null",
-		slot_index,
-		str(texture.resource_path) if texture else "null",
-		drag_item_count,
-		right_click
-	])
 	
 	_create_preview(texture, drag_item_count)
 	set_process(true) # Enable _process to update preview position
@@ -72,7 +63,6 @@ func start_drag(container: Node, slot_index: int, texture: Texture, count: int, 
 	if root_viewport:
 		var mouse_pos = root_viewport.get_mouse_position()
 		update_drag_preview_position(mouse_pos)
-		print("[DragManager] Initial preview position set: %s" % mouse_pos)
 	else:
 		# Fallback
 		var viewport = get_viewport()
@@ -99,11 +89,7 @@ func emit_world_drop() -> void:
 		drag_item_count,
 		mouse_pos
 	)
-	print("[DragManager] Emitted dropped_on_world: texture=%s count=%d pos=%s" % [
-		drag_item_texture.resource_path if drag_item_texture else "null",
-		drag_item_count,
-		mouse_pos
-	])
+
 
 
 func end_drag() -> Dictionary:
@@ -116,7 +102,6 @@ func end_drag() -> Dictionary:
 		"is_right_click": is_right_click_drag
 	}
 	
-	print("[DragManager] Ended drag: source_slot=%d count=%d" % [drag_source_slot_index, drag_item_count])
 	
 	cleanup_preview()
 	_reset_state()
@@ -127,7 +112,6 @@ func end_drag() -> Dictionary:
 func cancel_drag() -> void:
 	"""Cancel current drag operation - item returns to source"""
 	if is_dragging:
-		print("[DragManager] Drag canceled - item returns to source")
 		cleanup_preview()
 		_reset_state()
 
@@ -136,7 +120,6 @@ func clear_drag_state() -> void:
 	"""Clear drag state and preview without restoring source (for successful world drops)"""
 	"""Does NOT mutate inventory or restore source visuals - just cleans up drag state"""
 	if is_dragging:
-		print("[DragManager] Clearing drag state (world drop completed)")
 		cleanup_preview()
 		_reset_state()
 
@@ -173,7 +156,6 @@ func _create_preview(texture: Texture, count: int) -> void:
 		print("[DragManager] ERROR: No texture for preview!")
 		return
 	
-	print("[DragManager] Creating drag preview for: %s" % texture.resource_path)
 	
 	# Create canvas layer at high z-index so it's above everything
 	drag_preview_layer = CanvasLayer.new()
@@ -202,13 +184,6 @@ func _create_preview(texture: Texture, count: int) -> void:
 	drag_preview_layer.show()
 	drag_preview.show()
 	
-	print("[DragManager] Preview layer visible: %s, preview visible: %s, position: %s" % [
-		drag_preview_layer.visible,
-		drag_preview.visible,
-		drag_preview.global_position
-	])
-	
-	print("[DragManager] Drag preview created successfully")
 	
 	# Add count label if more than 1 item
 	if count > 1:
@@ -226,7 +201,6 @@ func _create_preview(texture: Texture, count: int) -> void:
 	if root_viewport:
 		var mouse_pos = root_viewport.get_mouse_position()
 		update_drag_preview_position(mouse_pos)
-		print("[DragManager] Initial mouse position: %s" % mouse_pos)
 	else:
 		# Fallback
 		var viewport = get_viewport()
@@ -271,17 +245,11 @@ func start_cursor_hold(texture: Texture, count: int) -> void:
 	"""Start cursor-hold mode (pickup 1 item into cursor)"""
 	# Clear any existing drag state first
 	if is_dragging:
-		print("[DragManager] Clearing drag state before starting cursor-hold")
 		clear_drag_state()
 	
 	cursor_hold_active = true
 	cursor_hold_texture = texture
 	cursor_hold_count = count
-	
-	print("[DragManager] Started cursor-hold: texture=%s count=%d" % [
-		texture.resource_path if texture else "null",
-		count
-	])
 	
 	# Reuse existing preview UI for cursor-hold
 	_create_preview(texture, count)
@@ -312,7 +280,6 @@ func add_one_to_cursor_from(source_container: Node, source_slot: int) -> bool:
 	
 	# Check max stack (global max = 10)
 	if cursor_hold_count >= 10:
-		print("[DragManager] Cursor-hold at max stack (10) - cannot add more")
 		return false
 	
 	# Remove 1 from source using ContainerBase API
@@ -333,7 +300,6 @@ func add_one_to_cursor_from(source_container: Node, source_slot: int) -> bool:
 	if drag_preview_label:
 		drag_preview_label.text = str(cursor_hold_count)
 	
-	print("[DragManager] Added 1 to cursor-hold: count=%d" % cursor_hold_count)
 	return true
 
 
@@ -350,14 +316,12 @@ func place_one_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	# Check if target is empty or same texture
 	if target_data["texture"] and target_data["texture"] != cursor_hold_texture:
 		# Different texture - no swap on right-click
-		print("[DragManager] Cannot place cursor-hold: target has different texture")
 		return false
 	
 	# Check max stack
 	if target_data["texture"]:
 		# Same texture - check if can stack
 		if target_data["count"] >= 10:
-			print("[DragManager] Cannot place cursor-hold: target at max stack")
 			return false
 	
 	# Place 1 into target using ContainerBase API
@@ -372,8 +336,6 @@ func place_one_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	else:
 		if drag_preview_label:
 			drag_preview_label.text = str(cursor_hold_count)
-	
-	print("[DragManager] Placed 1 from cursor-hold: remaining=%d" % cursor_hold_count)
 	return true
 
 
@@ -391,7 +353,6 @@ func place_all_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	if target_data["texture"] and target_data["texture"] != cursor_hold_texture:
 		# Different texture - use existing swap logic (left-click allows swap)
 		# For now, don't swap from cursor-hold - just return false
-		print("[DragManager] Cannot place cursor-hold: target has different texture")
 		return false
 	
 	# Compute how many can fit
@@ -399,7 +360,6 @@ func place_all_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 	var to_place = min(space, cursor_hold_count)
 	
 	if to_place <= 0:
-		print("[DragManager] Cannot place cursor-hold: no space in target")
 		return false
 	
 	# Place items using ContainerBase API
@@ -415,27 +375,23 @@ func place_all_from_cursor_to(target_container: Node, target_slot: int) -> bool:
 		if drag_preview_label:
 			drag_preview_label.text = str(cursor_hold_count)
 	
-	print("[DragManager] Placed %d from cursor-hold: remaining=%d" % [to_place, cursor_hold_count])
 	return true
 
 
 func pickup_full_stack_to_cursor_from(source_container: Node, source_slot: int) -> void:
 	"""Pickup full stack from source slot into cursor-hold"""
 	if not source_container or not source_container.has_method("get_slot_data"):
-		print("[DragManager] ERROR: Cannot pickup - invalid container")
 		return
 	
 	# Get slot data
 	var slot_data = source_container.get_slot_data(source_slot)
 	if not slot_data:
-		print("[DragManager] ERROR: Cannot pickup - no slot data")
 		return
 	
 	var texture = slot_data.get("texture")
 	var count = int(slot_data.get("count", 0))
 	
 	if not texture or count <= 0:
-		print("[DragManager] ERROR: Cannot pickup - empty slot")
 		return
 	
 	# Remove entire stack from source
@@ -444,22 +400,17 @@ func pickup_full_stack_to_cursor_from(source_container: Node, source_slot: int) 
 	elif source_container.has_method("set_slot_data"):
 		source_container.set_slot_data(source_slot, null, 0)
 	else:
-		print("[DragManager] ERROR: Cannot pickup - container has no remove method")
 		return
 	
 	# Start cursor-hold with full stack
 	start_cursor_hold(texture, count)
 	
-	print("[DragManager] Picked up full stack to cursor-hold: texture=%s count=%d" % [
-		texture.resource_path if texture else "null",
-		count
-	])
+
 
 
 func clear_cursor_hold() -> void:
 	"""Clear cursor-hold state"""
 	if cursor_hold_active:
-		print("[DragManager] Clearing cursor-hold")
 		cursor_hold_active = false
 		cursor_hold_texture = null
 		cursor_hold_count = 0
@@ -485,10 +436,7 @@ func emit_cursor_hold_world_drop(drop_count: int, mouse_pos: Vector2) -> void:
 	# Emit signal (consumption happens in farm_scene after successful spawn)
 	cursor_hold_dropped_on_world.emit(cursor_hold_texture, actual_drop_count, mouse_pos)
 	
-	print("[DragManager] Cursor-hold world drop emitted: texture=%s count=%d" % [
-		cursor_hold_texture.resource_path if cursor_hold_texture else "null",
-		actual_drop_count
-	])
+
 
 
 func consume_from_cursor_hold(amount: int) -> int:
@@ -559,7 +507,6 @@ func get_hovered_slot() -> Node:
 			# Only return if slot is a valid drop target
 			if slot.is_drop_target_active():
 				var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
-				print("[DragManager] Hovered slot: slot_index=%d container_id=%s" % [slot.slot_index, container_id_str])
 				return slot
 		hovered = hovered.get_parent()
 	
@@ -587,12 +534,7 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 								var slot_rect = slot.get_global_rect()
 								if slot_rect.has_point(mouse_pos):
 									var container_id_str = slot.container_ref.container_id if slot.container_ref and "container_id" in slot.container_ref else "unknown"
-									print("[DragManager] Fallback found slot: slot_index=%d container_id=%s is_visible=%s drop_enabled=%s" % [
-										slot.slot_index,
-										container_id_str,
-										slot.is_visible_in_tree(),
-										slot.drop_target_enabled
-									])
+							
 									return slot
 	
 	# Check registered containers' slots
@@ -607,12 +549,7 @@ func _find_slot_at_position(mouse_pos: Vector2) -> Node:
 							if slot.mouse_filter != Control.MOUSE_FILTER_IGNORE:
 								var slot_rect = slot.get_global_rect()
 								if slot_rect.has_point(mouse_pos):
-									print("[DragManager] Fallback found slot: slot_index=%d container_id=%s is_visible=%s drop_enabled=%s" % [
-										slot.slot_index,
-										container_id,
-										slot.is_visible_in_tree(),
-										slot.drop_target_enabled
-									])
+									
 									return slot
 	
 	return null
@@ -622,6 +559,5 @@ func _input(event: InputEvent) -> void:
 	"""Handle global input for drag cancellation"""
 	if is_dragging and event is InputEventKey:
 		if event.pressed and event.keycode == KEY_ESCAPE:
-			print("[DragManager] ESC pressed - canceling drag")
 			cancel_drag()
 			get_viewport().set_input_as_handled()

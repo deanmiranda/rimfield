@@ -64,8 +64,6 @@ func setup_hud() -> void:
 			if tool_buttons[i].has_signal("tool_selected"):
 				if not tool_buttons[i].is_connected("tool_selected", Callable(self, "_on_tool_selected")):
 					tool_buttons[i].connect("tool_selected", Callable(self, "_on_tool_selected"))
-			else:
-				print("[HUD] Slot %d doesn't have tool_selected signal" % i)
 
 	# NEW SYSTEM: Data is owned by ToolkitContainer
 	# Sync is handled by HudInitializer during migration
@@ -79,7 +77,6 @@ func setup_hud() -> void:
 			emit_signal("tool_changed", 0, first_texture)
 			_update_farming_manager_tool(0, first_texture)
 		else:
-			print("[HUD] First slot empty - no default tool")
 			emit_signal("tool_changed", 0, null)
 	
 	# Sync stat bars with current values from PlayerStatsManager
@@ -90,8 +87,6 @@ func set_farming_manager(farming_manager_instance: Node) -> void:
 	if farming_manager_instance:
 		farming_manager = farming_manager_instance # Save the reference
 		_farming_manager_error_logged = false # Reset error flag when manager is set
-	else:
-		print("Error: FarmingManager instance is null. Cannot link.")
 
 
 func set_hud_scene_instance(hud_instance: Node) -> void:
@@ -120,7 +115,6 @@ func _update_farming_manager_tool(slot_index: int, item_texture: Texture) -> voi
 
 func _on_tool_selected(slot_index: int, item_texture: Texture) -> void:
 	"""Handle tool_selected signal from SlotBase slots"""
-	print("[HUD] Tool selected: slot %d, texture: %s" % [slot_index, item_texture.resource_path if item_texture else "null"])
 	emit_signal("tool_changed", slot_index, item_texture)
 	_update_farming_manager_tool(slot_index, item_texture)
 
@@ -141,7 +135,6 @@ func _on_tool_clicked(event: InputEvent, clicked_texture_rect: TextureRect) -> v
 func _highlight_active_tool(slot_index: int, _item_texture: Texture) -> void:
 	# Use cached reference instead of absolute path (follows .cursor/rules/godot.md)
 	if not slots_container:
-		print("Error: Slots container not cached. Cannot highlight tool.")
 		return
 
 	var tool_buttons = slots_container.get_children()
@@ -166,8 +159,6 @@ func _connect_player_stats_signals() -> void:
 			PlayerStatsManager.energy_changed.connect(_on_energy_changed)
 		if not PlayerStatsManager.happiness_changed.is_connected(_on_happiness_changed):
 			PlayerStatsManager.happiness_changed.connect(_on_happiness_changed)
-	else:
-		print("Warning: PlayerStatsManager not found. Stats bars will not update.")
 
 
 func _on_health_changed(new_health: int, max_health: int) -> void:

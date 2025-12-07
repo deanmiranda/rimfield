@@ -43,7 +43,6 @@ func _ready() -> void:
 		# Default: use PlayerSpawnPoint node
 		var spawn_point = $PlayerSpawnPoint
 		if not spawn_point:
-			print("Error: PlayerSpawnPoint node not found!")
 			return
 		player_instance.global_position = spawn_point.global_position
 
@@ -60,8 +59,6 @@ func _ready() -> void:
 	# Inventory setup
 	if UiManager:
 		UiManager.instantiate_inventory()
-	else:
-		print("Error: UiManager singleton not found.")
 
 	# Defer farming initialization to allow TileSet to load asynchronously
 	call_deferred("_initialize_farming")
@@ -70,8 +67,6 @@ func _ready() -> void:
 	if hud_scene_path:
 		hud_instance = hud_scene_path.instantiate()
 		add_child(hud_instance)
-	else:
-		print("Error: HUD scene not assigned!")
 
 	# Spawn random droppables ONLY on Day 1 of new game (gate to prevent re-spawning)
 	var is_day1 := false
@@ -79,12 +74,10 @@ func _ready() -> void:
 		is_day1 = GameTimeManager.day == 1 and GameTimeManager.season == 0 and GameTimeManager.year == 1
 	
 	if GameState:
-		print("[FarmScene] Day1 droppable gate: is_day1=%s spawned_flag=%s" % [str(is_day1), str(GameState.day1_farm_random_droppables_spawned)])
 		
 		if is_day1 and not GameState.day1_farm_random_droppables_spawned:
 			# Set flag BEFORE spawning to prevent double-spawn if _ready() triggers twice
 			GameState.day1_farm_random_droppables_spawned = true
-			print("[FarmScene] Spawning Day 1 random droppables (80)")
 			spawn_random_droppables_async(80)
 			
 			# Spawn starter tools, chest, and seeds as droppables
@@ -103,7 +96,6 @@ func _ready() -> void:
 func spawn_random_droppables_async(count: int) -> void:
 	"""Spawn droppables over multiple frames to avoid blocking scene load"""
 	if not hud_instance:
-		print("Error: HUD instance is null! Droppables cannot be spawned.")
 		return
 
 	# Spawn in smaller batches (5 per frame) to spread load and reduce stutter
@@ -150,7 +142,6 @@ func _get_random_farm_position() -> Vector2:
 func spawn_starter_items_async() -> void:
 	"""Spawn starter tools, chest, and seeds as droppables on Day 1"""
 	if not hud_instance:
-		print("[FarmScene] Error: HUD instance is null! Starter items cannot be spawned.")
 		return
 	
 	await get_tree().process_frame
@@ -166,21 +157,18 @@ func spawn_starter_items_async() -> void:
 	if shovel_texture:
 		var pos = _get_random_farm_position()
 		DroppableFactory.spawn_generic_droppable_from_texture(shovel_texture, pos, hud_instance, 1)
-		print("[FarmScene] Spawned starter shovel at %s" % str(pos))
 	
 	await get_tree().process_frame
 	
 	if watering_can_texture:
 		var pos = _get_random_farm_position()
 		DroppableFactory.spawn_generic_droppable_from_texture(watering_can_texture, pos, hud_instance, 1)
-		print("[FarmScene] Spawned starter watering can at %s" % str(pos))
 	
 	await get_tree().process_frame
 	
 	if pickaxe_texture:
 		var pos = _get_random_farm_position()
 		DroppableFactory.spawn_generic_droppable_from_texture(pickaxe_texture, pos, hud_instance, 1)
-		print("[FarmScene] Spawned starter pickaxe at %s" % str(pos))
 	
 	await get_tree().process_frame
 	
@@ -188,7 +176,6 @@ func spawn_starter_items_async() -> void:
 	if chest_texture:
 		var pos = _get_random_farm_position()
 		DroppableFactory.spawn_generic_droppable_from_texture(chest_texture, pos, hud_instance, 1)
-		print("[FarmScene] Spawned starter chest at %s" % str(pos))
 	
 	await get_tree().process_frame
 	
@@ -196,9 +183,7 @@ func spawn_starter_items_async() -> void:
 	if seeds_texture:
 		var pos = _get_random_farm_position()
 		DroppableFactory.spawn_generic_droppable_from_texture(seeds_texture, pos, hud_instance, 10)
-		print("[FarmScene] Spawned starter seeds (x10) at %s" % str(pos))
 	
-	print("[FarmScene] Finished spawning starter items")
 
 
 func _initialize_farming() -> void:
@@ -253,13 +238,6 @@ func _initialize_farming() -> void:
 			HUD.set_farming_manager(farming_manager) # Link FarmingManager to HUD
 			HUD.set_hud_scene_instance(hud_instance) # Inject HUD scene instance to cache references (replaces /root/... paths)
 			farming_manager.set_hud(hud_instance) # Link HUD to FarmingManager
-		else:
-			print("Error: hud_instance is not an instance of HUD script.")
-	else:
-		if not hud_instance:
-			print("Error: HUD instance not created")
-		if not farming_manager:
-			print("Error: FarmingManager not linked")
 
 func link_farming_manager() -> void:
 	"""Get and validate FarmingManager reference"""
@@ -277,12 +255,10 @@ func _on_game_loaded() -> void:
 func _load_farm_state() -> void:
 	var farming_manager = get_node_or_null(farming_manager_path)
 	if not farming_manager:
-		print("Error: Farming Manager not found!")
 		return
 
 	var tilemap = get_node_or_null(tilemap_layer)
 	if not tilemap:
-		print("Error: TileMapLayer not found!")
 		return
 	
 	# Restore chests from save data
@@ -475,13 +451,11 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 	# Get ChestManager
 	var chest_manager = get_node_or_null("/root/ChestManager")
 	if not chest_manager:
-		print("[FarmScene] ChestManager not found - cannot place chest")
 		return
 	
 	# Check if there's already a chest at this position
 	var existing_chest = chest_manager.find_chest_at_position(snapped_pos, 16.0)
 	if existing_chest:
-		print("[FarmScene] Chest already exists at position %s" % snapped_pos)
 		return
 	
 	# Check if position is valid using farming_manager if available
@@ -491,7 +465,6 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 		if farming_manager.has_method("_is_soil"):
 			var is_soil = farming_manager._is_soil(cell)
 			if is_soil:
-				print("[FarmScene] Cannot place chest on soil")
 				return
 		
 		# Check if tile has crop or is watered
@@ -501,16 +474,13 @@ func _handle_chest_placement(source_container: Node, source_slot: int, texture: 
 				var is_watered = tile_data.get("is_watered", false)
 				var has_crop = tile_data.get("tile_state") == "planted"
 				if is_watered or has_crop:
-					print("[FarmScene] Cannot place chest on watered/crop tile")
 					return
 	
 	# Create chest at position
 	var chest = chest_manager.create_chest_at_position(snapped_pos)
 	if chest == null:
-		print("[FarmScene] Failed to create chest at position %s" % snapped_pos)
 		return
 	
-	print("[FarmScene] Chest placed at world position %s" % snapped_pos)
 	
 	# Remove 1 chest from toolkit slot
 	if source_container and source_container.has_method("get_slot_data"):
@@ -574,31 +544,14 @@ func _handle_item_world_drop(texture: Texture, count: int, mouse_pos: Vector2, s
 				if droppable:
 					droppable.scale = Vector2(0.75, 0.75)
 		
-		print("[FarmScene] Item world drop: texture=%s count=%d at %s" % [
-			texture.resource_path if texture else "null",
-			count,
-			snapped_pos
-		])
 	
 	# Remove items from source container BEFORE clearing drag state
 	if source_container and is_instance_valid(source_container):
 		if source_container.has_method("remove_item_from_slot"):
 			var removed = source_container.remove_item_from_slot(source_slot)
-			print("[FarmScene] Removed items from source container: slot=%d container=%s removed=%s" % [
-				source_slot,
-				source_container.container_id if "container_id" in source_container else "unknown",
-				removed
-			])
 			# Ensure UI is synced after removal
 			if source_container.has_method("sync_slot_ui"):
 				source_container.sync_slot_ui(source_slot)
-		else:
-			print("[FarmScene] ERROR: Source container has no remove_item_from_slot method")
-	else:
-		print("[FarmScene] ERROR: Source container is invalid or null - container=%s slot=%d" % [
-			"null" if not source_container else "invalid",
-			source_slot
-		])
 	
 	# Clear drag state AFTER removing items
 	if DragManager:
@@ -645,12 +598,6 @@ func _on_cursor_hold_dropped_on_world(texture: Texture, count: int, mouse_pos: V
 				var droppable = DroppableFactory.spawn_droppable(item_id, snapped_pos + spawn_offset, hud_instance)
 				if droppable:
 					droppable.scale = Vector2(0.75, 0.75)
-		
-		print("[FarmScene] Cursor-hold world drop: texture=%s count=%d at %s" % [
-			texture.resource_path if texture else "null",
-			count,
-			snapped_pos
-		])
 		
 		# Consume from cursor-hold after successful spawn
 		if DragManager:

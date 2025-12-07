@@ -125,8 +125,6 @@ func pause_menu_setup() -> void:
 		# Get the Control child from the CanvasLayer
 		pause_menu = pause_menu_layer.get_node("Control")
 		pause_menu.visible = false
-	else:
-		print("Error: Loaded resource is not a PackedScene.")
 
 
 func chest_panel_setup() -> void:
@@ -144,8 +142,6 @@ func chest_panel_setup() -> void:
 		
 		# Connect to chest signals globally
 		_connect_to_chest_signals()
-	else:
-		print("Error: Loaded chest panel resource is not a PackedScene.")
 
 
 func _connect_to_chest_signals() -> void:
@@ -317,7 +313,6 @@ func _find_nearby_chest(player: Node) -> Node:
 func toggle_pause_menu() -> void:
 	# Toggle the pause menu visibility in the gameplay scene
 	if not pause_menu:
-		print("UiManager: pause_menu is not initialized.")
 		return
 
 	if pause_menu.visible:
