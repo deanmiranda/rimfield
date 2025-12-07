@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://b8p8amgkvuci8"]
+
+[ext_resource type="Script" uid="uid://ci56v8w63j4e0" path="res://scripts/world/trees/tree.gd" id="1_tree"]
+[ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="2_madqg"]
+
+[node name="Tree" type="Node2D"]
+script = ExtResource("1_tree")
+
+[node name="TreeSprite" type="Sprite2D" parent="."]
+position = Vector2(-8, -16)
+texture = ExtResource("2_madqg")
+centered = false
+region_enabled = true
+region_rect = Rect2(8, 432, 16, 16)
