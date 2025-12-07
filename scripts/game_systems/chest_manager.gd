@@ -262,6 +262,7 @@ func restore_chests_from_save(chest_data: Array) -> void:
 		var inventory_array = save_data.get("inventory", [])
 		for item_data in inventory_array:
 			var slot_index = item_data.get("slot_index", -1)
+			slot_index = int(slot_index)
 			var texture_path = item_data.get("texture_path", "")
 			var count = item_data.get("count", 1)
 			var weight = item_data.get("weight", 0.0)
@@ -269,7 +270,10 @@ func restore_chests_from_save(chest_data: Array) -> void:
 			if slot_index >= 0 and slot_index < CHEST_INVENTORY_SIZE and texture_path != "":
 				var texture = load(texture_path)
 				if texture:
-					inventory[slot_index] = {"texture": texture, "count": count, "weight": weight}
+					var float_key = float(slot_index)
+					if inventory.has(float_key):
+						inventory.erase(float_key)
+					inventory[slot_index] = {"texture": texture, "count": int(count), "weight": float(weight)}
 		
 		# Store in registry (without node - will be created when scene loads)
 		chest_registry[chest_id] = {
@@ -310,6 +314,7 @@ func _restore_chest_if_pending(chest_id: String) -> void:
 			var inventory_array = chest_save_data.get("inventory", [])
 			for item_data in inventory_array:
 				var slot_index = item_data.get("slot_index", -1)
+				slot_index = int(slot_index)
 				var texture_path = item_data.get("texture_path", "")
 				var count = item_data.get("count", 1)
 				var weight = item_data.get("weight", 0.0)
@@ -317,7 +322,10 @@ func _restore_chest_if_pending(chest_id: String) -> void:
 				if slot_index >= 0 and slot_index < CHEST_INVENTORY_SIZE and texture_path != "":
 					var texture = load(texture_path)
 					if texture:
-						inventory[slot_index] = {"texture": texture, "count": count, "weight": weight}
+						var float_key = float(slot_index)
+						if inventory.has(float_key):
+							inventory.erase(float_key)
+						inventory[slot_index] = {"texture": texture, "count": int(count), "weight": float(weight)}
 			
 			# Update chest registry
 			if chest_registry.has(chest_id):

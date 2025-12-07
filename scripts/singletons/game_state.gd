@@ -326,15 +326,19 @@ func load_game(file: String = "") -> bool:
 			if save_data.has("toolkit_items"):
 				for item_data in save_data["toolkit_items"]:
 					var slot_index = item_data.get("slot_index", -1)
+					slot_index = int(slot_index)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
-					var weight = item_data.get("weight", 0.0) # Load weight if present, default to 0.0
+					var weight = item_data.get("weight", 0.0)
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
 						if texture:
+							var float_key = float(slot_index)
+							if InventoryManager.toolkit_slots.has(float_key):
+								InventoryManager.toolkit_slots.erase(float_key)
 							InventoryManager.toolkit_slots[slot_index] = {
-								"texture": texture, "count": count, "weight": weight
+								"texture": texture, "count": int(count), "weight": float(weight)
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)
@@ -343,15 +347,19 @@ func load_game(file: String = "") -> bool:
 			if save_data.has("inventory_items"):
 				for item_data in save_data["inventory_items"]:
 					var slot_index = item_data.get("slot_index", -1)
+					slot_index = int(slot_index)
 					var texture_path = item_data.get("texture_path", "")
 					var count = item_data.get("count", 1)
-					var weight = item_data.get("weight", 0.0) # Load weight if present, default to 0.0
+					var weight = item_data.get("weight", 0.0)
 
 					if slot_index >= 0 and texture_path != "":
 						var texture = load(texture_path)
 						if texture:
+							var float_key = float(slot_index)
+							if InventoryManager.inventory_slots.has(float_key):
+								InventoryManager.inventory_slots.erase(float_key)
 							InventoryManager.inventory_slots[slot_index] = {
-								"texture": texture, "count": count, "weight": weight
+								"texture": texture, "count": int(count), "weight": float(weight)
 							}
 						else:
 							print("Warning: Could not load texture:", texture_path)
