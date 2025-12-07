@@ -28,6 +28,9 @@ var drag_preview_label: Label = null
 
 
 func _ready() -> void:
+	# CRITICAL: Process even when tree is paused (e.g., when inventory/pause menu is open)
+	# This ensures drag preview follows mouse correctly in both HUD-only and inventory-open states
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(false) # Enable when dragging
 
 
