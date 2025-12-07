@@ -438,8 +438,9 @@ func load_game(file: String = "") -> bool:
 		_stop_intro_music()
 		
 		# Start background music if not already playing
-		if MusicManager and not MusicManager.is_playing:
-			MusicManager.start_music()
+		var music_mgr = get_node_or_null("/root/MusicManager")
+		if music_mgr and not music_mgr.is_playing:
+			music_mgr.start_music()
 		
 		SceneManager.start_in_house(false)
 
@@ -576,5 +577,6 @@ func new_game() -> void:
 	_stop_intro_music()
 	
 	# Start background music
-	if MusicManager:
-		MusicManager.start_music()
+	var music_mgr = get_node_or_null("/root/MusicManager")
+	if music_mgr:
+		music_mgr.start_music()

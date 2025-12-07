@@ -19,9 +19,6 @@ var farming_manager: Node = null
 
 
 func _ready() -> void:
-	# Temporary test: Verify FarmingTerrain.tres loads
-	var test_tileset = load("res://assets/tilesets/FarmingTerrain.tres")
-	
 	# Restore chests for this scene
 	if ChestManager:
 		ChestManager.restore_chests_for_scene("Farm")
@@ -251,8 +248,8 @@ func _on_game_loaded() -> void:
 
 
 func _load_farm_state() -> void:
-	var farming_manager = get_node_or_null(farming_manager_path)
-	if not farming_manager:
+	var farm_mgr = get_node_or_null(farming_manager_path)
+	if not farm_mgr:
 		return
 
 	var tilemap = get_node_or_null(tilemap_layer)
@@ -265,7 +262,7 @@ func _load_farm_state() -> void:
 	# CRITICAL FIX: Get crop layer from FarmingManager (it creates/manages it)
 	var crop_layer: TileMapLayer = null
 	# Use get() to safely retrieve the property (has() doesn't work on Node objects)
-	var crop_layer_property = farming_manager.get("crop_layer")
+	var crop_layer_property = farm_mgr.get("crop_layer")
 	if crop_layer_property != null:
 		crop_layer = crop_layer_property as TileMapLayer
 	else:
@@ -288,13 +285,13 @@ func _load_farm_state() -> void:
 		match state:
 			"soil":
 				# Draw dry soil atlas
-				farming_manager.set_dry_soil_visual(tile_position)
+				farm_mgr.set_dry_soil_visual(tile_position)
 				# Clear crop layer if it exists
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
 			"tilled":
 				# Draw wet soil atlas (legacy "tilled" state)
-				farming_manager.set_wet_soil_visual(tile_position)
+				farm_mgr.set_wet_soil_visual(tile_position)
 				# Clear crop layer if it exists
 				if crop_layer:
 					crop_layer.erase_cell(tile_position)
@@ -305,15 +302,15 @@ func _load_farm_state() -> void:
 					is_watered = crop_data.get("is_watered", false)
 				
 				if is_watered:
-					farming_manager.set_wet_soil_visual(tile_position)
+					farm_mgr.set_wet_soil_visual(tile_position)
 				else:
-					farming_manager.set_dry_soil_visual(tile_position)
+					farm_mgr.set_dry_soil_visual(tile_position)
 				
 				# Recreate crop from GameState on crop layer
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
-				var crop_source_id = farming_manager.CROP_SOURCE_DRY
+				var crop_source_id = farm_mgr.CROP_SOURCE_DRY
 				if is_watered:
-					crop_source_id = farming_manager.CROP_SOURCE_WET
+					crop_source_id = farm_mgr.CROP_SOURCE_WET
 				
 				# CRITICAL: Use single-cell set_cell() only - no bulk operations
 				if crop_data is Dictionary:
@@ -333,7 +330,7 @@ func _load_farm_state() -> void:
 					crop_layer_to_use.set_cell(tile_position, crop_source_id, Vector2i(0, 0))
 			"planted_tilled":
 				# Draw wet soil visual
-				farming_manager.set_wet_soil_visual(tile_position)
+				farm_mgr.set_wet_soil_visual(tile_position)
 				# Recreate crop from GameState on crop layer (wet row)
 				var crop_layer_to_use = crop_layer if crop_layer else tilemap
 				# CRITICAL: Use single-cell set_cell() only - no bulk operations
@@ -348,13 +345,13 @@ func _load_farm_state() -> void:
 						stage_to_show = max_stages - 1
 					# Ensure Y coordinate is always 0 (only X changes with stage)
 					var atlas_coords := Vector2i(stage_to_show, 0)
-					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, atlas_coords)
+					crop_layer_to_use.set_cell(tile_position, farm_mgr.CROP_SOURCE_WET, atlas_coords)
 				else:
 					# Default to stage 0
-					crop_layer_to_use.set_cell(tile_position, farming_manager.CROP_SOURCE_WET, Vector2i(0, 0))
+					crop_layer_to_use.set_cell(tile_position, farm_mgr.CROP_SOURCE_WET, Vector2i(0, 0))
 			"dirt":
 				# Legacy support: "dirt" maps to "soil"
-				farming_manager.set_dry_soil_visual(tile_position)
+				farm_mgr.set_dry_soil_visual(tile_position)
 				if GameState:
 					GameState.update_tile_state(tile_position, "soil")
 			_:

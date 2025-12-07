@@ -46,10 +46,10 @@ func restore_chests_for_scene(scene_name: String) -> void:
 	for chest_id in chest_registry.keys():
 		var chest_data = chest_registry[chest_id]
 		var saved_scene_name = chest_data.get("scene_name", "")
-		var has_node = chest_data.get("node") != null
+		var has_chest_node = chest_data.get("node") != null
 		
 		# Only restore if this chest belongs to the current scene and doesn't have a node
-		if saved_scene_name == scene_name and not has_node:
+		if saved_scene_name == scene_name and not has_chest_node:
 			var position = chest_data.get("position", Vector2.ZERO)
 			
 			# Create chest at position with existing chest_id
@@ -107,8 +107,8 @@ func register_chest(chest: Node) -> String:
 	# If no ID, check if a chest at this position already exists in registry
 	# This helps restore chests when ID wasn't set before _ready() ran
 	if chest_id == "":
-		var position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
-		var scene_name = _get_current_scene_name()
+		var check_position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
+		var check_scene_name = _get_current_scene_name()
 		
 		# Check for existing chest at same position in same scene
 		for existing_id in chest_registry.keys():
@@ -117,7 +117,7 @@ func register_chest(chest: Node) -> String:
 			var existing_scene = existing_data.get("scene_name", "")
 			
 			# Match if position is very close (within 1 pixel) and same scene
-			if existing_pos.distance_to(position) < 1.0 and existing_scene == scene_name:
+			if existing_pos.distance_to(check_position) < 1.0 and existing_scene == check_scene_name:
 				# Found existing chest - reuse its ID
 				chest_id = existing_id
 				break
@@ -154,31 +154,31 @@ func register_chest(chest: Node) -> String:
 				inventory[i] = {"texture": null, "count": 0, "weight": 0.0}
 	
 	# Get chest position
-	var position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
+	var chest_position: Vector2 = chest.global_position if chest is Node2D else Vector2.ZERO
 	
 	# Get scene name - PRESERVE existing if chest is being restored
-	var scene_name = ""
+	var chest_scene_name = ""
 	if chest_registry.has(chest_id):
 		# Chest exists in registry (being restored) - preserve saved scene_name
 		var existing_data = chest_registry[chest_id]
-		scene_name = existing_data.get("scene_name", "")
+		chest_scene_name = existing_data.get("scene_name", "")
 	
 	# Only use current scene name if chest is NEW (not in registry)
-	if scene_name == "":
-		scene_name = _get_current_scene_name()
+	if chest_scene_name == "":
+		chest_scene_name = _get_current_scene_name()
 	
 	# CRITICAL: Validate that chest belongs to current scene
 	# This prevents chests from being registered in wrong scenes (e.g., House chest in Farm)
 	var current_scene_name = _get_current_scene_name()
-	if scene_name != "" and current_scene_name != "" and scene_name != current_scene_name:
-		push_error("[ChestManager] register_chest: chest_id=%s belongs to scene=%s but current scene=%s - SKIPPING registration" % [chest_id, scene_name, current_scene_name])
+	if chest_scene_name != "" and current_scene_name != "" and chest_scene_name != current_scene_name:
+		push_error("[ChestManager] register_chest: chest_id=%s belongs to scene=%s but current scene=%s - SKIPPING registration" % [chest_id, chest_scene_name, current_scene_name])
 		return "" # Return empty to prevent registration
 	
 	chest_registry[chest_id] = {
 		"node": chest,
 		"inventory": inventory,
-		"position": position,
-		"scene_name": scene_name
+		"position": chest_position,
+		"scene_name": chest_scene_name
 	}
 	
 	# Set chest ID on the chest node
