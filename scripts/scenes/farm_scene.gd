@@ -17,8 +17,18 @@ var inventory_instance: Control = null
 # Reference to FarmingManager (set during initialization)
 var farming_manager: Node = null
 
+# Reference to TreeManager (set during initialization)
+var tree_manager: Node = null
+
 
 func _ready() -> void:
+	# Link TreeManager first
+	link_tree_manager()
+	
+	# Restore trees for this scene
+	if tree_manager:
+		tree_manager.restore_trees_for_scene("Farm")
+	
 	# Restore chests for this scene
 	if ChestManager:
 		ChestManager.restore_chests_for_scene("Farm")
@@ -283,6 +293,29 @@ func link_farming_manager() -> void:
 	if not farming_manager:
 		push_error("[FarmScene] FarmingManager not found at path: %s" % farming_manager_path)
 		return
+
+
+func link_tree_manager() -> void:
+	"""Get and validate TreeManager reference"""
+	tree_manager = get_node_or_null("TreeManager")
+	if not tree_manager:
+		push_error("[FarmScene] TreeManager not found")
+		return
+	
+	# Set farm scene reference
+	if tree_manager.has_method("set_farm_scene"):
+		tree_manager.set_farm_scene(self)
+	
+	# Connect signals
+	if tree_manager.has_method("connect_signals"):
+		tree_manager.connect_signals()
+	
+	# Register existing Tree instances from WorldActors
+	var world_actors = get_node_or_null("WorldActors")
+	if world_actors:
+		for child in world_actors.get_children():
+			if child.get_script() and child.get_script().resource_path.ends_with("tree.gd"):
+				tree_manager.register_tree(child)
 
 # Auto-grass initialization removed - farmable area is defined by painted tiles only
 

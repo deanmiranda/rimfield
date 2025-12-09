@@ -256,6 +256,12 @@ func save_game(file: String = "") -> void:
 	if DroppableFactory:
 		droppable_data = DroppableFactory.serialize_droppables()
 	
+	# Get tree data from TreeManager (farm only)
+	var tree_data = []
+	var tree_manager = current_scene_node.get_node_or_null("TreeManager")
+	if tree_manager and tree_manager.has_method("serialize_all_trees"):
+		tree_data = tree_manager.serialize_all_trees()
+	
 	var save_data = {
 		"farm_state": serialized_farm_state,
 		"current_scene": current_scene,
@@ -264,6 +270,7 @@ func save_game(file: String = "") -> void:
 		"inventory_items": inventory_items,
 		"chest_data": chest_data,
 		"droppable_data": droppable_data,
+		"tree_data": tree_data,
 		"day1_farm_random_droppables_spawned": day1_farm_random_droppables_spawned,
 		"game_time": {
 			"day": GameTimeManager.day if GameTimeManager else 1,
@@ -433,6 +440,16 @@ func load_game(file: String = "") -> bool:
 		# Restore droppable data (house/farm only)
 		if save_data.has("droppable_data") and DroppableFactory:
 			DroppableFactory.restore_droppables_from_save(save_data["droppable_data"])
+		
+		# Restore tree data (will be instantiated when Farm scene loads)
+		if save_data.has("tree_data"):
+			# TreeManager is scene-attached, so store data for restoration when scene loads
+			# The TreeManager in Farm scene will call restore_trees_for_scene("Farm")
+			var current_scene_node = get_tree().current_scene
+			if current_scene_node:
+				var tree_manager = current_scene_node.get_node_or_null("TreeManager")
+				if tree_manager and tree_manager.has_method("restore_trees_from_save"):
+					tree_manager.restore_trees_from_save(save_data["tree_data"])
 
 		emit_signal("game_loaded")
 
@@ -556,6 +573,13 @@ func new_game() -> void:
 	# Clear all droppables
 	if DroppableFactory:
 		DroppableFactory.reset_all_droppables()
+	
+	# Reset TreeManager registry for new game
+	var current_scene_node = get_tree().current_scene
+	if current_scene_node:
+		var tree_manager = current_scene_node.get_node_or_null("TreeManager")
+		if tree_manager and tree_manager.has_method("reset_all"):
+			tree_manager.reset_all()
 	
 	# Clear toolkit and inventory (both legacy dicts and new container system)
 	if InventoryManager:

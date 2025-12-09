@@ -70,6 +70,8 @@ var _growth_stage: TreeStage = TreeStage.SAPLING
 
 @export var grid_position: Vector2i = Vector2i(-1, -1) # Optional metadata, -1 means not set
 
+var tree_id: String = "" # Assigned by TreeManager
+
 @onready var sprite: Sprite2D = $TreeSprite
 
 
@@ -186,3 +188,13 @@ func set_growth_stage(new_stage: TreeStage) -> void:
 func set_grid_position(new_position: Vector2i) -> void:
 	"""Set the grid position metadata."""
 	grid_position = new_position
+
+
+func set_tree_id(id: String) -> void:
+	"""Set the tree ID (assigned by TreeManager)."""
+	tree_id = id
+
+
+func get_tree_id() -> String:
+	"""Get the tree ID."""
+	return tree_id
