@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://b8p8amgkvuci8"]
+[gd_scene load_steps=3 format=3 uid="uid://dkjcmic8dbthj"]
 
 [ext_resource type="Script" uid="uid://ci56v8w63j4e0" path="res://scripts/world/trees/tree.gd" id="1_tree"]
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="2_madqg"]

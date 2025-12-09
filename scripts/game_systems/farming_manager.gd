@@ -506,7 +506,7 @@ func _create_crop_layer() -> void:
 		crop_layer.tile_set = farmable_layer.tile_set
 	farm_scene.add_child(crop_layer)
 	crop_layer.set_owner(farm_scene)
-	crop_layer.z_index = 1
+	crop_layer.z_index = 0
 
 # ============================================================================
 # MORNING RESET

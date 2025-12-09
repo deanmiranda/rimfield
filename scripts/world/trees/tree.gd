@@ -70,6 +70,8 @@ var _growth_stage: TreeStage = TreeStage.SAPLING
 
 @export var grid_position: Vector2i = Vector2i(-1, -1) # Optional metadata, -1 means not set
 
+var tree_id: String = "" # Assigned by TreeManager
+
 @onready var sprite: Sprite2D = $TreeSprite
 
 

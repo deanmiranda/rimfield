@@ -395,12 +395,28 @@ func create_chest_at_position(pos: Vector2, chest_id: String = "") -> Node:
 		chest_instance.set_chest_id(chest_id)
 	
 	# Add to current scene (triggers _ready() which calls register_chest())
-	# Works for both FarmScene and HouseScene
+	# For Farm scene, add to WorldActors for Y-sorting with trees/player
+	# For House scene, add directly to scene root
 	var current_scene = get_tree().current_scene
-	if current_scene:
-		current_scene.add_child(chest_instance)
-	else:
+	if not current_scene:
 		return null
+	
+	# Check if this is Farm scene and WorldActors exists
+	if current_scene.name == "FarmScene" or current_scene.scene_file_path.ends_with("farm_scene.tscn"):
+		var world_actors = current_scene.get_node_or_null("WorldActors")
+		if world_actors:
+			world_actors.add_child(chest_instance)
+			# Ensure chest uses Y-sorting (z_index = 0 or unset)
+			if chest_instance is Node2D:
+				chest_instance.z_index = 0
+		else:
+			# Fallback: add to scene root if WorldActors doesn't exist
+			current_scene.add_child(chest_instance)
+			if chest_instance is Node2D:
+				chest_instance.z_index = 0
+	else:
+		# House scene or other: add directly to scene root
+		current_scene.add_child(chest_instance)
 	
 	# Chest will register itself in _ready() using the ID we set above
 	return chest_instance
