@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=4 uid="uid://b4sckf0422b4q"]
+[gd_scene load_steps=27 format=4 uid="uid://b4sckf0422b4q"]
 
 [ext_resource type="Texture2D" uid="uid://37nosqu4la5k" path="res://assets/tilesets/full version/tiles/tiles.png" id="1_we3j4"]
 [ext_resource type="Script" uid="uid://c33axxd1pdh6i" path="res://scripts/scenes/farm_scene.gd" id="1_y06tk"]
@@ -7,8 +7,10 @@
 [ext_resource type="PackedScene" uid="uid://7errgnnxpb4b" path="res://scenes/effects/particles/dirt_particle.tscn" id="4_jv71f"]
 [ext_resource type="Script" uid="uid://csljakhdqm1bl" path="res://scripts/game_systems/farming_manager.gd" id="6_kjwtr"]
 [ext_resource type="Texture2D" uid="uid://breduu05uy4ae" path="res://assets/particles/particle-dirt-1x1.png" id="6_t8wgt"]
+[ext_resource type="Script" uid="uid://b6seo8lxq5a4x" path="res://scripts/game_systems/tree_manager.gd" id="6_tree_mgr"]
 [ext_resource type="Texture2D" uid="uid://clakwvv0dlgda" path="res://assets/tiles/farm/crops.png" id="7_5fkjj"]
 [ext_resource type="Texture2D" uid="uid://dhob787qfh1gf" path="res://assets/tiles/farm/crops_wet.png" id="8_0dol0"]
+[ext_resource type="PackedScene" path="res://scenes/world/tree.tscn" id="10_0dol0"]
 [ext_resource type="Script" uid="uid://ch30oq22mw118" path="res://scripts/ui/tile_highlighter.gd" id="10_w1f1x"]
 [ext_resource type="Texture2D" uid="uid://2btob81nu0xj" path="res://assets/ui/tile_outline.png" id="11_c33k8"]
 [ext_resource type="Texture2D" uid="uid://dkxy41n5rd3bn" path="res://assets/tiles/buildings.png" id="12_buildings"]
@@ -5702,6 +5704,9 @@ crop_layer_path = NodePath("../Crops")
 farm_scene_path = NodePath("..")
 crop_layer = NodePath("../Crops")
 
+[node name="TreeManager" type="Node" parent="."]
+script = ExtResource("6_tree_mgr")
+
 [node name="TileHighlighter" type="Sprite2D" parent="."]
 z_index = 11
 z_as_relative = false
@@ -5731,6 +5736,26 @@ light_mask = 0
 material = SubResource("CanvasItemMaterial_4pxu5")
 position = Vector2(15, -14)
 shape = SubResource("RectangleShape2D_7nnll")
+
+[node name="WorldActors" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Tree2" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-144, -80)
+tree_type = 2
+
+[node name="Tree" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-120, -64)
+growth_stage = 0
+
+[node name="Tree3" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-184, -24)
+growth_stage = 0
+
+[node name="Tree4" parent="WorldActors" instance=ExtResource("10_0dol0")]
+position = Vector2(-144, -8)
+tree_type = 2
+growth_stage = 1
 
 [connection signal="body_entered" from="House/Door" to="House/Door" method="_on_body_entered"]
 [connection signal="body_exited" from="House/Door" to="House/Door" method="_on_body_exited"]
