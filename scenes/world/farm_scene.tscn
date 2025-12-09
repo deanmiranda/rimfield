@@ -5743,6 +5743,7 @@ y_sort_enabled = true
 [node name="Tree2" parent="WorldActors" instance=ExtResource("10_0dol0")]
 position = Vector2(-144, -80)
 tree_type = 2
+growth_stage = 0
 
 [node name="Tree" parent="WorldActors" instance=ExtResource("10_0dol0")]
 position = Vector2(-120, -64)

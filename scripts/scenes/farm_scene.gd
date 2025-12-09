@@ -48,6 +48,12 @@ func _ready() -> void:
 	# Reparent any Tree instances from Farm root to WorldActors
 	_reparent_trees_to_world_actors(world_actors)
 	
+	# Register trees after they've been reparented to WorldActors
+	if tree_manager and world_actors:
+		for child in world_actors.get_children():
+			if child.get_script() and child.get_script().resource_path.ends_with("tree.gd"):
+				tree_manager.register_tree(child)
+	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
 	var player_instance = player_scene.instantiate()
@@ -297,25 +303,23 @@ func link_farming_manager() -> void:
 
 func link_tree_manager() -> void:
 	"""Get and validate TreeManager reference"""
-	tree_manager = get_node_or_null("TreeManager")
+	# Get TreeManager from autoload (global singleton)
+	tree_manager = get_node_or_null("/root/TreeManager")
 	if not tree_manager:
-		push_error("[FarmScene] TreeManager not found")
+		push_error("[FarmScene] TreeManager autoload not found")
 		return
+	
+	print("[TREE GROWTH DEBUG] FarmScene: Found TreeManager autoload, setting up...")
 	
 	# Set farm scene reference
 	if tree_manager.has_method("set_farm_scene"):
 		tree_manager.set_farm_scene(self)
+		print("[TREE GROWTH DEBUG] FarmScene: Set farm_scene reference on TreeManager")
 	
-	# Connect signals
+	# Connect signals (only if not already connected)
 	if tree_manager.has_method("connect_signals"):
 		tree_manager.connect_signals()
-	
-	# Register existing Tree instances from WorldActors
-	var world_actors = get_node_or_null("WorldActors")
-	if world_actors:
-		for child in world_actors.get_children():
-			if child.get_script() and child.get_script().resource_path.ends_with("tree.gd"):
-				tree_manager.register_tree(child)
+		print("[TREE GROWTH DEBUG] FarmScene: Called connect_signals on TreeManager")
 
 # Auto-grass initialization removed - farmable area is defined by painted tiles only
 
