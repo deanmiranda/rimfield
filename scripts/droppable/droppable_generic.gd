@@ -77,7 +77,6 @@ func _process(delta: float) -> void:
 	
 	# If we're in slide phase, move the item towards player
 	if is_sliding:
-		print("[DROPPABLE DEBUG] slide update tick")
 		# Move towards player
 		var direction = (player_pos - global_position).normalized()
 		var distance = distance_from_item
@@ -202,18 +201,13 @@ func _get_player_node() -> Node:
 
 func _slide_to_player_and_remove() -> void:
 	"""Subtle shake, then slide item towards player with fade/shrink effect, then remove."""
-	print("[DROPPABLE DEBUG] slide start")
-	
 	# Find the player using robust lookup
 	player = _get_player_node()
 	
 	if not player:
-		print("[DROPPABLE DEBUG] player not found, removing immediately")
 		# No player found - just remove immediately
 		_remove_droppable()
 		return
-	
-	print("[DROPPABLE DEBUG] player found: ", player.name)
 	
 	# Store original position for shake
 	var original_pos = global_position
@@ -221,11 +215,9 @@ func _slide_to_player_and_remove() -> void:
 	# Create a single tween with sequential phases
 	shake_tween = create_tween()
 	
-	print("[DROPPABLE DEBUG] shake tween created")
-	
-	# PHASE 1: Subtle shake for 0.55 seconds (anticipation - gives player time to run away)
-	# Reduced from 0.8 seconds to 0.55 seconds (0.25 seconds faster)
-	for i in range(5): # 5 shakes (was 8) = 0.5 seconds total
+	# PHASE 1: Subtle shake for 0.3 seconds (anticipation - gives player time to run away)
+	# Reduced from 5 shakes to 3 shakes = 0.3 seconds total
+	for i in range(3): # 3 shakes = 0.3 seconds total
 		shake_tween.tween_property(self, "global_position", original_pos + Vector2(1, 0), 0.05)
 		shake_tween.tween_property(self, "global_position", original_pos + Vector2(-1, 0), 0.05)
 	
@@ -234,7 +226,6 @@ func _slide_to_player_and_remove() -> void:
 	
 	# PHASE 2: Start tracking slide with real-time player position
 	shake_tween.tween_callback(func():
-		print("[DROPPABLE DEBUG] slide tween created")
 		# Enable sliding mode - _process already running, just switch to slide mode
 		is_sliding = true
 		slide_elapsed = 0.0
@@ -251,7 +242,7 @@ func _slide_to_player_and_remove() -> void:
 		
 		# Callback when visual tween finishes
 		visual_tween.finished.connect(func():
-			print("[DROPPABLE DEBUG] slide tween finished")
+			pass
 		)
 		
 		# Note: _remove_droppable() is called from _process when slide_elapsed >= slide_duration
@@ -307,14 +298,11 @@ func _deferred_reparent_and_remove() -> void:
 		# Restore z_index
 		z_index = original_z_index
 	
-	print("[DROPPABLE DEBUG] remove complete")
 	queue_free()
 
 
 func _remove_droppable() -> void:
 	"""Add item to inventory and remove the droppable from the scene."""
-	print("[DROPPABLE DEBUG] _remove_droppable called")
-	
 	# Add to inventory NOW (animation completed successfully)
 	if item_data and item_data.texture:
 		# Try adding to toolkit (toolbelt) with auto-stacking first
@@ -344,5 +332,4 @@ func _remove_droppable() -> void:
 	
 	# Reparent to scene root right before removal to avoid physics query errors
 	# This is done deferred and only at the very end, keeping all animations intact
-	print("[DROPPABLE DEBUG] deferred reparent executed")
 	call_deferred("_deferred_reparent_and_remove")

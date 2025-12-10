@@ -26,11 +26,19 @@ const GROWTH_DAYS_PER_STAGE := {
 var tree_registry: Dictionary = {}
 var tree_id_counter: int = 0
 var pending_restore_data: Array = [] # Store tree data to restore when trees are instantiated
+var last_processed_day: int = -1 # Track last day we processed growth for
 
 
 func _ready() -> void:
 	"""Connect signals on ready and check for pending tree data from save."""
-	connect_signals()
+	# Initialize last_processed_day only if not already set (first time or after reset)
+	# Set it to (current_day - 1) so _check_missed_growth() will process at least today's growth
+	# Don't reset it on scene reload - preserve it so missed growth can be detected
+	if GameTimeManager and last_processed_day == -1:
+		last_processed_day = GameTimeManager.day - 1
+	
+	# Defer signal connection to ensure GameTimeManager is ready
+	call_deferred("connect_signals")
 	
 	# Check if GameState has pending tree data from load
 	if GameState and GameState.has_meta("pending_tree_data"):
@@ -41,16 +49,24 @@ func _ready() -> void:
 
 func connect_signals() -> void:
 	"""Connect to GameTimeManager for day changes."""
-	if GameTimeManager:
-		if not GameTimeManager.day_changed.is_connected(_on_day_changed):
-			GameTimeManager.day_changed.connect(_on_day_changed)
-	else:
+	if not GameTimeManager:
 		push_error("TreeManager: GameTimeManager not found!")
+		return
+	
+	# Use same pattern as FarmingManager - direct method reference
+	if not GameTimeManager.day_changed.is_connected(_on_day_changed):
+		GameTimeManager.day_changed.connect(_on_day_changed)
 
 
-func _on_day_changed(_new_day: int, _new_season: int, _new_year: int) -> void:
+func _on_day_changed(new_day: int, _new_season: int, _new_year: int) -> void:
 	"""Handle day change event from GameTimeManager."""
+	if tree_registry.is_empty():
+		last_processed_day = new_day
+		return
+	
+	# Process growth for this day
 	_advance_tree_growth()
+	last_processed_day = new_day
 
 
 func _advance_tree_growth() -> void:
@@ -58,11 +74,6 @@ func _advance_tree_growth() -> void:
 	for tree_id in tree_registry.keys():
 		var tree_data = tree_registry[tree_id]
 		var tree_node = tree_data.get("node")
-		
-		# Skip if tree node is invalid
-		if not tree_node or not is_instance_valid(tree_node):
-			continue
-		
 		var tree_type: int = tree_data.get("tree_type", 0)
 		var growth_stage: int = tree_data.get("growth_stage", 0)
 		var days_at_stage: int = tree_data.get("days_at_stage", 0)
@@ -83,9 +94,11 @@ func _advance_tree_growth() -> void:
 			tree_registry[tree_id]["growth_stage"] = new_stage
 			tree_registry[tree_id]["days_at_stage"] = 0 # Reset days counter for new stage
 			
-			# Update tree node visuals
-			if tree_node.has_method("set_growth_stage"):
+			# Update tree node visuals (if node exists)
+			if tree_node and is_instance_valid(tree_node) and tree_node.has_method("set_growth_stage"):
 				tree_node.set_growth_stage(new_stage)
+			
+			print("[TREE] Tree %s advanced to stage %d" % [tree_id, new_stage])
 
 
 func _get_days_required_for_stage(tree_type: int, current_stage: int) -> int:
@@ -109,6 +122,34 @@ func register_tree(tree: Node2D) -> String:
 	var tree_id: String = ""
 	if "tree_id" in tree:
 		tree_id = tree.tree_id
+	
+	# Check if tree is already registered (by position matching if no ID)
+	var existing_tree_id: String = ""
+	if tree_id == "":
+		# Try to find existing tree by position (within 1 pixel tolerance)
+		var tree_position: Vector2 = tree.global_position if tree is Node2D else Vector2.ZERO
+		for existing_id in tree_registry.keys():
+			var existing_data = tree_registry[existing_id]
+			var existing_pos = existing_data.get("position", Vector2.ZERO)
+			if existing_pos.distance_to(tree_position) < 1.0:
+				existing_tree_id = existing_id
+				break
+	
+	# If found existing registration, reuse it and preserve days_at_stage
+	if existing_tree_id != "":
+		tree_id = existing_tree_id
+		
+		# Update node reference and position, but preserve ALL data including days_at_stage
+		tree_registry[tree_id]["node"] = tree
+		tree_registry[tree_id]["position"] = tree.global_position if tree is Node2D else Vector2.ZERO
+		# DON'T update days_at_stage - it's already correct from restore
+		# DON'T update growth_stage - it's already correct from restore
+		
+		# Update tree_id on node
+		if "tree_id" in tree:
+			tree.tree_id = tree_id
+		
+		return tree_id
 	
 	# If no ID, generate new one
 	if tree_id == "":
@@ -321,6 +362,59 @@ func restore_trees_for_scene(scene_name: String) -> void:
 			# Update registry with node reference and restored days_at_stage
 			tree_registry[tree_id]["node"] = tree_instance
 			tree_registry[tree_id]["days_at_stage"] = days_at_stage
+
+
+func _verify_tree_registrations() -> void:
+	"""Verify tree registrations and log registry state."""
+	print("[TREE] TreeManager: Registry has %d trees" % tree_registry.size())
+	for tree_id in tree_registry.keys():
+		var data = tree_registry[tree_id]
+		var node = data.get("node")
+		var stage = data.get("growth_stage", 0)
+		var days = data.get("days_at_stage", 0)
+		var node_valid = node != null and is_instance_valid(node)
+		print("[TREE] Tree %s: stage=%d, days=%d, node_valid=%s" % [tree_id, stage, days, node_valid])
+
+
+func _check_and_advance_growth() -> void:
+	"""Manual growth check - can be called to verify growth logic works."""
+	print("[TREE] TreeManager: Manual growth check triggered")
+	_advance_tree_growth()
+
+
+func test_signal_connection() -> void:
+	"""Test if signal connection is working by manually triggering growth."""
+	print("[TREE] TreeManager: Testing signal connection...")
+	if GameTimeManager:
+		print("[TREE] TreeManager: GameTimeManager found, current day=%d" % GameTimeManager.day)
+		if GameTimeManager.day_changed.is_connected(_on_day_changed):
+			print("[TREE] TreeManager: Signal IS connected")
+			# Manually trigger growth to test callback
+			print("[TREE] TreeManager: Manually triggering growth check...")
+			_advance_tree_growth()
+		else:
+			push_error("[TREE] TreeManager: Signal is NOT connected!")
+	else:
+		push_error("[TREE] TreeManager: GameTimeManager not found!")
+
+
+func _check_missed_growth() -> void:
+	"""Check if trees need growth processing when scene loads (fallback for missed day changes)."""
+	if not GameTimeManager or tree_registry.is_empty():
+		return
+	
+	var current_day = GameTimeManager.day
+	
+	# If we haven't processed this day yet, process growth
+	# This handles cases where scene was unloaded when day changed
+	if last_processed_day < current_day:
+		var days_missed = current_day - last_processed_day
+		
+		# Process growth for each missed day
+		for day in range(days_missed):
+			_advance_tree_growth()
+		
+		last_processed_day = current_day
 
 
 func _get_current_scene_name() -> String:

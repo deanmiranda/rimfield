@@ -24,6 +24,13 @@ var tree_manager: Node = null
 var trees_registered: bool = false
 
 
+func _exit_tree() -> void:
+	"""Save tree data before scene unloads to persist across scene transitions."""
+	if tree_manager and tree_manager.has_method("serialize_all_trees") and GameState:
+		var tree_data = tree_manager.serialize_all_trees()
+		GameState.set_meta("farm_tree_transition_data", tree_data)
+
+
 func _ready() -> void:
 	# Restore chests for this scene
 	if ChestManager:
@@ -44,8 +51,16 @@ func _ready() -> void:
 	# Get TreeManager reference
 	tree_manager = get_node_or_null("TreeManager")
 	
-	# Restore trees from save data FIRST (before reparenting manually placed trees)
-	if tree_manager and tree_manager.has_method("restore_trees_for_scene"):
+	# Restore tree data from GameState meta (persists across scene transitions without save/load)
+	var restored_from_transition_cache = false
+	if tree_manager and GameState and GameState.has_meta("farm_tree_transition_data"):
+		var transition_data = GameState.get_meta("farm_tree_transition_data")
+		if tree_manager.has_method("restore_trees_from_save"):
+			tree_manager.restore_trees_from_save(transition_data)
+			restored_from_transition_cache = true
+	
+	# Restore trees from actual save file (only if NOT using transition cache)
+	if not restored_from_transition_cache and tree_manager and tree_manager.has_method("restore_trees_for_scene"):
 		tree_manager.restore_trees_for_scene("Farm")
 	
 	# Reparent any Tree instances from Farm root to WorldActors
@@ -100,6 +115,11 @@ func _ready() -> void:
 
 	# Defer farming initialization to allow TileSet to load asynchronously
 	call_deferred("_initialize_farming")
+	
+	# Check if we need to process growth for current day (handles missed growth during scene unload)
+	await get_tree().process_frame
+	if tree_manager and tree_manager.has_method("_check_missed_growth"):
+		tree_manager._check_missed_growth()
 
 
 func _reparent_trees_to_world_actors(world_actors: Node2D) -> void:
