@@ -17,6 +17,12 @@ var inventory_instance: Control = null
 # Reference to FarmingManager (set during initialization)
 var farming_manager: Node = null
 
+# Reference to TreeManager (scene-attached)
+var tree_manager: Node = null
+
+# Guard flag to prevent double tree registration
+var trees_registered: bool = false
+
 
 func _ready() -> void:
 	# Restore chests for this scene
@@ -35,8 +41,21 @@ func _ready() -> void:
 		world_actors.y_sort_enabled = true
 		add_child(world_actors)
 	
+	# Get TreeManager reference
+	tree_manager = get_node_or_null("TreeManager")
+	
+	# Restore trees from save data FIRST (before reparenting manually placed trees)
+	if tree_manager and tree_manager.has_method("restore_trees_for_scene"):
+		tree_manager.restore_trees_for_scene("Farm")
+	
 	# Reparent any Tree instances from Farm root to WorldActors
 	_reparent_trees_to_world_actors(world_actors)
+	
+	# Register trees with TreeManager (after reparenting, ONCE only)
+	# This registers manually placed trees (from scene file)
+	if tree_manager and not trees_registered:
+		_register_all_trees(world_actors)
+		trees_registered = true
 	
 	# Instantiate and position the player
 	var player_scene = preload("res://scenes/characters/player/player.tscn")
@@ -102,6 +121,24 @@ func _reparent_trees_to_world_actors(world_actors: Node2D) -> void:
 					remove_child(child)
 					world_actors.add_child(child)
 					child.global_position = global_pos
+
+
+func _register_all_trees(world_actors: Node2D) -> void:
+	"""Register all Tree instances in WorldActors with TreeManager."""
+	if not world_actors:
+		return
+	
+	# Find all Tree instances in WorldActors
+	for child in world_actors.get_children():
+		if child is Node2D:
+			var child_script = child.get_script()
+			if child_script:
+				var script_path = child_script.resource_path
+				if script_path.ends_with("tree.gd"):
+					# This is a Tree instance, register it
+					var tree_id = tree_manager.register_tree(child)
+					if tree_id == "":
+						push_error("FarmScene: Failed to register tree at position %s" % child.global_position)
 	
 	# Instantiate and add the HUD (can happen immediately, linking happens in _initialize_farming)
 	if hud_scene_path:

@@ -8694,7 +8694,7 @@ sources/2 = SubResource("TileSetAtlasSource_aa0yc")
 sources/0 = SubResource("TileSetAtlasSource_3s0x4")
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yfpjs"]
-size = Vector2(20, 15)
+size = Vector2(20, 10)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4oa7v"]
 size = Vector2(28, 6.25)
@@ -8729,14 +8729,14 @@ script = ExtResource("11_dnpcd")
 metadata/_edit_lock_ = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ExitZone"]
-position = Vector2(-8, 88.5)
+position = Vector2(-8, 91)
 shape = SubResource("RectangleShape2D_yfpjs")
 
 [node name="BedSpawnPoint" type="Marker2D" parent="."]
-position = Vector2(48, 60)
+position = Vector2(55, 53)
 
 [node name="DoorSpawnPoint" type="Marker2D" parent="."]
-position = Vector2(-9, 59)
+position = Vector2(-8, 72)
 
 [node name="BedArea" type="Area2D" parent="."]
 position = Vector2(49, 49)

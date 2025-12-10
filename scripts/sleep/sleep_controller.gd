@@ -401,7 +401,7 @@ func _on_fade_out_complete() -> void:
 	
 	# Start fade in
 	if screen_fade_manager and screen_fade_manager.has_method("fade_in"):
-		screen_fade_manager.fade_in(Callable(self, "_on_fade_in_complete"))
+		screen_fade_manager.fade_in(Callable(self, "_on_fade_in_complete"), 1.0) # 1 second fade in
 	else:
 		_on_fade_in_complete()
 

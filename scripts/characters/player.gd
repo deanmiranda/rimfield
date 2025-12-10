@@ -21,6 +21,9 @@ var pickup_radius: float = 48.0 # Default (will be overridden by GameConfig)
 
 
 func _ready() -> void:
+	# Add to "player" group for lookups by other systems
+	add_to_group("player")
+	
 	# Load GameConfig Resource
 	game_config = load("res://resources/data/game_config.tres")
 	if game_config:

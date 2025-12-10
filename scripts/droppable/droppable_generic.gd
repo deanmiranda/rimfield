@@ -25,6 +25,10 @@ var is_being_picked_up: bool = false
 var shake_tween: Tween = null
 var visual_tween: Tween = null
 
+# Reparenting helpers (to avoid physics query errors)
+var original_parent: Node = null
+var original_z_index: int = 10
+
 
 func _ready() -> void:
 	# Ensure item_data is set
@@ -73,6 +77,7 @@ func _process(delta: float) -> void:
 	
 	# If we're in slide phase, move the item towards player
 	if is_sliding:
+		print("[DROPPABLE DEBUG] slide update tick")
 		# Move towards player
 		var direction = (player_pos - global_position).normalized()
 		var distance = distance_from_item
@@ -165,23 +170,58 @@ func _shake_item() -> void:
 	tween.tween_callback(func(): global_position = original_pos)
 
 
+func _get_player_node() -> Node:
+	"""Robust player lookup with multiple fallback strategies."""
+	# Strategy A: Group lookup (fastest, most reliable)
+	var p = get_tree().get_first_node_in_group("player")
+	if p and is_instance_valid(p):
+		return p
+	
+	# Strategy B: WorldActors lookup (for Farm scene)
+	var scene = get_tree().current_scene
+	if scene:
+		var world_actors = scene.get_node_or_null("WorldActors")
+		if world_actors:
+			for child in world_actors.get_children():
+				if child.name == "Player":
+					return child
+	
+	# Strategy C: Direct scene lookup (fallback)
+	if scene:
+		var player_root = scene.get_node_or_null("Player")
+		if player_root:
+			# Try to find CharacterBody2D child
+			for child in player_root.get_children():
+				if child is CharacterBody2D:
+					return child
+			# Return root if no CharacterBody2D found
+			return player_root
+	
+	return null
+
+
 func _slide_to_player_and_remove() -> void:
 	"""Subtle shake, then slide item towards player with fade/shrink effect, then remove."""
-	# Find the player and store reference
-	player = get_tree().get_first_node_in_group("player")
-	if not player:
-		player = get_tree().current_scene.get_node_or_null("Player")
+	print("[DROPPABLE DEBUG] slide start")
+	
+	# Find the player using robust lookup
+	player = _get_player_node()
 	
 	if not player:
+		print("[DROPPABLE DEBUG] player not found, removing immediately")
 		# No player found - just remove immediately
 		_remove_droppable()
 		return
+	
+	print("[DROPPABLE DEBUG] player found: ", player.name)
 	
 	# Store original position for shake
 	var original_pos = global_position
 	
 	# Create a single tween with sequential phases
 	shake_tween = create_tween()
+	
+	print("[DROPPABLE DEBUG] shake tween created")
 	
 	# PHASE 1: Subtle shake for 0.55 seconds (anticipation - gives player time to run away)
 	# Reduced from 0.8 seconds to 0.55 seconds (0.25 seconds faster)
@@ -194,6 +234,7 @@ func _slide_to_player_and_remove() -> void:
 	
 	# PHASE 2: Start tracking slide with real-time player position
 	shake_tween.tween_callback(func():
+		print("[DROPPABLE DEBUG] slide tween created")
 		# Enable sliding mode - _process already running, just switch to slide mode
 		is_sliding = true
 		slide_elapsed = 0.0
@@ -207,6 +248,11 @@ func _slide_to_player_and_remove() -> void:
 		# Shrink and fade out
 		visual_tween.tween_property(self, "scale", Vector2(0.2, 0.2), slide_duration)
 		visual_tween.tween_property(self, "modulate", Color(1, 1, 1, 0), slide_duration)
+		
+		# Callback when visual tween finishes
+		visual_tween.finished.connect(func():
+			print("[DROPPABLE DEBUG] slide tween finished")
+		)
 		
 		# Note: _remove_droppable() is called from _process when slide_elapsed >= slide_duration
 	)
@@ -237,8 +283,38 @@ func _cancel_pickup() -> void:
 	is_being_picked_up = false
 
 
+func _deferred_reparent_and_remove() -> void:
+	"""Reparent to scene root then remove. Called deferred at the very end to avoid physics errors."""
+	if not is_instance_valid(self):
+		return
+	
+	# Store original parent if not already stored
+	if not original_parent:
+		original_parent = get_parent()
+		original_z_index = z_index
+	
+	# Reparent if needed (only if not already at scene root)
+	if original_parent and original_parent != get_tree().current_scene:
+		var stored_global_pos = global_position
+		
+		# Remove from current parent
+		original_parent.remove_child(self)
+		# Add to scene root
+		get_tree().current_scene.add_child(self)
+		
+		# Restore global position
+		global_position = stored_global_pos
+		# Restore z_index
+		z_index = original_z_index
+	
+	print("[DROPPABLE DEBUG] remove complete")
+	queue_free()
+
+
 func _remove_droppable() -> void:
 	"""Add item to inventory and remove the droppable from the scene."""
+	print("[DROPPABLE DEBUG] _remove_droppable called")
+	
 	# Add to inventory NOW (animation completed successfully)
 	if item_data and item_data.texture:
 		# Try adding to toolkit (toolbelt) with auto-stacking first
@@ -266,4 +342,7 @@ func _remove_droppable() -> void:
 		if DroppableFactory.has_method("unregister_droppable"):
 			DroppableFactory.unregister_droppable(droppable_id)
 	
-	queue_free()
+	# Reparent to scene root right before removal to avoid physics query errors
+	# This is done deferred and only at the very end, keeping all animations intact
+	print("[DROPPABLE DEBUG] deferred reparent executed")
+	call_deferred("_deferred_reparent_and_remove")
